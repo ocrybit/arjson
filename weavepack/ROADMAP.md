@@ -440,14 +440,14 @@ profiles. The honest commitment is to that gate.
 - [x] Phase 1: JSON profile retroactive spec — 5 spec docs + 93 vectors
 - [x] Phase 2: weavepack-core spec — 10 spec docs
 - [x] Phase 3: sdk/ refactor to protocol/profile boundary — null-profile gate passing
-- [ ] Phase 4: Property-based testing + optional TLA+
+- [x] Phase 4: Property-based testing — 12 property tests, 1700+ generated cases per run, all passing
 - [ ] Phase 5: Profile #2 (recommended: weavepack-tensor)
 - [ ] Phase 6: Rust reference implementation
 - [ ] Phase 7: Ecosystem and governance
 
-Next action: open Phase 4 (rigor without Lean) by writing
-`weavepack/properties/round-trip.test.js` — a fast-check property
-suite covering `decode(encode(x)) ≡ x` over a generated JSON corpus.
-Then extend with delta correctness, composition, and idempotence
-generators. Optional follow-up: TLA+ model of delta chain
-convergence.
+Next action: open Phase 5 by selecting profile #2 (recommended:
+weavepack-tensor) and writing its spec docs first
+(`profiles/tensor/01-types.md`, `02-containers.md`, etc.) before
+implementing. Goal: validate the protocol/profile boundary by shipping
+a profile genuinely different from JSON (binary tensor data, fixed-
+shape, no string strmap).
