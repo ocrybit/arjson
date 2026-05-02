@@ -20,9 +20,9 @@
 // profile. (Same constraint as profiles/null/.)
 
 import { Encoder } from "../../encoder.js"
-import { DTYPE, DTYPE_BITS, DTYPE_BITS_PER_ELEM, dataBytes, PROFILE_ID, PROFILE_VERSION } from "./types.js"
+import { DTYPE, DTYPE_BITS, DTYPE_BITS_PER_ELEM, OP, OP_BITS, dataBytes, PROFILE_ID, PROFILE_VERSION } from "./types.js"
 
-export { DTYPE, DTYPE_BITS, dataBytes, PROFILE_ID, PROFILE_VERSION }
+export { DTYPE, DTYPE_BITS, OP, dataBytes, PROFILE_ID, PROFILE_VERSION }
 
 // ── encode (schemaless, fp32-only for now) ───────────────────────────────
 //
@@ -310,13 +310,271 @@ export function decodeDocument(bytes) {
   return { tensors }
 }
 
+// ── delta encoding (Phase 5.4) ───────────────────────────────────────────
+//
+// Wire format for a delta payload:
+//   1 bit:   mode = 0 (structured)
+//   1 bit:   delta marker = 1 (distinguishes deltas from full documents)
+//   leb128:  number of ops
+//   per op:
+//     3 bits: op code (from OP enum)
+//     per-op payload:
+//       TENSOR_REPLACE: name + dtype + shape + data
+//       TENSOR_ADD:     name + dtype + shape + data
+//       TENSOR_REMOVE:  name
+//
+// The simplest form for v0.1: tensor_replace and tensor_add carry the
+// same payload as a tensor entry in the document. tensor_remove just
+// carries the name. region_replace, element_set, quant_change come
+// later.
+//
+// Documents differ from deltas via the second bit (delta marker).
+// Documents have it = 0; deltas have it = 1.
+
+function shapesEqual(a, b) {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+function bytesEqual(a, b) {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+// computeDelta(baseDoc, newDoc) → array of ops
+function computeDelta(baseDoc, newDoc) {
+  const ops = []
+  const baseTensors = baseDoc.tensors || {}
+  const newTensors = newDoc.tensors || {}
+
+  // Pass 1: detect removed tensors (in base but not new).
+  for (const name of Object.keys(baseTensors)) {
+    if (!(name in newTensors)) {
+      ops.push({ op: OP.TENSOR_REMOVE, name })
+    }
+  }
+
+  // Pass 2: detect added tensors (in new but not base).
+  for (const name of Object.keys(newTensors)) {
+    if (!(name in baseTensors)) {
+      ops.push({ op: OP.TENSOR_ADD, name, ...newTensors[name] })
+    }
+  }
+
+  // Pass 3: detect changed tensors (same name, different content).
+  for (const name of Object.keys(newTensors)) {
+    if (!(name in baseTensors)) continue
+    const baseT = baseTensors[name]
+    const newT = newTensors[name]
+    if (baseT.dtype !== newT.dtype || !shapesEqual(baseT.shape, newT.shape)) {
+      // Shape or dtype changed: emit remove + add.
+      ops.push({ op: OP.TENSOR_REMOVE, name })
+      ops.push({ op: OP.TENSOR_ADD, name, ...newT })
+      continue
+    }
+    // Same dtype + shape; compare bytes.
+    const baseBytes = baseT.dtype === DTYPE.BOOL ? packBoolFromTensor(baseT) : toBytes(baseT)
+    const newBytes = newT.dtype === DTYPE.BOOL ? packBoolFromTensor(newT) : toBytes(newT)
+    const expected = dataBytes(baseT.dtype, baseT.shape)
+    if (!bytesEqual(baseBytes.subarray(0, expected), newBytes.subarray(0, expected))) {
+      ops.push({ op: OP.TENSOR_REPLACE, name, ...newT })
+    }
+  }
+
+  return ops
+}
+
+export function encodeDelta(baseDoc, newDoc) {
+  const ops = computeDelta(baseDoc, newDoc)
+  if (ops.length === 0) return null  // no-op delta
+
+  const u = new Encoder()
+  u.reset({})
+  u.add_dc(0, 1)  // structured mode
+  u.add_dc(1, 1)  // delta marker
+
+  leb128_dc(u, ops.length)
+
+  for (const op of ops) {
+    u.add_dc(op.op, OP_BITS)
+    if (op.op === OP.TENSOR_REMOVE) {
+      const nameBytes = utf8Bytes(op.name)
+      short_dc(u, nameBytes.length)
+      for (let i = 0; i < nameBytes.length; i++) u.add_dc(nameBytes[i], 8)
+    } else if (op.op === OP.TENSOR_REPLACE || op.op === OP.TENSOR_ADD) {
+      const nameBytes = utf8Bytes(op.name)
+      short_dc(u, nameBytes.length)
+      for (let i = 0; i < nameBytes.length; i++) u.add_dc(nameBytes[i], 8)
+      u.add_dc(op.dtype, DTYPE_BITS)
+      short_dc(u, op.shape.length)
+      for (const dim of op.shape) leb128_dc(u, dim)
+      const expectedBytes = dataBytes(op.dtype, op.shape)
+      const dataView = op.dtype === DTYPE.BOOL ? packBoolFromTensor(op) : toBytes(op)
+      for (let i = 0; i < expectedBytes; i++) u.add_dc(dataView[i], 8)
+    } else {
+      throw new Error(`unsupported op code ${op.op} (region/element/quant ops not in v0.1)`)
+    }
+  }
+
+  u.single = false
+  u.dcount = 0
+  u.rcount = 0
+  return u.dump()
+}
+
+export function applyDelta(baseDoc, deltaBytes) {
+  const u8 = deltaBytes instanceof Uint8Array ? deltaBytes : new Uint8Array(deltaBytes)
+  let bitPos = 0
+
+  function readBits(n) {
+    let val = 0
+    for (let i = 0; i < n; i++) {
+      const byte = u8[bitPos >> 3]
+      const bit = (byte >> (7 - (bitPos & 7))) & 1
+      val = (val << 1) | bit
+      bitPos++
+    }
+    return val
+  }
+  function readByte() { return readBits(8) }
+  function readShort() {
+    const prefix = readBits(2)
+    if (prefix === 0) return readBits(2)
+    if (prefix === 1) return readBits(3)
+    if (prefix === 2) return readBits(4)
+    return readLeb128()
+  }
+  function readLeb128() {
+    let result = 0, shift = 0, byte
+    do {
+      byte = readBits(8)
+      result += (byte & 0x7f) * Math.pow(2, shift)
+      shift += 7
+    } while (byte & 0x80)
+    return result
+  }
+
+  const mode = readBits(1)
+  if (mode !== 0) throw new Error("delta must be in structured mode")
+  const isDelta = readBits(1)
+  if (isDelta !== 1) throw new Error("payload is a full document, not a delta")
+
+  const opCount = readLeb128()
+  const tensors = { ...(baseDoc.tensors || {}) }
+
+  for (let i = 0; i < opCount; i++) {
+    const opCode = readBits(OP_BITS)
+    if (opCode === OP.TENSOR_REMOVE) {
+      const nameLen = readShort()
+      const nameBytes = new Uint8Array(nameLen)
+      for (let j = 0; j < nameLen; j++) nameBytes[j] = readByte()
+      const name = new TextDecoder().decode(nameBytes)
+      delete tensors[name]
+    } else if (opCode === OP.TENSOR_REPLACE || opCode === OP.TENSOR_ADD) {
+      const nameLen = readShort()
+      const nameBytes = new Uint8Array(nameLen)
+      for (let j = 0; j < nameLen; j++) nameBytes[j] = readByte()
+      const name = new TextDecoder().decode(nameBytes)
+      const dtype = readBits(DTYPE_BITS)
+      const rank = readShort()
+      const shape = []
+      for (let r = 0; r < rank; r++) shape.push(readLeb128())
+      const bytes = dataBytes(dtype, shape)
+      const dataU8 = new Uint8Array(bytes)
+      for (let j = 0; j < bytes; j++) dataU8[j] = readByte()
+      let total = 1
+      for (const d of shape) total *= d
+      const data = materializeData(dtype, dataU8, total)
+      tensors[name] = { dtype, shape, data }
+    } else {
+      throw new Error(`unsupported op code ${opCode} (region/element/quant ops not in v0.1)`)
+    }
+  }
+
+  return { tensors }
+}
+
+function materializeData(dtype, dataU8, total) {
+  switch (dtype) {
+    case DTYPE.FP32:    return new Float32Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.FP64:    return new Float64Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.INT8:    return new Int8Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.UINT8:   return dataU8
+    case DTYPE.INT16:   return new Int16Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.UINT16:  return new Uint16Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.INT32:   return new Int32Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.UINT32:  return new Uint32Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.INT64:   return new BigInt64Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.UINT64:  return new BigUint64Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.BOOL:    return unpackBools(dataU8, total)
+    default:            return dataU8
+  }
+}
+
 // ── high-level API (parallel to ARJSON) ──────────────────────────────────
+
+// Chain framing: each delta is leb128(len) + bytes. Same as the JSON
+// profile's ARJSON.toBuffer / fromBuffer machinery.
+function chainSerialize(deltas) {
+  let total = 0
+  const lenBytes = []
+  for (const d of deltas) {
+    let len = d.length
+    const bytes = []
+    while (len >= 128) {
+      bytes.push((len & 0x7f) | 0x80)
+      len = Math.floor(len / 128)
+    }
+    bytes.push(len)
+    lenBytes.push(bytes)
+    total += bytes.length + d.length
+  }
+  const buf = new Uint8Array(total)
+  let off = 0
+  for (let i = 0; i < deltas.length; i++) {
+    for (const b of lenBytes[i]) buf[off++] = b
+    buf.set(deltas[i], off)
+    off += deltas[i].length
+  }
+  return buf
+}
+
+function chainParse(buffer) {
+  const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
+  let off = 0
+  const deltas = []
+  while (off < u8.length) {
+    let len = 0, shift = 0, byte
+    do {
+      byte = u8[off++]
+      len += (byte & 0x7f) * Math.pow(2, shift)
+      shift += 7
+    } while (byte & 0x80)
+    deltas.push(u8.slice(off, off + len))
+    off += len
+  }
+  return deltas
+}
 
 export class TensorPack {
   constructor({ json, arj }) {
     if (arj) {
-      this.json = decodeDocument(arj)
-      this.deltas = [arj]
+      const u8 = arj instanceof Uint8Array ? arj : new Uint8Array(arj)
+      // Detect framed chain (multi-delta) vs single payload.
+      // Framed chains start with a leb128 length prefix; single payloads
+      // start with the structured-mode bit (0). Heuristic: if the first
+      // byte's high bit is 0 AND the first leb128 length matches the
+      // remaining buffer length, treat as framed.
+      const deltas = chainParse(u8)
+      // Apply deltas in order.
+      let doc = decodeDocument(deltas[0])
+      for (let i = 1; i < deltas.length; i++) {
+        doc = applyDelta(doc, deltas[i])
+      }
+      this.json = doc
+      this.deltas = deltas
     } else if (json) {
       this.json = json
       const bytes = encodeDocument(json)
@@ -325,8 +583,14 @@ export class TensorPack {
       throw new Error("TensorPack requires either { json } or { arj }")
     }
   }
+  update(newDoc) {
+    const deltaBytes = encodeDelta(this.json, newDoc)
+    if (deltaBytes === null) return []  // no-op
+    this.json = applyDelta(this.json, deltaBytes)
+    this.deltas.push(deltaBytes)
+    return [deltaBytes]
+  }
   toBuffer() {
-    // Single delta; no length prefix.
-    return this.deltas[0]
+    return chainSerialize(this.deltas)
   }
 }

@@ -8,8 +8,11 @@ import assert from "assert"
 import {
   encodeDocument,
   decodeDocument,
+  encodeDelta,
+  applyDelta,
   TensorPack,
   DTYPE,
+  OP,
 } from "../src/profiles/tensor/index.js"
 
 function fp32(values) {
@@ -235,6 +238,137 @@ describe("weavepack-tensor v0.1 (fp32, schemaless, no deltas)", () => {
       const buf = pack.toBuffer()
       const restored = new TensorPack({ arj: buf })
       assert.ok(arrEq(restored.json.tensors.x.data, fp32([1, 2, 3])))
+    })
+  })
+
+  describe("delta operations (Phase 5.4)", () => {
+    it("tensor_replace updates a tensor's values", () => {
+      const base = { tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: fp32([1, 2, 3]) } } }
+      const updated = { tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: fp32([10, 20, 30]) } } }
+      const delta = encodeDelta(base, updated)
+      assert.ok(delta !== null, "delta should not be null for changed tensor")
+      const result = applyDelta(base, delta)
+      assert.ok(arrEq(result.tensors.w.data, fp32([10, 20, 30])))
+    })
+
+    it("tensor_add introduces a new tensor", () => {
+      const base = { tensors: { a: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }
+      const updated = {
+        tensors: {
+          a: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) },
+          b: { dtype: DTYPE.FP32, shape: [3], data: fp32([3, 4, 5]) },
+        }
+      }
+      const delta = encodeDelta(base, updated)
+      const result = applyDelta(base, delta)
+      assert.equal(Object.keys(result.tensors).length, 2)
+      assert.ok(arrEq(result.tensors.b.data, fp32([3, 4, 5])))
+      assert.ok(arrEq(result.tensors.a.data, fp32([1, 2])))
+    })
+
+    it("tensor_remove deletes a tensor", () => {
+      const base = {
+        tensors: {
+          a: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) },
+          b: { dtype: DTYPE.FP32, shape: [3], data: fp32([3, 4, 5]) },
+        }
+      }
+      const updated = { tensors: { a: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }
+      const delta = encodeDelta(base, updated)
+      const result = applyDelta(base, delta)
+      assert.equal(Object.keys(result.tensors).length, 1)
+      assert.ok(!("b" in result.tensors))
+    })
+
+    it("identity update produces no delta", () => {
+      const doc = {
+        tensors: {
+          a: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) },
+          b: { dtype: DTYPE.INT32, shape: [3], data: new Int32Array([10, 20, 30]) },
+        }
+      }
+      const delta = encodeDelta(doc, doc)
+      assert.equal(delta, null, "identity update should return null delta")
+    })
+
+    it("dtype change produces remove + add", () => {
+      const base = { tensors: { x: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }
+      const updated = { tensors: { x: { dtype: DTYPE.INT32, shape: [2], data: new Int32Array([1, 2]) } } }
+      const delta = encodeDelta(base, updated)
+      const result = applyDelta(base, delta)
+      assert.equal(result.tensors.x.dtype, DTYPE.INT32)
+      assert.equal(result.tensors.x.data[0], 1)
+    })
+
+    it("TensorPack.update appends to chain", () => {
+      const v1 = { tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: fp32([1, 2, 3]) } } }
+      const v2 = { tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: fp32([10, 20, 30]) } } }
+      const v3 = { tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: fp32([100, 200, 300]) } } }
+      const pack = new TensorPack({ json: v1 })
+      assert.equal(pack.deltas.length, 1)
+      pack.update(v2)
+      assert.equal(pack.deltas.length, 2)
+      pack.update(v3)
+      assert.equal(pack.deltas.length, 3)
+      assert.ok(arrEq(pack.json.tensors.w.data, fp32([100, 200, 300])))
+    })
+
+    it("TensorPack chain round-trips via toBuffer", () => {
+      const v1 = {
+        tensors: {
+          a: { dtype: DTYPE.FP32, shape: [3], data: fp32([1, 2, 3]) },
+          b: { dtype: DTYPE.INT32, shape: [2], data: new Int32Array([10, 20]) },
+        }
+      }
+      const v2 = {
+        tensors: {
+          a: { dtype: DTYPE.FP32, shape: [3], data: fp32([10, 20, 30]) },
+          c: { dtype: DTYPE.UINT8, shape: [4], data: new Uint8Array([1, 2, 3, 4]) },
+        }
+      }
+      const pack = new TensorPack({ json: v1 })
+      pack.update(v2)
+      const buf = pack.toBuffer()
+      const restored = new TensorPack({ arj: buf })
+      assert.equal(Object.keys(restored.json.tensors).length, 2)
+      assert.ok("a" in restored.json.tensors)
+      assert.ok("c" in restored.json.tensors)
+      assert.ok(!("b" in restored.json.tensors))
+      assert.ok(arrEq(restored.json.tensors.a.data, fp32([10, 20, 30])))
+    })
+
+    it("partial change: one of three tensors", () => {
+      const v1 = {
+        tensors: {
+          a: { dtype: DTYPE.FP32, shape: [4], data: fp32([1, 2, 3, 4]) },
+          b: { dtype: DTYPE.FP32, shape: [4], data: fp32([5, 6, 7, 8]) },
+          c: { dtype: DTYPE.FP32, shape: [4], data: fp32([9, 10, 11, 12]) },
+        }
+      }
+      const v2 = {
+        tensors: {
+          a: { dtype: DTYPE.FP32, shape: [4], data: fp32([1, 2, 3, 4]) },          // unchanged
+          b: { dtype: DTYPE.FP32, shape: [4], data: fp32([100, 200, 300, 400]) }, // changed
+          c: { dtype: DTYPE.FP32, shape: [4], data: fp32([9, 10, 11, 12]) },     // unchanged
+        }
+      }
+      const pack = new TensorPack({ json: v1 })
+      const initialBytes = pack.toBuffer().length
+      pack.update(v2)
+      const totalBytes = pack.toBuffer().length
+      // Delta should be smaller than encoding v2 from scratch.
+      const v2FreshPack = new TensorPack({ json: v2 })
+      const v2FreshBytes = v2FreshPack.toBuffer().length
+      // The chain (v1 + delta(v1, v2)) MAY be larger than fresh-encoding
+      // v2 because it carries the v1 baseline. But the delta itself
+      // should be substantially smaller than re-encoding all three
+      // tensors. Verify the increment is less than v2FreshBytes.
+      const deltaBytes = totalBytes - initialBytes
+      assert.ok(
+        deltaBytes < v2FreshBytes * 0.7,
+        `delta ${deltaBytes} bytes should be < 70% of fresh ${v2FreshBytes}`
+      )
+      assert.ok(arrEq(pack.json.tensors.b.data, fp32([100, 200, 300, 400])))
     })
   })
 
