@@ -1,4 +1,5 @@
-import { parsePath, escapeKey, bits, mergeLeft } from "./utils.js"
+import { bits, mergeLeft } from "./utils.js"
+import { parsePath, escapeKey } from "./profiles/json/paths.js"
 import { Encoder, _encode, pushPathStr } from "./encoder.js"
 import { Decoder } from "./decoder.js"
 import { Builder, getVal } from "./builder.js"

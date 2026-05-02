@@ -1,4 +1,4 @@
-import { decodeFastDiff, applyDecodedOps } from "./diff.js"
+import { decodeFastDiff, applyDecodedOps } from "./profiles/json/strdiff.js"
 
 // ── Build helpers (module-level so they aren't re-created per build) ──
 
