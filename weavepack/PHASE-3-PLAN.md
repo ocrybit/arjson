@@ -219,7 +219,8 @@ target.
 - [x] 3.2: diff algorithm extraction
 - [x] 3.3: path grammar extraction
 - [x] 3.4: string-fast-diff extraction
-- [ ] 3.5: single-payload + structured value dispatch extraction
-- [ ] 3.6: builder extraction
+- [x] 3.5a: encode extraction (encoder-side dispatch moved to profiles/json/encode.js)
+- [x] 3.6: builder extraction (whole builder.js moved to profiles/json/)
+- [ ] 3.5b: decode extraction (decoder-side: getSingle, getNums, getVtypes, getKtypes, getKeys still in src/decoder.js)
 - [ ] 3.7: index.js refactor + profile descriptor finalized
 - [ ] 3.8: null-profile validation gate

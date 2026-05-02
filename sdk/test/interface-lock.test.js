@@ -13,7 +13,7 @@ import { ARJSON, enc, dec } from "../src/arjson.js"
 import { Encoder, encode } from "../src/encoder.js"
 import { Decoder } from "../src/decoder.js"
 import { ARTable } from "../src/artable.js"
-import { Builder, getVal } from "../src/builder.js"
+import { Builder, getVal } from "../src/profiles/json/builder.js"
 
 // ─── module exports ───────────────────────────────────────────────────────
 
