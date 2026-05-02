@@ -1,0 +1,61 @@
+[
+  {
+    "name": "three updates",
+    "description": "three updates",
+    "initial": {
+      "a": 1
+    },
+    "updates": [
+      {
+        "a": 2
+      },
+      {
+        "a": 3
+      },
+      {
+        "a": 4
+      }
+    ],
+    "initial_delta_hex": "0ad4c4d408",
+    "update_deltas_hex": [
+      "0ae080",
+      "0ae0c0",
+      "0ae280"
+    ],
+    "expected_chain_bytes_hex": "050ad4c4d408030ae080030ae0c0030ae280",
+    "expected_final": {
+      "a": 4
+    }
+  },
+  {
+    "name": "grow object",
+    "description": "grow object",
+    "initial": {},
+    "updates": [
+      {
+        "a": 1
+      },
+      {
+        "a": 1,
+        "b": 2
+      },
+      {
+        "a": 1,
+        "b": 2,
+        "c": 3
+      }
+    ],
+    "initial_delta_hex": "85",
+    "update_deltas_hex": [
+      "0ad4c4d408",
+      "0b15137040",
+      "0955139060"
+    ],
+    "expected_chain_bytes_hex": "050ad4c4d408050b15137040050955139060",
+    "expected_final": {
+      "a": 1,
+      "b": 2,
+      "c": 3
+    }
+  }
+]

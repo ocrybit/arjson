@@ -1,0 +1,25 @@
+[
+  {
+    "name": "remove from nested",
+    "description": "remove from nested",
+    "initial": {
+      "user": {
+        "name": "a",
+        "age": 30
+      }
+    },
+    "update": {
+      "user": {
+        "name": "a"
+      }
+    },
+    "initial_delta_hex": "148a949166b3665d63d5ced4cf3503ca4f0b40",
+    "expected_delta_bytes_hex": "0980",
+    "expected_chain_bytes_hex": "13148a949166b3665d63d5ced4cf3503ca4f0b40020980",
+    "expected_final": {
+      "user": {
+        "name": "a"
+      }
+    }
+  }
+]

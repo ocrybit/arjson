@@ -1,0 +1,31 @@
+[
+  {
+    "name": "remove one key",
+    "description": "remove one key",
+    "initial": {
+      "a": 1,
+      "b": 2
+    },
+    "update": {
+      "a": 1
+    },
+    "initial_delta_hex": "12d28b144d372042",
+    "expected_delta_bytes_hex": "0b00",
+    "expected_chain_bytes_hex": "0812d28b144d372042020b00",
+    "expected_final": {
+      "a": 1
+    }
+  },
+  {
+    "name": "remove last key cascades to empty",
+    "description": "remove last key cascades to empty",
+    "initial": {
+      "a": 1
+    },
+    "update": {},
+    "initial_delta_hex": "0ad4c4d408",
+    "expected_delta_bytes_hex": "85",
+    "expected_chain_bytes_hex": "0185",
+    "expected_final": {}
+  }
+]

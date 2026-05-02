@@ -1,0 +1,44 @@
+[
+  {
+    "name": "ints",
+    "description": "ints",
+    "input": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "expected_bytes_hex": "3541840d876840"
+  },
+  {
+    "name": "strings",
+    "description": "strings",
+    "input": [
+      "a",
+      "b",
+      "c"
+    ],
+    "expected_bytes_hex": "1a891242d0b62e00"
+  },
+  {
+    "name": "bools",
+    "description": "bools",
+    "input": [
+      true,
+      false,
+      true
+    ],
+    "expected_bytes_hex": "1a891b75"
+  },
+  {
+    "name": "nulls",
+    "description": "nulls",
+    "input": [
+      null,
+      null,
+      null
+    ],
+    "expected_bytes_hex": "1a890920"
+  }
+]

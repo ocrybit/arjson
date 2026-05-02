@@ -1,0 +1,24 @@
+[
+  {
+    "name": "all four primitives",
+    "description": "all four primitives",
+    "input": [
+      null,
+      true,
+      42,
+      "str"
+    ],
+    "expected_bytes_hex": "314490b89aa3b2dac0"
+  },
+  {
+    "name": "primitives and containers",
+    "description": "primitives and containers",
+    "input": [
+      1,
+      "a",
+      [],
+      {}
+    ],
+    "expected_bytes_hex": "3145251062d820545a"
+  }
+]

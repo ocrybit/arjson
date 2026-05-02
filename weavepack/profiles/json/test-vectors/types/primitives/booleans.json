@@ -1,0 +1,14 @@
+[
+  {
+    "name": "true",
+    "description": "true",
+    "input": true,
+    "expected_bytes_hex": "81"
+  },
+  {
+    "name": "false",
+    "description": "false",
+    "input": false,
+    "expected_bytes_hex": "82"
+  }
+]

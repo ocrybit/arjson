@@ -1,0 +1,68 @@
+[
+  {
+    "name": "empty string",
+    "description": "empty string",
+    "input": "",
+    "expected_bytes_hex": "83"
+  },
+  {
+    "name": "single uppercase",
+    "description": "single uppercase",
+    "input": "A",
+    "expected_bytes_hex": "89"
+  },
+  {
+    "name": "single lowercase",
+    "description": "single lowercase",
+    "input": "z",
+    "expected_bytes_hex": "bc"
+  },
+  {
+    "name": "short base64url",
+    "description": "short base64url",
+    "input": "Hello",
+    "expected_bytes_hex": "be68ef4b2d00"
+  },
+  {
+    "name": "with digit",
+    "description": "with digit",
+    "input": "abc123",
+    "expected_bytes_hex": "be734db9aedb80"
+  },
+  {
+    "name": "with hyphen",
+    "description": "with hyphen",
+    "input": "abc-123",
+    "expected_bytes_hex": "be7b4db9f6bb6e"
+  },
+  {
+    "name": "with underscore",
+    "description": "with underscore",
+    "input": "abc_123",
+    "expected_bytes_hex": "be7b4db9febb6e"
+  },
+  {
+    "name": "non-base64url",
+    "description": "non-base64url",
+    "input": "hello, world!",
+    "expected_bytes_hex": "bfb5a195b1b1bcb081ddbdc9b19084"
+  },
+  {
+    "name": "control chars",
+    "description": "control chars",
+    "input": "line1\nline2\ttab",
+    "expected_bytes_hex": "bfbdb1a5b994c429b1a5b994c825d18588"
+  },
+  {
+    "name": "unicode CJK",
+    "description": "unicode CJK",
+    "input": "中文测试",
+    "expected_bytes_hex": "bf656ce00c3e580e5ed00eacb810"
+  },
+  {
+    "name": "emoji",
+    "description": "emoji",
+    "input": "😀",
+    "expected_bytes_hex": "bf2bdb00380bc030"
+  }
+]

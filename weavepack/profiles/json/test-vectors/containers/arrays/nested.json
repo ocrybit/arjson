@@ -1,0 +1,46 @@
+[
+  {
+    "name": "two levels",
+    "description": "two levels",
+    "input": [
+      [
+        1,
+        2
+      ],
+      [
+        3,
+        4
+      ]
+    ],
+    "expected_bytes_hex": "316515100321d810"
+  },
+  {
+    "name": "three levels",
+    "description": "three levels",
+    "input": [
+      [
+        [
+          1
+        ]
+      ]
+    ],
+    "expected_bytes_hex": "0b148081"
+  },
+  {
+    "name": "mixed depth",
+    "description": "mixed depth",
+    "input": [
+      1,
+      [
+        2,
+        [
+          3,
+          [
+            4
+          ]
+        ]
+      ]
+    ],
+    "expected_bytes_hex": "310c4a4800321d81"
+  }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "name": "NaN coerces to null",
+    "description": "NaN coerces to null",
+    "input": {
+      "v": null
+    },
+    "expected_bytes_hex": "0ad4c579",
+    "expected_decoded": {
+      "v": null
+    }
+  },
+  {
+    "name": "Infinity coerces to null",
+    "description": "Infinity coerces to null",
+    "input": {
+      "v": null
+    },
+    "expected_bytes_hex": "0ad4c579",
+    "expected_decoded": {
+      "v": null
+    }
+  },
+  {
+    "name": "negative Infinity coerces to null",
+    "description": "negative Infinity coerces to null",
+    "input": {
+      "v": null
+    },
+    "expected_bytes_hex": "0ad4c579",
+    "expected_decoded": {
+      "v": null
+    }
+  }
+]

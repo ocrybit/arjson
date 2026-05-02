@@ -1,0 +1,26 @@
+[
+  {
+    "name": "append primitive",
+    "description": "append primitive",
+    "initial": [
+      1,
+      2,
+      3
+    ],
+    "update": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "initial_delta_hex": "1a8924873080",
+    "expected_delta_bytes_hex": "0a804c2280",
+    "expected_chain_bytes_hex": "061a8924873080050a804c2280",
+    "expected_final": [
+      1,
+      2,
+      3,
+      4
+    ]
+  }
+]

@@ -1,0 +1,39 @@
+[
+  {
+    "name": "two levels",
+    "description": "two levels",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "expected_bytes_hex": "082a92626269b810"
+  },
+  {
+    "name": "three levels",
+    "description": "three levels",
+    "input": {
+      "a": {
+        "b": {
+          "c": 1
+        }
+      }
+    },
+    "expected_bytes_hex": "083a1a9898989a6dc810"
+  },
+  {
+    "name": "siblings at depth",
+    "description": "siblings at depth",
+    "input": {
+      "a": {
+        "x": 1,
+        "y": 2
+      },
+      "b": {
+        "x": 3,
+        "y": 4
+      }
+    },
+    "expected_bytes_hex": "32715457da48e1d162628a26081ac726c48321d810"
+  }
+]

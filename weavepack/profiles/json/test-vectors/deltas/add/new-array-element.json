@@ -1,0 +1,45 @@
+[
+  {
+    "name": "append one",
+    "description": "append one",
+    "initial": [
+      1,
+      2
+    ],
+    "update": [
+      1,
+      2,
+      3
+    ],
+    "initial_delta_hex": "12892042",
+    "expected_delta_bytes_hex": "0a804820c0",
+    "expected_chain_bytes_hex": "0412892042050a804820c0",
+    "expected_final": [
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "name": "append multiple",
+    "description": "append multiple",
+    "initial": [
+      1
+    ],
+    "update": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "initial_delta_hex": "0a8810",
+    "expected_delta_bytes_hex": "0a804420800a804820c00a804c2280",
+    "expected_chain_bytes_hex": "030a8810050a80442080050a804820c0050a804c2280",
+    "expected_final": [
+      1,
+      2,
+      3,
+      4
+    ]
+  }
+]

@@ -1,0 +1,40 @@
+[
+  {
+    "name": "add to single-key object",
+    "description": "add to single-key object",
+    "initial": {
+      "a": 1
+    },
+    "update": {
+      "a": 1,
+      "b": 2
+    },
+    "initial_delta_hex": "0ad4c4d408",
+    "expected_delta_bytes_hex": "0b15137040",
+    "expected_chain_bytes_hex": "050ad4c4d408050b15137040",
+    "expected_final": {
+      "a": 1,
+      "b": 2
+    }
+  },
+  {
+    "name": "add multiple keys",
+    "description": "add multiple keys",
+    "initial": {
+      "a": 1
+    },
+    "update": {
+      "a": 1,
+      "b": 2,
+      "c": 3
+    },
+    "initial_delta_hex": "0ad4c4d408",
+    "expected_delta_bytes_hex": "0b151370400955139060",
+    "expected_chain_bytes_hex": "050ad4c4d408050b15137040050955139060",
+    "expected_final": {
+      "a": 1,
+      "b": 2,
+      "c": 3
+    }
+  }
+]

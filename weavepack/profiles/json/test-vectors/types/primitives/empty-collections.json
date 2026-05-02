@@ -1,0 +1,14 @@
+[
+  {
+    "name": "empty array",
+    "description": "empty array",
+    "input": [],
+    "expected_bytes_hex": "84"
+  },
+  {
+    "name": "empty object",
+    "description": "empty object",
+    "input": {},
+    "expected_bytes_hex": "85"
+  }
+]

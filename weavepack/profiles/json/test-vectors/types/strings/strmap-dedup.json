@@ -1,0 +1,44 @@
+[
+  {
+    "name": "two identical strings in array",
+    "description": "two identical strings in array",
+    "input": [
+      "hello",
+      "hello"
+    ],
+    "expected_bytes_hex": "128893617a59680000"
+  },
+  {
+    "name": "repeated key, repeated string value",
+    "description": "repeated key, repeated string value",
+    "input": [
+      {
+        "k": "v"
+      },
+      {
+        "k": "v"
+      },
+      {
+        "k": "v"
+      }
+    ],
+    "expected_bytes_hex": "1b1bbe4ace38c4c0c12002486f008040"
+  },
+  {
+    "name": "many repeats",
+    "description": "many repeats",
+    "input": [
+      "repeated",
+      "repeated",
+      "repeated",
+      "repeated",
+      "repeated",
+      "repeated",
+      "repeated",
+      "repeated",
+      "repeated",
+      "repeated"
+    ],
+    "expected_bytes_hex": "54a149054a8adea5e6ad79d000000000000000000000"
+  }
+]

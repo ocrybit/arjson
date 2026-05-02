@@ -1,0 +1,20 @@
+[
+  {
+    "name": "max safe minus one",
+    "description": "max safe minus one",
+    "input": 9007199254740990,
+    "expected_bytes_hex": "ffbfffffffffffff0f"
+  },
+  {
+    "name": "max safe",
+    "description": "max safe",
+    "input": 9007199254740991,
+    "expected_bytes_hex": "ffc0ffffffffffff0f"
+  },
+  {
+    "name": "negative max safe",
+    "description": "negative max safe",
+    "input": -9007199254740991,
+    "expected_bytes_hex": "86ffffffffffffffc3c0"
+  }
+]

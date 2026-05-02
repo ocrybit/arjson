@@ -1,0 +1,44 @@
+[
+  {
+    "name": "simple positive",
+    "description": "simple positive",
+    "input": 0.5,
+    "expected_bytes_hex": "870940"
+  },
+  {
+    "name": "simple negative",
+    "description": "simple negative",
+    "input": -0.5,
+    "expected_bytes_hex": "880940"
+  },
+  {
+    "name": "two-digit precision",
+    "description": "two-digit precision",
+    "input": 1.25,
+    "expected_bytes_hex": "8716fa"
+  },
+  {
+    "name": "large precision",
+    "description": "large precision",
+    "input": 0.123456789,
+    "expected_bytes_hex": "8767959aef3a"
+  },
+  {
+    "name": "negative with precision",
+    "description": "negative with precision",
+    "input": -3.14159,
+    "expected_bytes_hex": "882f5f2c26"
+  },
+  {
+    "name": "scientific notation small",
+    "description": "scientific notation small",
+    "input": 1e-10,
+    "expected_bytes_hex": "876820"
+  },
+  {
+    "name": "scientific notation large",
+    "description": "scientific notation large",
+    "input": 10000000000,
+    "expected_bytes_hex": "ffc1c7afa025"
+  }
+]

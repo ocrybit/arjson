@@ -1,0 +1,62 @@
+[
+  {
+    "name": "zero",
+    "description": "zero",
+    "input": 0,
+    "expected_bytes_hex": "c0"
+  },
+  {
+    "name": "one",
+    "description": "one",
+    "input": 1,
+    "expected_bytes_hex": "c1"
+  },
+  {
+    "name": "small positive",
+    "description": "small positive",
+    "input": 42,
+    "expected_bytes_hex": "ea"
+  },
+  {
+    "name": "max-fast-path",
+    "description": "max-fast-path",
+    "input": 62,
+    "expected_bytes_hex": "fe"
+  },
+  {
+    "name": "first leb128",
+    "description": "first leb128",
+    "input": 63,
+    "expected_bytes_hex": "ff00"
+  },
+  {
+    "name": "small negative",
+    "description": "small negative",
+    "input": -1,
+    "expected_bytes_hex": "8608"
+  },
+  {
+    "name": "negative",
+    "description": "negative",
+    "input": -42,
+    "expected_bytes_hex": "86aa"
+  },
+  {
+    "name": "large positive",
+    "description": "large positive",
+    "input": 1000000,
+    "expected_bytes_hex": "ff81843d"
+  },
+  {
+    "name": "large negative",
+    "description": "large negative",
+    "input": -1000000,
+    "expected_bytes_hex": "86f0210f40"
+  },
+  {
+    "name": "max safe integer",
+    "description": "max safe integer",
+    "input": 9007199254740991,
+    "expected_bytes_hex": "ffc0ffffffffffff0f"
+  }
+]

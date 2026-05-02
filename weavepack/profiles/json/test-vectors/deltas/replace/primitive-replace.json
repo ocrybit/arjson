@@ -1,0 +1,66 @@
+[
+  {
+    "name": "int to int",
+    "description": "int to int",
+    "initial": {
+      "n": 1
+    },
+    "update": {
+      "n": 2
+    },
+    "initial_delta_hex": "0ad4c53c08",
+    "expected_delta_bytes_hex": "0ae080",
+    "expected_chain_bytes_hex": "050ad4c53c08030ae080",
+    "expected_final": {
+      "n": 2
+    }
+  },
+  {
+    "name": "string to string short",
+    "description": "string to string short",
+    "initial": {
+      "s": "old"
+    },
+    "update": {
+      "s": "new"
+    },
+    "initial_delta_hex": "0ad4c5623a2574",
+    "expected_delta_bytes_hex": "0ad1cef600",
+    "expected_chain_bytes_hex": "070ad4c5623a2574050ad1cef600",
+    "expected_final": {
+      "s": "new"
+    }
+  },
+  {
+    "name": "bool to bool",
+    "description": "bool to bool",
+    "initial": {
+      "b": false
+    },
+    "update": {
+      "b": true
+    },
+    "initial_delta_hex": "0ad4c4db00",
+    "expected_delta_bytes_hex": "0ada",
+    "expected_chain_bytes_hex": "050ad4c4db00020ada",
+    "expected_final": {
+      "b": true
+    }
+  },
+  {
+    "name": "int to string",
+    "description": "int to string",
+    "initial": {
+      "v": 42
+    },
+    "update": {
+      "v": "hello"
+    },
+    "initial_delta_hex": "0ad4c57caa",
+    "expected_delta_bytes_hex": "0ad3617a5968",
+    "expected_chain_bytes_hex": "050ad4c57caa060ad3617a5968",
+    "expected_final": {
+      "v": "hello"
+    }
+  }
+]

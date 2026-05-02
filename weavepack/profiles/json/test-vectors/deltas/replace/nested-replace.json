@@ -1,0 +1,58 @@
+[
+  {
+    "name": "deep replace",
+    "description": "deep replace",
+    "initial": {
+      "a": {
+        "b": {
+          "c": 1
+        }
+      }
+    },
+    "update": {
+      "a": {
+        "b": {
+          "c": 99
+        }
+      }
+    },
+    "initial_delta_hex": "083a1a9898989a6dc810",
+    "expected_delta_bytes_hex": "09e6c6",
+    "expected_chain_bytes_hex": "0a083a1a9898989a6dc8100309e6c6",
+    "expected_final": {
+      "a": {
+        "b": {
+          "c": 99
+        }
+      }
+    }
+  },
+  {
+    "name": "array element",
+    "description": "array element",
+    "initial": {
+      "arr": [
+        1,
+        2,
+        3
+      ]
+    },
+    "update": {
+      "arr": [
+        1,
+        99,
+        3
+      ]
+    },
+    "initial_delta_hex": "1b0952660d575c90e610",
+    "expected_delta_bytes_hex": "1b0952660d575c903b1a60",
+    "expected_chain_bytes_hex": "0b1b0952660d575c903b1a60",
+    "expected_final": {
+      "arr": [
+        1,
+        99,
+        3
+      ]
+    }
+  }
+]

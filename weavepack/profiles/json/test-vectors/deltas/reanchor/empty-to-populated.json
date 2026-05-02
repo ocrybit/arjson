@@ -1,0 +1,34 @@
+[
+  {
+    "name": "empty object to populated",
+    "description": "empty object to populated",
+    "initial": {},
+    "update": {
+      "a": 1
+    },
+    "initial_delta_hex": "85",
+    "expected_delta_bytes_hex": "0ad4c4d408",
+    "expected_chain_bytes_hex": "050ad4c4d408",
+    "expected_final": {
+      "a": 1
+    }
+  },
+  {
+    "name": "empty array to populated",
+    "description": "empty array to populated",
+    "initial": [],
+    "update": [
+      1,
+      2,
+      3
+    ],
+    "initial_delta_hex": "84",
+    "expected_delta_bytes_hex": "1a8924873080",
+    "expected_chain_bytes_hex": "061a8924873080",
+    "expected_final": [
+      1,
+      2,
+      3
+    ]
+  }
+]

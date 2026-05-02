@@ -1,0 +1,34 @@
+[
+  {
+    "name": "short string",
+    "description": "short string",
+    "initial": {
+      "msg": "hi"
+    },
+    "update": {
+      "msg": "hello"
+    },
+    "initial_delta_hex": "0ad4cc9ac8114310",
+    "expected_delta_bytes_hex": "0ad3617a5968",
+    "expected_chain_bytes_hex": "080ad4cc9ac8114310060ad3617a5968",
+    "expected_final": {
+      "msg": "hello"
+    }
+  },
+  {
+    "name": "long string falls back to replace",
+    "description": "long string falls back to replace",
+    "initial": {
+      "msg": "xxxxxxxxxxxxxxxxxxxx"
+    },
+    "update": {
+      "msg": "yyyyyyyyyyyyyyyyyyyy"
+    },
+    "initial_delta_hex": "0ad4cc9ac816298e38e38e38e38e38e38e38e38e38e2",
+    "expected_delta_bytes_hex": "0ad629965965965965965965965965965964",
+    "expected_chain_bytes_hex": "160ad4cc9ac816298e38e38e38e38e38e38e38e38e38e2120ad629965965965965965965965965965964",
+    "expected_final": {
+      "msg": "yyyyyyyyyyyyyyyyyyyy"
+    }
+  }
+]

@@ -1,0 +1,49 @@
+[
+  {
+    "name": "two records",
+    "description": "two records",
+    "input": [
+      {
+        "id": 1,
+        "name": "a"
+      },
+      {
+        "id": 2,
+        "name": "b"
+      }
+    ],
+    "expected_bytes_hex": "3189abd48d188c73582089d9da99e018a20845a16c"
+  },
+  {
+    "name": "five records (strmap dedup wins)",
+    "description": "five records (strmap dedup wins)",
+    "input": [
+      {
+        "id": 1,
+        "name": "a",
+        "role": "admin"
+      },
+      {
+        "id": 2,
+        "name": "b",
+        "role": "admin"
+      },
+      {
+        "id": 3,
+        "name": "c",
+        "role": "user"
+      },
+      {
+        "id": 4,
+        "name": "d",
+        "role": "user"
+      },
+      {
+        "id": 5,
+        "name": "e",
+        "role": "guest"
+      }
+    ],
+    "expected_bytes_hex": "5ec49a4d26934afb333489a3920ac92f2405324639b358208182081820818208227676a67aba257804c04c04c04e25128944a2476845a6b4ecd14e2d8182e32eb1eac5d03c5e6c173d65a0"
+  }
+]

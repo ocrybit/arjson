@@ -1,0 +1,14 @@
+[
+  {
+    "name": "object to primitive reanchors",
+    "description": "object to primitive reanchors",
+    "initial": {
+      "a": 1
+    },
+    "update": 42,
+    "initial_delta_hex": "0ad4c4d408",
+    "expected_delta_bytes_hex": "ea",
+    "expected_chain_bytes_hex": "01ea",
+    "expected_final": 42
+  }
+]

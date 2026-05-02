@@ -1,0 +1,26 @@
+[
+  {
+    "name": "add to nested object",
+    "description": "add to nested object",
+    "initial": {
+      "user": {
+        "name": "a"
+      }
+    },
+    "update": {
+      "user": {
+        "name": "a",
+        "age": 30
+      }
+    },
+    "initial_delta_hex": "082a9266b36eb1eae76a6790b4",
+    "expected_delta_bytes_hex": "099931a81e93c0",
+    "expected_chain_bytes_hex": "0d082a9266b36eb1eae76a6790b407099931a81e93c0",
+    "expected_final": {
+      "user": {
+        "name": "a",
+        "age": 30
+      }
+    }
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "edit middle of long string",
+    "description": "edit middle of long string",
+    "initial": {
+      "msg": "the quick brown fox jumps over the lazy dog"
+    },
+    "update": {
+      "msg": "the quick brown CAT jumps over the lazy dog"
+    },
+    "initial_delta_hex": "0ad4cc9ac83e56e8d0ca40e2ead2c6d640c4e4deeedc40ccdef040d4eadae0e640deeccae440e8d0ca40d8c2f4f240c8dece",
+    "expected_delta_bytes_hex": "0ad05400900400e004c0d0d05500",
+    "expected_chain_bytes_hex": "320ad4cc9ac83e56e8d0ca40e2ead2c6d640c4e4deeedc40ccdef040d4eadae0e640deeccae440e8d0ca40d8c2f4f240c8dece0e0ad05400900400e004c0d0d05500",
+    "expected_final": {
+      "msg": "the quick brown CAT jumps over the lazy dog"
+    }
+  }
+]

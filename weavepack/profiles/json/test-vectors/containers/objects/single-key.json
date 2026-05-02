@@ -1,0 +1,48 @@
+[
+  {
+    "name": "string value",
+    "description": "string value",
+    "input": {
+      "name": "weavepack"
+    },
+    "expected_bytes_hex": "0ad4cd9da99e54e0f357bd4b4e48"
+  },
+  {
+    "name": "int value",
+    "description": "int value",
+    "input": {
+      "count": 42
+    },
+    "expected_bytes_hex": "0ad4ce728ba7b65500"
+  },
+  {
+    "name": "bool value",
+    "description": "bool value",
+    "input": {
+      "active": true
+    },
+    "expected_bytes_hex": "0ad4cf69cb62bde680"
+  },
+  {
+    "name": "array value",
+    "description": "array value",
+    "input": {
+      "items": [
+        1,
+        2,
+        3
+      ]
+    },
+    "expected_bytes_hex": "1b095267115af4d6490e61"
+  },
+  {
+    "name": "nested object",
+    "description": "nested object",
+    "input": {
+      "user": {
+        "id": 1
+      }
+    },
+    "expected_bytes_hex": "082a9266b1dd63d5c4ec08"
+  }
+]

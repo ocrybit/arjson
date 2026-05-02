@@ -1,0 +1,8 @@
+[
+  {
+    "name": "null literal",
+    "description": "null literal",
+    "input": null,
+    "expected_bytes_hex": "80"
+  }
+]

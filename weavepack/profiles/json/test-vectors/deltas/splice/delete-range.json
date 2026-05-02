@@ -1,0 +1,28 @@
+[
+  {
+    "name": "delete one from middle",
+    "description": "delete one from middle",
+    "initial": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "update": [
+      1,
+      2,
+      4,
+      5
+    ],
+    "initial_delta_hex": "3541840d876840",
+    "expected_delta_bytes_hex": "31449032042208",
+    "expected_chain_bytes_hex": "0731449032042208",
+    "expected_final": [
+      1,
+      2,
+      4,
+      5
+    ]
+  }
+]

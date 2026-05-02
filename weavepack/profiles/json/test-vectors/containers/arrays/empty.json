@@ -1,0 +1,26 @@
+[
+  {
+    "name": "empty top-level",
+    "description": "empty top-level",
+    "input": [],
+    "expected_bytes_hex": "84"
+  },
+  {
+    "name": "nested empty",
+    "description": "nested empty",
+    "input": {
+      "a": []
+    },
+    "expected_bytes_hex": "0b149886b040"
+  },
+  {
+    "name": "array of empties",
+    "description": "array of empties",
+    "input": [
+      [],
+      [],
+      []
+    ],
+    "expected_bytes_hex": "1ad251201b608000"
+  }
+]
