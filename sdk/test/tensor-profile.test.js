@@ -337,6 +337,69 @@ describe("weavepack-tensor v0.1 (fp32, schemaless, no deltas)", () => {
       assert.ok(arrEq(restored.json.tensors.a.data, fp32([10, 20, 30])))
     })
 
+    it("element_set: sparse changes within a tensor", () => {
+      // 1000-element fp32 tensor; change just 5 elements (0.5%).
+      // The differ should pick element_set.
+      const N = 1000
+      const baseData = new Float32Array(N)
+      for (let i = 0; i < N; i++) baseData[i] = i * 0.5
+      const newData = new Float32Array(baseData)
+      // Change 5 elements at known positions.
+      newData[10] = 999.0
+      newData[100] = 888.0
+      newData[500] = 777.0
+      newData[800] = 666.0
+      newData[999] = 555.0
+      const base = { tensors: { w: { dtype: DTYPE.FP32, shape: [N], data: baseData } } }
+      const updated = { tensors: { w: { dtype: DTYPE.FP32, shape: [N], data: newData } } }
+      const delta = encodeDelta(base, updated)
+      const result = applyDelta(base, delta)
+      assert.equal(result.tensors.w.data[10], 999.0)
+      assert.equal(result.tensors.w.data[100], 888.0)
+      assert.equal(result.tensors.w.data[500], 777.0)
+      assert.equal(result.tensors.w.data[800], 666.0)
+      assert.equal(result.tensors.w.data[999], 555.0)
+      // Unchanged elements preserved.
+      assert.equal(result.tensors.w.data[0], 0)
+      assert.equal(result.tensors.w.data[50], 25)
+      // Delta should be much smaller than full tensor_replace.
+      const fullReplaceSize = N * 4 + 32  // rough
+      assert.ok(
+        delta.length < fullReplaceSize / 4,
+        `element_set delta ${delta.length} bytes should be < 25% of full replace ~${fullReplaceSize}`
+      )
+    })
+
+    it("element_set: 2D sparse change", () => {
+      const baseData = new Int32Array(100)  // 10x10
+      for (let i = 0; i < 100; i++) baseData[i] = i
+      const newData = new Int32Array(baseData)
+      newData[5 * 10 + 3] = 9999  // [5, 3]
+      newData[7 * 10 + 7] = 8888  // [7, 7]
+      const base = { tensors: { m: { dtype: DTYPE.INT32, shape: [10, 10], data: baseData } } }
+      const updated = { tensors: { m: { dtype: DTYPE.INT32, shape: [10, 10], data: newData } } }
+      const delta = encodeDelta(base, updated)
+      const result = applyDelta(base, delta)
+      assert.equal(result.tensors.m.data[5 * 10 + 3], 9999)
+      assert.equal(result.tensors.m.data[7 * 10 + 7], 8888)
+      assert.equal(result.tensors.m.data[0], 0)
+    })
+
+    it("dense change uses tensor_replace, not element_set", () => {
+      // 50% of elements change → tensor_replace path.
+      const N = 100
+      const baseData = new Float32Array(N).fill(1.0)
+      const newData = new Float32Array(N).fill(1.0)
+      for (let i = 0; i < 50; i++) newData[i] = 2.0
+      const base = { tensors: { x: { dtype: DTYPE.FP32, shape: [N], data: baseData } } }
+      const updated = { tensors: { x: { dtype: DTYPE.FP32, shape: [N], data: newData } } }
+      const delta = encodeDelta(base, updated)
+      const result = applyDelta(base, delta)
+      assert.equal(result.tensors.x.data[0], 2.0)
+      assert.equal(result.tensors.x.data[49], 2.0)
+      assert.equal(result.tensors.x.data[50], 1.0)
+    })
+
     it("partial change: one of three tensors", () => {
       const v1 = {
         tensors: {

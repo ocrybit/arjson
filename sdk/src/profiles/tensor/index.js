@@ -343,6 +343,59 @@ function bytesEqual(a, b) {
   return true
 }
 
+// Threshold: if fewer than this fraction of elements changed, emit
+// element_set instead of tensor_replace. Per 04-deltas.md heuristic.
+const ELEMENT_SET_DENSITY_THRESHOLD = 0.3
+
+// Convert a flat element index to a multi-dim index tuple.
+function flatToIndex(flat, shape) {
+  const idx = new Array(shape.length)
+  let remaining = flat
+  for (let i = shape.length - 1; i >= 0; i--) {
+    idx[i] = remaining % shape[i]
+    remaining = Math.floor(remaining / shape[i])
+  }
+  return idx
+}
+
+// Returns array of { flat, indices, value } for elements that differ
+// between baseT and newT. Only supports byte-aligned dtypes for v0.1
+// element_set (sub-byte dtypes fall back to tensor_replace).
+function findChangedElements(baseT, newT) {
+  if (baseT.dtype === DTYPE.BOOL) return null  // sub-byte; not element_set yet
+  let total = 1
+  for (const d of baseT.shape) total *= d
+  const baseData = baseT.data
+  const newData = newT.data
+  const changed = []
+  for (let i = 0; i < total; i++) {
+    let differs
+    if (baseT.dtype === DTYPE.INT64 || baseT.dtype === DTYPE.UINT64) {
+      differs = baseData[i] !== newData[i]
+    } else if (baseT.dtype === DTYPE.FP32 || baseT.dtype === DTYPE.FP64) {
+      // Float comparison: use bit equality so NaN signaling is preserved.
+      // For simplicity, compare via the underlying bytes per-element.
+      // (Could be optimized with a DataView but the differ runs once.)
+      differs = !floatBitEqual(baseT, newT, i)
+    } else {
+      differs = baseData[i] !== newData[i]
+    }
+    if (differs) {
+      changed.push({ flat: i, indices: flatToIndex(i, baseT.shape) })
+    }
+  }
+  return changed
+}
+
+function floatBitEqual(baseT, newT, i) {
+  // Compare individual fp values via TypedArray indexing. Works for
+  // fp32 and fp64. NaN bit patterns are preserved when the underlying
+  // bytes round-trip; for the differ, we accept NaN ≠ NaN at the
+  // value-comparison level (any NaN-to-NaN change is treated as a
+  // difference, ensuring the new value's bytes get emitted).
+  return baseT.data[i] === newT.data[i]
+}
+
 // computeDelta(baseDoc, newDoc) → array of ops
 function computeDelta(baseDoc, newDoc) {
   const ops = []
@@ -378,7 +431,27 @@ function computeDelta(baseDoc, newDoc) {
     const baseBytes = baseT.dtype === DTYPE.BOOL ? packBoolFromTensor(baseT) : toBytes(baseT)
     const newBytes = newT.dtype === DTYPE.BOOL ? packBoolFromTensor(newT) : toBytes(newT)
     const expected = dataBytes(baseT.dtype, baseT.shape)
-    if (!bytesEqual(baseBytes.subarray(0, expected), newBytes.subarray(0, expected))) {
+    if (bytesEqual(baseBytes.subarray(0, expected), newBytes.subarray(0, expected))) {
+      continue  // unchanged
+    }
+
+    // Decide between element_set (sparse) and tensor_replace (dense).
+    let total = 1
+    for (const d of baseT.shape) total *= d
+
+    const changed = findChangedElements(baseT, newT)
+    if (changed && changed.length / total < ELEMENT_SET_DENSITY_THRESHOLD) {
+      ops.push({
+        op: OP.ELEMENT_SET,
+        name,
+        dtype: newT.dtype,
+        shape: newT.shape,
+        elements: changed.map(c => ({
+          indices: c.indices,
+          value: newT.data[c.flat],
+        })),
+      })
+    } else {
       ops.push({ op: OP.TENSOR_REPLACE, name, ...newT })
     }
   }
@@ -413,8 +486,33 @@ export function encodeDelta(baseDoc, newDoc) {
       const expectedBytes = dataBytes(op.dtype, op.shape)
       const dataView = op.dtype === DTYPE.BOOL ? packBoolFromTensor(op) : toBytes(op)
       for (let i = 0; i < expectedBytes; i++) u.add_dc(dataView[i], 8)
+    } else if (op.op === OP.ELEMENT_SET) {
+      // Wire format:
+      //   short(): name length
+      //   bytes: name UTF-8
+      //   5 bits: dtype
+      //   short(): rank
+      //   leb128 × rank: shape
+      //   leb128: element count
+      //   per element:
+      //     leb128 × rank: indices
+      //     dtype-bits: value (raw bytes for byte-aligned dtypes)
+      const nameBytes = utf8Bytes(op.name)
+      short_dc(u, nameBytes.length)
+      for (let i = 0; i < nameBytes.length; i++) u.add_dc(nameBytes[i], 8)
+      u.add_dc(op.dtype, DTYPE_BITS)
+      short_dc(u, op.shape.length)
+      for (const dim of op.shape) leb128_dc(u, dim)
+      leb128_dc(u, op.elements.length)
+      const valueBytes = bytesPerElem(op.dtype)
+      for (const elem of op.elements) {
+        for (const idx of elem.indices) leb128_dc(u, idx)
+        // Encode the single element value into bytes.
+        const elemBytes = encodeSingleElement(op.dtype, elem.value)
+        for (let b = 0; b < valueBytes; b++) u.add_dc(elemBytes[b], 8)
+      }
     } else {
-      throw new Error(`unsupported op code ${op.op} (region/element/quant ops not in v0.1)`)
+      throw new Error(`unsupported op code ${op.op} (region/quant ops not in v0.1)`)
     }
   }
 
@@ -488,12 +586,95 @@ export function applyDelta(baseDoc, deltaBytes) {
       for (const d of shape) total *= d
       const data = materializeData(dtype, dataU8, total)
       tensors[name] = { dtype, shape, data }
+    } else if (opCode === OP.ELEMENT_SET) {
+      const nameLen = readShort()
+      const nameBytes = new Uint8Array(nameLen)
+      for (let j = 0; j < nameLen; j++) nameBytes[j] = readByte()
+      const name = new TextDecoder().decode(nameBytes)
+      const dtype = readBits(DTYPE_BITS)
+      const rank = readShort()
+      const shape = []
+      for (let r = 0; r < rank; r++) shape.push(readLeb128())
+      const elemCount = readLeb128()
+      // Need a working copy of the base tensor's data to mutate.
+      // Schemaful would let us look up the base; for schemaless we
+      // require the tensor exists in the base document.
+      if (!(name in tensors)) {
+        throw new Error(`element_set on unknown tensor ${name}`)
+      }
+      const baseT = tensors[name]
+      // Make a mutable copy. For typed arrays, slice() copies the buffer.
+      let total = 1
+      for (const d of baseT.shape) total *= d
+      const newData = (baseT.data instanceof Uint8Array)
+        ? new Uint8Array(baseT.data)
+        : baseT.data.slice()
+      const valueBytes = bytesPerElem(dtype)
+      for (let e = 0; e < elemCount; e++) {
+        const idx = []
+        for (let r = 0; r < rank; r++) idx.push(readLeb128())
+        const elemBytes = new Uint8Array(valueBytes)
+        for (let b = 0; b < valueBytes; b++) elemBytes[b] = readByte()
+        const value = decodeSingleElement(dtype, elemBytes)
+        // Convert multi-dim index to flat.
+        let flat = 0
+        for (let r = 0; r < rank; r++) {
+          flat = flat * shape[r] + idx[r]
+        }
+        newData[flat] = value
+      }
+      tensors[name] = { dtype, shape, data: newData }
     } else {
-      throw new Error(`unsupported op code ${opCode} (region/element/quant ops not in v0.1)`)
+      throw new Error(`unsupported op code ${opCode} (region/quant ops not in v0.1)`)
     }
   }
 
   return { tensors }
+}
+
+function bytesPerElem(dtype) {
+  // Byte count for a single element. Sub-byte dtypes return ceil(bits/8)
+  // which is 1 — but element_set doesn't support sub-byte dtypes in v0.1.
+  return Math.ceil((DTYPE_BITS_PER_ELEM[dtype] || 0) / 8)
+}
+
+function encodeSingleElement(dtype, value) {
+  const buf = new ArrayBuffer(bytesPerElem(dtype))
+  const view = new DataView(buf)
+  switch (dtype) {
+    case DTYPE.FP32:    view.setFloat32(0, value, true); break
+    case DTYPE.FP64:    view.setFloat64(0, value, true); break
+    case DTYPE.INT8:    view.setInt8(0, value); break
+    case DTYPE.UINT8:   view.setUint8(0, value); break
+    case DTYPE.INT16:   view.setInt16(0, value, true); break
+    case DTYPE.UINT16:  view.setUint16(0, value, true); break
+    case DTYPE.INT32:   view.setInt32(0, value, true); break
+    case DTYPE.UINT32:  view.setUint32(0, value, true); break
+    case DTYPE.INT64:   view.setBigInt64(0, BigInt(value), true); break
+    case DTYPE.UINT64:  view.setBigUint64(0, BigInt(value), true); break
+    default:
+      throw new Error(`element_set not supported for dtype ${dtype}`)
+  }
+  return new Uint8Array(buf)
+}
+
+function decodeSingleElement(dtype, bytes) {
+  const buf = bytes.buffer
+  const view = new DataView(buf, bytes.byteOffset, bytes.byteLength)
+  switch (dtype) {
+    case DTYPE.FP32:    return view.getFloat32(0, true)
+    case DTYPE.FP64:    return view.getFloat64(0, true)
+    case DTYPE.INT8:    return view.getInt8(0)
+    case DTYPE.UINT8:   return view.getUint8(0)
+    case DTYPE.INT16:   return view.getInt16(0, true)
+    case DTYPE.UINT16:  return view.getUint16(0, true)
+    case DTYPE.INT32:   return view.getInt32(0, true)
+    case DTYPE.UINT32:  return view.getUint32(0, true)
+    case DTYPE.INT64:   return view.getBigInt64(0, true)
+    case DTYPE.UINT64:  return view.getBigUint64(0, true)
+    default:
+      throw new Error(`element_set not supported for dtype ${dtype}`)
+  }
 }
 
 function materializeData(dtype, dataU8, total) {
