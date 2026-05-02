@@ -439,15 +439,15 @@ profiles. The honest commitment is to that gate.
 - [x] Phase 0: ARJSON shipped and stable
 - [x] Phase 1: JSON profile retroactive spec — 5 spec docs + 93 vectors
 - [x] Phase 2: weavepack-core spec — 10 spec docs
-- [ ] Phase 3: sdk/ refactor to protocol/profile boundary
+- [x] Phase 3: sdk/ refactor to protocol/profile boundary — null-profile gate passing
 - [ ] Phase 4: Property-based testing + optional TLA+
 - [ ] Phase 5: Profile #2 (recommended: weavepack-tensor)
 - [ ] Phase 6: Rust reference implementation
 - [ ] Phase 7: Ecosystem and governance
 
-Next action: open Phase 3 by extracting the JSON-specific code in
-`sdk/src/` behind a profile descriptor. First step: identify all the
-JSON-specific constants and methods (vtype values, ktype values, single-
-payload tag mapping, splice escape semantics) and pull them into
-`sdk/src/profiles/json/types.js`. Keep wire format and bit primitives
-in `sdk/src/core/`.
+Next action: open Phase 4 (rigor without Lean) by writing
+`weavepack/properties/round-trip.test.js` — a fast-check property
+suite covering `decode(encode(x)) ≡ x` over a generated JSON corpus.
+Then extend with delta correctness, composition, and idempotence
+generators. Optional follow-up: TLA+ model of delta chain
+convergence.

@@ -1,5 +1,5 @@
-import { strmap_rev, base64_rev, base64_rev_byte, bits } from "./utils.js"
-import { Builder } from "./profiles/json/builder.js"
+import { strmap_rev, base64_rev, base64_rev_byte, bits } from "../../utils.js"
+import { Builder } from "./builder.js"
 
 // Precomputed pow10 table. Decoding floats does `int / Math.pow(10, n)`
 // where n is small (precision, typically ≤ 20). Math.pow goes through

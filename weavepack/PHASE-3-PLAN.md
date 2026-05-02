@@ -221,6 +221,6 @@ target.
 - [x] 3.4: string-fast-diff extraction
 - [x] 3.5a: encode extraction (encoder-side dispatch moved to profiles/json/encode.js)
 - [x] 3.6: builder extraction (whole builder.js moved to profiles/json/)
-- [ ] 3.5b: decode extraction (decoder-side: getSingle, getNums, getVtypes, getKtypes, getKeys still in src/decoder.js)
-- [ ] 3.7: index.js refactor + profile descriptor finalized
-- [ ] 3.8: null-profile validation gate
+- [x] 3.5b: decode extraction (whole decoder.js moved to profiles/json/decoder.js)
+- [x] 3.7: arjson.js moved to profiles/json/index.js (top-level arjson.js is a compat shim)
+- [x] 3.8: null-profile validation gate (profiles/null/ + 11-test suite passing)

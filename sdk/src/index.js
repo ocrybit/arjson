@@ -1,5 +1,5 @@
 import { Encoder, encode, _encode } from "./encoder.js"
-import { Decoder } from "./decoder.js"
+import { Decoder } from "./profiles/json/decoder.js"
 import { ARTable } from "./artable.js"
 import { ARJSON, enc, dec } from "./arjson.js"
 import { Builder } from "./profiles/json/builder.js"
