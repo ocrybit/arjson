@@ -438,14 +438,16 @@ profiles. The honest commitment is to that gate.
 
 - [x] Phase 0: ARJSON shipped and stable
 - [x] Phase 1: JSON profile retroactive spec — 5 spec docs + 93 vectors
-- [ ] Phase 2: weavepack-core spec
+- [x] Phase 2: weavepack-core spec — 10 spec docs
 - [ ] Phase 3: sdk/ refactor to protocol/profile boundary
 - [ ] Phase 4: Property-based testing + optional TLA+
 - [ ] Phase 5: Profile #2 (recommended: weavepack-tensor)
 - [ ] Phase 6: Rust reference implementation
 - [ ] Phase 7: Ecosystem and governance
 
-Next action: open Phase 2 by writing `weavepack/core/02-wire-format.md`
-first (the most concrete piece — defines how every column is laid out
-on the wire) and using it to verify the profile/core boundary is
-coherent.
+Next action: open Phase 3 by extracting the JSON-specific code in
+`sdk/src/` behind a profile descriptor. First step: identify all the
+JSON-specific constants and methods (vtype values, ktype values, single-
+payload tag mapping, splice escape semantics) and pull them into
+`sdk/src/profiles/json/types.js`. Keep wire format and bit primitives
+in `sdk/src/core/`.
