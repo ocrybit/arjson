@@ -437,7 +437,7 @@ profiles. The honest commitment is to that gate.
 ## Status
 
 - [x] Phase 0: ARJSON shipped and stable
-- [ ] Phase 1: JSON profile retroactive spec
+- [x] Phase 1: JSON profile retroactive spec — 5 spec docs + 93 vectors
 - [ ] Phase 2: weavepack-core spec
 - [ ] Phase 3: sdk/ refactor to protocol/profile boundary
 - [ ] Phase 4: Property-based testing + optional TLA+
@@ -445,6 +445,7 @@ profiles. The honest commitment is to that gate.
 - [ ] Phase 6: Rust reference implementation
 - [ ] Phase 7: Ecosystem and governance
 
-Next action when work begins: open Phase 1 by extracting test vectors
-from `sdk/test/` into `weavepack/profiles/json/test-vectors/` and writing
-`weavepack/profiles/json/01-types.md`.
+Next action: open Phase 2 by writing `weavepack/core/02-wire-format.md`
+first (the most concrete piece — defines how every column is laid out
+on the wire) and using it to verify the profile/core boundary is
+coherent.
