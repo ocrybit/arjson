@@ -71,9 +71,14 @@ export function encodeDocument(doc) {
     short_dc(u, t.shape.length)
     for (const dim of t.shape) leb128_dc(u, dim)
 
-    // Data block: emit raw bytes from t.data.
-    const dataView = toBytes(t)
-    for (let i = 0; i < dataView.length; i++) u.add_dc(dataView[i], 8)
+    // Data block: emit raw bytes from t.data. Bool tensors get
+    // bit-packed (one bit per element, MSB-first within bytes).
+    const expectedBytes = dataBytes(t.dtype, t.shape)
+    const dataView = t.dtype === DTYPE.BOOL ? packBoolFromTensor(t) : toBytes(t)
+    if (dataView.length < expectedBytes) {
+      throw new Error(`tensor ${name}: data length ${dataView.length} < expected ${expectedBytes}`)
+    }
+    for (let i = 0; i < expectedBytes; i++) u.add_dc(dataView[i], 8)
   }
 
   // Use the Encoder's dump primitive which writes dc + structured
@@ -125,14 +130,67 @@ function leb128_dc_raw(u, v) {
   leb128_dc(u, v)
 }
 
-function toBytes(tensor) {
-  // Pull raw bytes from the typed array. fp32 is little-endian.
-  if (tensor.data instanceof Float32Array) {
-    return new Uint8Array(tensor.data.buffer, tensor.data.byteOffset, tensor.data.byteLength)
+// Bool packing: each element is 1 bit, packed MSB-first within bytes.
+function packBools(arr) {
+  const len = arr.length
+  const out = new Uint8Array(Math.ceil(len / 8))
+  for (let i = 0; i < len; i++) {
+    if (arr[i]) {
+      out[i >> 3] |= 1 << (7 - (i & 7))
+    }
   }
-  if (tensor.data instanceof Uint8Array) return tensor.data
-  if (tensor.data instanceof ArrayBuffer) return new Uint8Array(tensor.data)
-  throw new Error("unsupported tensor data type; need Float32Array or Uint8Array")
+  return out
+}
+
+function packBoolFromTensor(t) {
+  // t.data may be a boolean[] or a Uint8Array of 0/1 values; both pack
+  // the same way. The element count is product(shape), not data.length.
+  let total = 1
+  for (const d of t.shape) total *= d
+  const data = t.data
+  const len = Math.min(total, data.length)
+  const out = new Uint8Array(Math.ceil(total / 8))
+  for (let i = 0; i < len; i++) {
+    if (data[i]) {
+      out[i >> 3] |= 1 << (7 - (i & 7))
+    }
+  }
+  return out
+}
+
+function unpackBools(bytes, count) {
+  const out = new Uint8Array(count)  // 0 / 1 representation
+  for (let i = 0; i < count; i++) {
+    out[i] = (bytes[i >> 3] >> (7 - (i & 7))) & 1
+  }
+  return out
+}
+
+function toBytes(tensor) {
+  // Pull raw bytes from the typed array. All multi-byte dtypes are
+  // little-endian; native JS typed arrays match host endianness, which
+  // is little-endian on every common platform. (A future big-endian
+  // host would need a byte-swap step here.)
+  const d = tensor.data
+  if (d instanceof Float32Array || d instanceof Float64Array) {
+    return new Uint8Array(d.buffer, d.byteOffset, d.byteLength)
+  }
+  if (d instanceof Int8Array || d instanceof Uint8Array
+      || d instanceof Int16Array || d instanceof Uint16Array
+      || d instanceof Int32Array || d instanceof Uint32Array) {
+    return new Uint8Array(d.buffer, d.byteOffset, d.byteLength)
+  }
+  if (typeof BigInt64Array !== "undefined" &&
+      (d instanceof BigInt64Array || d instanceof BigUint64Array)) {
+    return new Uint8Array(d.buffer, d.byteOffset, d.byteLength)
+  }
+  if (d instanceof ArrayBuffer) return new Uint8Array(d)
+  // Bool tensors: data may be a Uint8Array of 0/1 values to pack, or a
+  // boolean[] array; check tensor.dtype to decide packing.
+  if (Array.isArray(d)) {
+    return packBools(d)
+  }
+  throw new Error("unsupported tensor data type")
 }
 
 // ── decode ────────────────────────────────────────────────────────────────
@@ -200,15 +258,50 @@ export function decodeDocument(bytes) {
     const dataU8 = new Uint8Array(bytes)
     for (let i = 0; i < bytes; i++) dataU8[i] = readByteAlignedByte()
 
+    // Compute total element count from shape.
+    let total = 1
+    for (const d of shape) total *= d
+
     let data
-    if (dtype === DTYPE.FP32) {
-      // Wrap as Float32Array view.
-      data = new Float32Array(dataU8.buffer, dataU8.byteOffset, bytes / 4)
-    } else if (dtype === DTYPE.UINT8 || dtype === DTYPE.INT8) {
-      data = dataU8
-    } else {
-      // For dtypes not yet implemented, return raw bytes.
-      data = dataU8
+    switch (dtype) {
+      case DTYPE.FP32:
+        data = new Float32Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.FP64:
+        data = new Float64Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.INT8:
+        data = new Int8Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.UINT8:
+        data = dataU8
+        break
+      case DTYPE.INT16:
+        data = new Int16Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.UINT16:
+        data = new Uint16Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.INT32:
+        data = new Int32Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.UINT32:
+        data = new Uint32Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.INT64:
+        data = new BigInt64Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.UINT64:
+        data = new BigUint64Array(dataU8.buffer, dataU8.byteOffset, total)
+        break
+      case DTYPE.BOOL:
+        data = unpackBools(dataU8, total)
+        break
+      default:
+        // Unsupported dtype: return raw bytes for caller to interpret.
+        // (fp16/bf16/int4/uint4/fp8/quantized — TODO subsequent stages.)
+        data = dataU8
+        break
     }
 
     tensors[name] = { dtype, shape, data }
