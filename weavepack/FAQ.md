@@ -79,6 +79,37 @@ Trade-offs:
 - weavepack's wire format is profile-specific (JSON-shaped vs
   tensor-shaped vs future shapes)
 
+## What's "re-anchor" and why does my chain shrink after some updates?
+
+A re-anchor happens when a JSON update is "too structural" to
+express as a delta against the running state — e.g. swapping the
+root from a primitive to an object, or replacing a primitive root
+with a fresh value. In those cases, the encoder discards the
+prior chain and emits a single fresh anchor payload.
+
+Concretely:
+
+```js
+const arj = new ARJSON({ json: { a: 1 } })
+arj.update({ a: 2 })       // delta added: deltas.length = 2
+arj.update({ a: 3 })       // delta added: deltas.length = 3
+arj.update("primitive")    // RE-ANCHOR: deltas.length = 1
+```
+
+`toBuffer()` after re-anchor returns just the fresh anchor's bytes.
+This is by design (see `weavepack/core/05-deltas.md` §"Encoder
+buffer policy on re-anchor"): it's simpler than carrying history
+the receiver can't directly use, and matches the consumer model
+"give me bytes that decode to the current state".
+
+If you need durable history across re-anchors (e.g. for a
+permanent ledger on Arweave), snapshot `arj.toBuffer()` to
+external storage between updates. Each snapshot is its own
+self-contained chain. **Do not concatenate two encoder outputs as
+one chain** — multiple standalone anchors in a single chain buffer
+is malformed and decodes incorrectly (the second anchor gets
+mis-applied as a delta against the first).
+
 ## What happens if my schema changes mid-chain?
 
 Each chain payload encodes its own structure. The schemaful tensor
