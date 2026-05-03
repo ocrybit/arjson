@@ -19,9 +19,19 @@
 import { Encoder } from "../../encoder.js"
 import { DTYPE, DTYPE_BITS, DTYPE_BITS_PER_ELEM, OP, OP_BITS, dataBytes, PROFILE_ID, PROFILE_VERSION } from "./types.js"
 import { schemaHash, schemaHashHex, canonicalizeSchema } from "./schema.js"
+import {
+  fp16BitsToF32, f32ToFp16Bits, bf16BitsToF32, f32ToBf16Bits,
+  f32ArrayToFp16Bits, fp16BitsToF32Array,
+  f32ArrayToBf16Bits, bf16BitsToF32Array,
+} from "./half.js"
 
 export { DTYPE, DTYPE_BITS, OP, dataBytes, PROFILE_ID, PROFILE_VERSION }
 export { schemaHash, schemaHashHex, canonicalizeSchema }
+export {
+  fp16BitsToF32, f32ToFp16Bits, bf16BitsToF32, f32ToBf16Bits,
+  f32ArrayToFp16Bits, fp16BitsToF32Array,
+  f32ArrayToBf16Bits, bf16BitsToF32Array,
+}
 
 // ── bit-stream helpers ────────────────────────────────────────────────────
 
@@ -109,7 +119,24 @@ function toBytes(tensor) {
 // Emit raw data block bytes for one tensor into dc.
 function emitDataBlock(u, t) {
   const expectedBytes = dataBytes(t.dtype, t.shape)
-  const dataView = t.dtype === DTYPE.BOOL ? packBoolFromTensor(t) : toBytes(t)
+  let dataView
+  if (t.dtype === DTYPE.BOOL) {
+    dataView = packBoolFromTensor(t)
+  } else if (t.dtype === DTYPE.FP16 || t.dtype === DTYPE.BF16) {
+    // Accept either Float32Array (convert) or Uint16Array (raw bits).
+    if (t.data instanceof Uint16Array) {
+      dataView = new Uint8Array(t.data.buffer, t.data.byteOffset, t.data.byteLength)
+    } else if (t.data instanceof Float32Array) {
+      const u16 = t.dtype === DTYPE.FP16
+        ? f32ArrayToFp16Bits(t.data)
+        : f32ArrayToBf16Bits(t.data)
+      dataView = new Uint8Array(u16.buffer, u16.byteOffset, u16.byteLength)
+    } else {
+      dataView = toBytes(t)
+    }
+  } else {
+    dataView = toBytes(t)
+  }
   if (dataView.length < expectedBytes) {
     throw new Error(`tensor data length ${dataView.length} < expected ${expectedBytes}`)
   }
@@ -579,6 +606,17 @@ function materializeData(dtype, dataU8, total) {
     case DTYPE.INT64:  return new BigInt64Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.UINT64: return new BigUint64Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.BOOL:   return unpackBools(dataU8, total)
+    case DTYPE.FP16:
+    case DTYPE.BF16: {
+      // Decode raw 16-bit bits to a Uint16Array view. Callers wanting
+      // f32 values use fp16BitsToF32Array / bf16BitsToF32Array. We
+      // return raw bits to preserve bit-exact round-trip; lossy f32
+      // conversion is opt-in.
+      // Copy the bytes (don't share) because dataU8 may be a slice
+      // not aligned for Uint16Array.
+      const copy = new Uint8Array(dataU8.buffer.slice(dataU8.byteOffset, dataU8.byteOffset + total * 2))
+      return new Uint16Array(copy.buffer, 0, total)
+    }
     default:           return dataU8
   }
 }

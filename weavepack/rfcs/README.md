@@ -8,7 +8,7 @@ proposals themselves, numbered sequentially.
 
 | # | Title | Status | Affects |
 |---|---|---|---|
-| 0001 | [fp16 and bf16 dtype support in weavepack-tensor](./0001-tensor-fp16-bf16.md) | Draft | weavepack-tensor |
+| 0001 | [fp16 and bf16 dtype support in weavepack-tensor](./0001-tensor-fp16-bf16.md) | Discussion | weavepack-tensor |
 
 ## How to propose a new RFC
 
