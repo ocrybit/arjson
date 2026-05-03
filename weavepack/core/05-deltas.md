@@ -82,30 +82,34 @@ point. Subsequent deltas refer to the re-anchored state, not the
 pre-re-anchor state. The recovery algorithm starts from the
 most-recent re-anchor.
 
-**Encoder buffer policy on re-anchor.** Two strategies are
-conforming:
+**Encoder buffer policy on re-anchor: discard.** When the encoder
+re-anchors, it replaces its in-memory chain with a single fresh
+anchor payload. `toBuffer()` after re-anchor returns just those
+bytes; prior payloads are dropped from the live encoder's view.
+This is what the JS reference does, and it's the conforming
+behavior.
 
-1. **Discard prior payloads.** The encoder replaces its in-memory
-   chain with a single fresh anchor payload. `toBuffer()` after
-   re-anchor returns just those bytes. Used by the JS reference.
-   Matches the "give me bytes that decode to current state"
-   consumer model. Durable history requires external snapshotting
-   between updates.
+The reason this is the conforming behavior: a single chain buffer
+contains exactly one initial anchor (the first payload) followed
+by zero or more deltas relative to the running state. Receivers
+process payload `i+1` against the ARTable produced by payloads
+`0..i`. Inserting a second standalone anchor mid-chain would
+break this — the receiver has no signal to reset its ARTable, and
+the second anchor would be (mis-)processed as a delta against the
+first state, almost certainly producing decode errors.
 
-2. **Preserve prior payloads.** The encoder appends the fresh
-   anchor without dropping prior payloads. `toBuffer()` returns
-   the full history-including buffer; receivers detect the
-   re-anchor and reset their ARTable mid-chain. Useful for
-   permanent ledgers where every emitted byte must remain
-   recoverable from the live encoder.
+Encoders MUST NOT emit a re-anchor as an additional payload in
+the same chain buffer. To represent durable history across
+re-anchor boundaries, the producer should snapshot `toBuffer()`
+between updates and store each chain blob independently. Each
+snapshot is a self-contained chain that can be decoded on its
+own.
 
-A receiver MUST handle both strategies correctly: when a payload
-is structurally a fresh anchor (encodes a complete state from
-scratch), the receiver replaces its current ARTable with the new
-one, regardless of how many prior payloads it has already
-processed. The wire format is the same in both cases — the
-difference is only in what the encoder chose to keep in its
-buffer.
+Receivers MAY assume that any chain buffer they're handed
+contains exactly one initial anchor followed only by deltas. If a
+payload past position 0 in the same chain is a fresh anchor
+(structurally a single-payload mode payload encoding a complete
+new state), the chain is malformed.
 
 Detection of re-anchors: any payload whose first bit is `1`
 (single-payload mode) is a re-anchor in the structural sense — it

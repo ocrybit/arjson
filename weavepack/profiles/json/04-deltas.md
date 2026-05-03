@@ -229,13 +229,11 @@ payload becomes the entire `deltas` buffer. Prior payloads in
 the in-memory chain are **discarded**, and `toBuffer()` after
 re-anchor returns just the fresh single-payload bytes.
 
-This is a deliberate trade-off. The alternative — preserving
-prior payloads in the buffer for full history retention — would
-require receivers to detect re-anchor payloads and reset their
-ARTable mid-chain, plus carry the bytes of states that are no
-longer reachable from the current head. Discarding is simpler
-and matches the more common consumer model: "give me the bytes
-that decode to the current state".
+Discarding is required by the protocol (see core/05-deltas.md
+"Encoder buffer policy on re-anchor"). A chain buffer must
+contain exactly one initial anchor followed by deltas; multiple
+standalone anchors in one buffer is malformed because receivers
+have no signal to reset their ARTable mid-chain.
 
 Consumers that need *durable* version history across re-anchor
 boundaries should snapshot `arj.toBuffer()` at known-good points

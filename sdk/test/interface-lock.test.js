@@ -200,6 +200,36 @@ describe("interface lock: toBuffer / fromBuffer round-trip", () => {
       assert.equal(restored.deltas.length, cut)
     }
   })
+
+  // Documents the receiver behavior on a chain containing two
+  // structured-mode standalone anchors (i.e. a "preserve-style"
+  // history-retaining chain). Per the protocol (core/05-deltas.md
+  // "Encoder buffer policy on re-anchor"), this is malformed —
+  // a chain MUST contain exactly one initial anchor followed by
+  // deltas. The JS reference treats payload[1] as a delta against
+  // the running ARTable, producing either a decode exception or
+  // silent corruption depending on shape compatibility and any
+  // shared encoder state at the time.
+  //
+  // What's locked in: the result is NOT the second anchor's value.
+  // Producers must split into independent chain blobs instead.
+  it("a chain with multiple structured-mode anchors is malformed", () => {
+    const a1 = enc({ a: 1 })
+    const a2 = enc({ x: "different" })
+    const malformed = ARJSON.toBuffer([a1, a2])
+    let result
+    try {
+      result = new ARJSON({ arj: malformed }).json
+    } catch (_) {
+      // Either outcome (throw or junk result) is acceptable here;
+      // both demonstrate the chain is malformed. We only need to
+      // verify the spec's claim: this construction does NOT yield
+      // the second anchor's value.
+      return
+    }
+    assert.notDeepEqual(result, { x: "different" },
+      "preserve-style chain MUST NOT decode to the second anchor's value")
+  })
 })
 
 // ─── ARJSON.table() shape ─────────────────────────────────────────────────
