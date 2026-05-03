@@ -119,6 +119,44 @@ wasn't in the base document. This means either:
 
 Fix: replay the chain from the anchor; never skip deltas.
 
+## Decoded JSON doesn't match either input state (silent corruption)
+
+Symptom: you concatenate two encoder outputs into one chain
+buffer, decode, and get junk that's neither input.
+
+```js
+const a1 = enc({ a: 1 })
+const a2 = enc({ x: "different" })
+const chain = ARJSON.toBuffer([a1, a2])
+new ARJSON({ arj: chain }).json   // ⇒ {"a":{}} or throws
+```
+
+This chain is malformed. A weavepack chain MUST contain exactly
+one initial anchor followed by zero or more deltas — multiple
+standalone anchors in one buffer breaks the decoder's running-
+ARTable model. The second anchor gets mis-applied as a delta
+against the first, producing either a decode exception or junk.
+
+Fix: store each chain blob independently. Snapshot
+`arj.toBuffer()` between the updates that would re-anchor; each
+snapshot is its own self-contained chain. To know when re-anchor
+happened, check `arj.deltas.length` after each `update()` —
+re-anchor reduces it to 1.
+
+See `weavepack/core/05-deltas.md` §"Encoder buffer policy on
+re-anchor" for the protocol-level rule.
+
+## Chain decodes correctly but my custom delta application differs
+
+Likely cause: your delta-application path doesn't reset the
+ARTable when it encounters a re-anchor (single-payload mode
+payload past position 0). Re-anchor is only legal at position 0;
+if you see structurally-anchor payloads later, the chain is
+malformed (see prior section).
+
+Fix: validate chains before consumption — every payload past
+position 0 must start with mode bit 0 (structured mode).
+
 ## Cross-language check shows "FAIL" for one lane
 
 Run that lane's conformance binary directly to see the specific
