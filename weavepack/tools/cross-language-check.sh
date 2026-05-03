@@ -75,8 +75,11 @@ fi
 
 # ── Python PoC ────────────────────────────────────────────────────────
 if command -v python3 >/dev/null 2>&1; then
-    run_check "Python / impl/python" \
+    run_check "Python / weavepack-json" \
         "python3 impl/python/conformance.py" \
+        || any_fail=1
+    run_check "Python / weavepack-tensor" \
+        "python3 impl/python/conformance_tensor.py" \
         || any_fail=1
 else
     printf "%s%-30s%s SKIP (python3 not found)\n" "$(color yellow)" "Python PoC" "$(color reset)"
