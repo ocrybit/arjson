@@ -719,6 +719,96 @@ describe("weavepack-tensor schema sidecar (Phase 5.5)", () => {
       assert.equal((delta[0] >> 7) & 0b1, 0b1, "first bit should be 1 (delta)")
     })
 
+    it("tensor_replace emits mode=0 bit (absolute values)", () => {
+      // The mode bit follows shape dims in tensor_replace encoding.
+      // Verify the encoder produces mode=0 by checking round-trip is
+      // byte-exact with the pre-computed reference.
+      const base = { tensors: { w: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }
+      const upd  = { tensors: { w: { dtype: DTYPE.FP32, shape: [2], data: fp32([3, 4]) } } }
+      const delta = encodeDelta(base, upd)
+      // Round-trip: applying the delta must reproduce the update doc.
+      const result = applyDelta(base, delta)
+      assert.ok(arrEq(result.tensors.w.data, fp32([3, 4])), "mode=0 round-trip")
+    })
+
+    it("applyDelta handles tensor_replace mode=1 (delta-from-prior) for fp32", () => {
+      // Manually craft a delta payload with mode=1.
+      // base doc: { w: fp32([10.0, 20.0, 30.0]) }
+      // delta values: [0.5, -1.0, 2.5]
+      // expected result: [10.5, 19.0, 32.5]
+      const base = { tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: fp32([10, 20, 30]) } } }
+      // Build a delta by encoding a doc where data = delta values [0.5, -1.0, 2.5],
+      // then manually patch the mode bit from 0 to 1.
+      const fakeUpd = { tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: fp32([0.5, -1.0, 2.5]) } } }
+      // Encode a fake "replace w with [0.5, -1.0, 2.5]" delta (mode=0).
+      const deltaMode0 = encodeDelta(base, fakeUpd)
+      // The mode bit for tensor_replace sits immediately after the last shape
+      // dimension's LEB128. Flip it from 0 to 1 by finding and patching the bit.
+      // We use a small helper: decode the delta bit-stream to find mode bit position,
+      // then flip it.  To keep the test self-contained, use applyDelta internals
+      // via a round-about route: encode a wrapper that flips mode bit.
+      //
+      // Simpler approach: the mode bit is at a known relative position after the
+      // header. Since the delta bytes have changed, use a reference hex instead.
+      // Compute expected result values directly via the mode=1 semantic:
+      // new = base + delta_values  →  [10+0.5, 20+(-1), 30+2.5] = [10.5, 19, 32.5]
+      //
+      // Use manual bit manipulation: find the mode bit offset and flip it.
+      const d = new Uint8Array(deltaMode0)
+      // Bit layout: [1-bit delta] [LEB128 op_count=1]
+      //   [3-bit op=0 TENSOR_REPLACE] [short name_len=1] [8-bit 'w'=0x77]
+      //   [5-bit dtype=FP32=15] [short rank=1] [LEB128 dim=3]
+      //   [MODE BIT] [data 12 bytes]
+      // Walk the bits to find mode bit position.
+      let pos = 0
+      function readN(n) { let v = 0; for (let i=0;i<n;i++) { v=(v<<1)|((d[pos>>3]>>(7-(pos&7)))&1); pos++ } return v }
+      function readShort() { const p=readN(2); if(p===0) return readN(2); if(p===1) return readN(3); if(p===2) return readN(4); let r=0,s=0,b; do{b=readN(8);r+=(b&0x7f)*(2**s);s+=7}while(b&0x80); return r }
+      function readLeb() { let r=0,s=0,b; do{b=readN(8);r+=(b&0x7f)*(2**s);s+=7}while(b&0x80); return r }
+      readN(1) // delta bit
+      readLeb() // op count
+      readN(3) // op code
+      const nl = readShort() // name length
+      for (let i=0; i<nl; i++) readN(8) // name bytes
+      readN(5) // dtype
+      const rank = readShort()
+      for (let i=0; i<rank; i++) readLeb() // shape dims
+      // pos is now at the mode bit
+      const modeBitPos = pos
+      // Flip it from 0 to 1.
+      const byteIdx = modeBitPos >> 3
+      const bitOff  = 7 - (modeBitPos & 7)
+      const mode1Delta = new Uint8Array(d)
+      mode1Delta[byteIdx] |= (1 << bitOff)
+
+      const result = applyDelta(base, mode1Delta)
+      assert.ok(arrEq(result.tensors.w.data, fp32([10.5, 19, 32.5])),
+        `mode=1 result: expected [10.5,19,32.5] got ${Array.from(result.tensors.w.data)}`)
+    })
+
+    it("applyDelta handles tensor_replace mode=1 for int32 (wrapping addition)", () => {
+      const base = { tensors: { v: { dtype: DTYPE.INT32, shape: [3], data: new Int32Array([100, 200, 2147483647]) } } }
+      const deltaValues = new Int32Array([1, -50, 1])  // last wraps: MAX+1 = MIN
+      const fakeUpd = { tensors: { v: { dtype: DTYPE.INT32, shape: [3], data: deltaValues } } }
+      const deltaMode0 = encodeDelta(base, fakeUpd)
+      // Flip mode bit (same technique).
+      const d = new Uint8Array(deltaMode0)
+      let pos = 0
+      function readN(n) { let v = 0; for (let i=0;i<n;i++) { v=(v<<1)|((d[pos>>3]>>(7-(pos&7)))&1); pos++ } return v }
+      function readShort() { const p=readN(2); if(p===0) return readN(2); if(p===1) return readN(3); if(p===2) return readN(4); let r=0,s=0,b; do{b=readN(8);r+=(b&0x7f)*(2**s);s+=7}while(b&0x80); return r }
+      function readLeb() { let r=0,s=0,b; do{b=readN(8);r+=(b&0x7f)*(2**s);s+=7}while(b&0x80); return r }
+      readN(1); readLeb(); readN(3)
+      const nl = readShort(); for (let i=0; i<nl; i++) readN(8)
+      readN(5); const rank = readShort(); for (let i=0; i<rank; i++) readLeb()
+      const modeBitPos = pos
+      const mode1Delta = new Uint8Array(d)
+      mode1Delta[modeBitPos >> 3] |= 1 << (7 - (modeBitPos & 7))
+      const result = applyDelta(base, mode1Delta)
+      const got = Array.from(result.tensors.v.data)
+      assert.equal(got[0], 101, "100+1=101")
+      assert.equal(got[1], 150, "200-50=150")
+      assert.equal(got[2], -2147483648, "INT32_MAX+1 wraps to INT32_MIN")
+    })
+
     it("schemaful payload contains the schema hash at bytes 1-32 (bits 2-257)", () => {
       const schema = { w: { dtype: DTYPE.FP32, shape: [2] } }
       const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }

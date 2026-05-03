@@ -192,6 +192,24 @@ for (const path of walk(TENSOR_ROOT)) {
       } catch (e) {
         record(prefix, v.name, "exception: " + e.message)
       }
+    } else if (isDelta && v.delta_bytes_hex) {
+      // Raw-delta vector: apply a manually crafted delta (e.g. mode=1) directly
+      // to the initial doc, without going through the encoder.  Tests the decoder
+      // only.  Used for delta-from-prior (mode=1) vectors where the v0.1 encoder
+      // always emits mode=0.
+      try {
+        const initDoc      = parseTensorDoc(v.initial)
+        const deltaBytes   = new Uint8Array(v.delta_bytes_hex.match(/.{2}/g).map(h => parseInt(h, 16)))
+        const { applyDelta } = await import("../../sdk/src/profiles/tensor/index.js")
+        const result       = applyDelta(initDoc, deltaBytes)
+        const expectedFinal = parseTensorDoc(v.expected_final)
+        if (!tensorDocsEqual(result, expectedFinal)) {
+          record(prefix, v.name, "raw-delta decode mismatch"); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
     } else if (isDelta) {
       // Delta vector: build TensorPack chain, compare chain bytes, compare final state.
       try {

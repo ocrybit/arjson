@@ -509,6 +509,7 @@ export function encodeDelta(baseDoc, newDoc) {
       u.add_dc(op.dtype, DTYPE_BITS)
       short_dc(u, op.shape.length)
       for (const dim of op.shape) leb128_dc(u, dim)
+      if (op.op === OP.TENSOR_REPLACE) u.add_dc(0, 1)  // mode bit: 0 = absolute values
       emitDataBlock(u, op)
     } else if (op.op === OP.ELEMENT_SET) {
       emitName(u, op.name)
@@ -606,12 +607,22 @@ export function applyDelta(baseDoc, deltaBytes) {
       const rank = readShort()
       const shape = []
       for (let r = 0; r < rank; r++) shape.push(readLeb128())
+      // tensor_replace carries a mode bit; tensor_add does not (it has no base to diff against).
+      const modeBit = opCode === OP.TENSOR_REPLACE ? readBits(1) : 0
       const bc = dataBytes(dtype, shape)
       const dataU8 = new Uint8Array(bc)
       for (let j = 0; j < bc; j++) dataU8[j] = readBits(8)
       let total = 1
       for (const d of shape) total *= d
-      tensors[name] = { dtype, shape, data: materializeData(dtype, dataU8, total) }
+      if (modeBit === 0) {
+        tensors[name] = { dtype, shape, data: materializeData(dtype, dataU8, total) }
+      } else {
+        // mode=1: per-element arithmetic delta (new = base + delta)
+        if (!(name in tensors)) throw new Error(`tensor_replace mode=1 on unknown tensor '${name}'`)
+        const baseT = tensors[name]
+        const deltaData = materializeData(dtype, dataU8, total)
+        tensors[name] = { dtype, shape, data: addDeltaFromPrior(dtype, baseT.data, deltaData) }
+      }
 
     } else if (opCode === OP.ELEMENT_SET) {
       const nameLen = readShort()
@@ -762,6 +773,35 @@ function materializeData(dtype, dataU8, total) {
     }
     default:           return dataU8
   }
+}
+
+// ── delta-from-prior arithmetic ──────────────────────────────────────────────
+//
+// Applies a per-element arithmetic delta: result[i] = base[i] + delta[i].
+// Both base and deltaData must be typed arrays of the same dtype.
+// For fp16/bf16, both carry raw Uint16 bits; the arithmetic is done in f32.
+// For integer types, JS typed array assignment wraps correctly.
+// Bool tensors never use delta-from-prior (encoder always emits mode=0 for bool).
+function addDeltaFromPrior(dtype, base, deltaData) {
+  if (dtype === DTYPE.FP16) {
+    const baseF32  = fp16BitsToF32Array(base)
+    const deltaF32 = fp16BitsToF32Array(deltaData)
+    const result   = new Float32Array(base.length)
+    for (let i = 0; i < result.length; i++) result[i] = baseF32[i] + deltaF32[i]
+    return f32ArrayToFp16Bits(result)
+  }
+  if (dtype === DTYPE.BF16) {
+    const baseF32  = bf16BitsToF32Array(base)
+    const deltaF32 = bf16BitsToF32Array(deltaData)
+    const result   = new Float32Array(base.length)
+    for (let i = 0; i < result.length; i++) result[i] = baseF32[i] + deltaF32[i]
+    return f32ArrayToBf16Bits(result)
+  }
+  // All other typed arrays (fp32, fp64, int8/16/32, uint8/16/32, int64, uint64):
+  // slice() preserves the typed-array kind; assignment wraps at the correct width.
+  const result = base.slice()
+  for (let i = 0; i < result.length; i++) result[i] = base[i] + deltaData[i]
+  return result
 }
 
 // ── TensorPack high-level API ─────────────────────────────────────────────

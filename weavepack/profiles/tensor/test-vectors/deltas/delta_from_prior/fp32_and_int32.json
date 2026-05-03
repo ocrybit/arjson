@@ -1,0 +1,112 @@
+[
+  {
+    "name": "fp32 1D delta-from-prior",
+    "description": "tensor_replace mode=1: new[i] = base[i] + delta[i] for fp32",
+    "note": "delta_bytes_hex is a tensor_replace delta with mode bit = 1 (not produced by v0.1 encoder; tests decoder conformance)",
+    "initial": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            10,
+            20,
+            30
+          ]
+        }
+      }
+    },
+    "delta_bytes_hex": "8081777881c000000fc000202fc000081000",
+    "expected_final": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            10.5,
+            19,
+            32.5
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "int32 delta-from-prior",
+    "description": "tensor_replace mode=1: new[i] = base[i] + delta[i] for int32",
+    "note": "delta_bytes_hex is a tensor_replace delta with mode bit = 1 (not produced by v0.1 encoder; tests decoder conformance)",
+    "initial": {
+      "tensors": {
+        "v": {
+          "dtype": 7,
+          "shape": [
+            2
+          ],
+          "data": [
+            100,
+            200
+          ]
+        }
+      }
+    },
+    "delta_bytes_hex": "80817638814040000033bfffffc0",
+    "expected_final": {
+      "tensors": {
+        "v": {
+          "dtype": 7,
+          "shape": [
+            2
+          ],
+          "data": [
+            101,
+            150
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "fp32 2D matrix delta-from-prior (gradient-style)",
+    "description": "tensor_replace mode=1 on a 2x2 matrix: small per-element deltas typical of training updates",
+    "note": "delta_bytes_hex is a tensor_replace delta with mode bit = 1 (not produced by v0.1 encoder; tests decoder conformance)",
+    "initial": {
+      "tensors": {
+        "mat": {
+          "dtype": 15,
+          "shape": [
+            2,
+            2
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
+    },
+    "delta_bytes_hex": "80836d617479010142b5c8cf02b5e8ef23f0bd4f02b5c8ef40",
+    "expected_final": {
+      "tensors": {
+        "mat": {
+          "dtype": 15,
+          "shape": [
+            2,
+            2
+          ],
+          "data": [
+            1.0099999904632568,
+            1.9800000190734863,
+            3.0299999713897705,
+            3.9600000381469727
+          ]
+        }
+      }
+    }
+  }
+]
