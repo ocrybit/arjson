@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from weavepack_tensor import (
     decode_document,
     decode_document_schemaful,
+    apply_delta,
     schema_hash_hex,
     DTYPE,
     fp16_bits_to_f32,
@@ -38,6 +39,49 @@ def walk(d: Path):
             yield from walk(entry)
         elif entry.suffix == ".json":
             yield entry
+
+
+def parse_input(json_doc):
+    """Convert a JSON-corpus tensor doc into the Python decoder's
+    expected output shape (data as Python list with int64-string fixup)."""
+    out = {"tensors": {}}
+    for name, t in json_doc["tensors"].items():
+        data = list(t["data"])
+        if t["dtype"] in (DTYPE.INT64, DTYPE.UINT64):
+            data = [int(s) if isinstance(s, str) else s for s in data]
+        out["tensors"][name] = {"dtype": t["dtype"], "shape": list(t["shape"]), "data": data}
+    return out
+
+
+def parse_chain(chain_bytes):
+    """Split a leb128-length-prefixed chain into individual delta byte arrays."""
+    out = []
+    off = 0
+    while off < len(chain_bytes):
+        length = 0
+        shift = 0
+        while True:
+            b = chain_bytes[off]
+            off += 1
+            length |= (b & 0x7F) << shift
+            if not (b & 0x80):
+                break
+            shift += 7
+        out.append(chain_bytes[off:off + length])
+        off += length
+    return out
+
+
+def docs_equal(a, b):
+    if set(a["tensors"]) != set(b["tensors"]):
+        return False
+    for name in a["tensors"]:
+        ta, tb = a["tensors"][name], b["tensors"][name]
+        if ta["dtype"] != tb["dtype"] or ta["shape"] != tb["shape"]:
+            return False
+        if list(ta["data"]) != list(tb["data"]):
+            return False
+    return True
 
 
 def values_close(a, b, dtype):
@@ -64,8 +108,34 @@ for vec_file in walk(VECTORS):
     for v in vectors:
         name = v.get("name", "(unnamed)")
         if rel_str.startswith("deltas/"):
-            # Delta application not implemented in Python PoC.
-            skips += 1
+            # Delta vector format: initial + update + expected_chain_bytes_hex.
+            # Validate that applying the delta reaches the expected_final state.
+            try:
+                init_doc = parse_input(v["initial"])
+                # The chain_bytes_hex is initial bytes + leb128(len) + delta bytes.
+                # Easier: parse the chain frame structure ourselves.
+                chain_hex = v.get("expected_chain_bytes_hex", "")
+                if not chain_hex:
+                    skips += 1
+                    continue
+                chain = bytes.fromhex(chain_hex)
+                deltas = parse_chain(chain)
+                # First frame is the initial document (full encode).
+                doc = decode_document(deltas[0])
+                # Apply each subsequent delta.
+                for d_bytes in deltas[1:]:
+                    doc = apply_delta(doc, d_bytes)
+                expected = parse_input(v["expected_final"])
+                if not docs_equal(doc, expected):
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: final state mismatch")
+                    continue
+                passes += 1
+            except NotImplementedError:
+                skips += 1
+            except Exception as e:
+                fails += 1
+                failures.append(f"{rel_str} :: {name}: exception: {e}")
             continue
         if rel_str.startswith("schemas/"):
             # Schemaful decoding implemented; verify here.

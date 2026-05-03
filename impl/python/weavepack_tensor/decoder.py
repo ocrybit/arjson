@@ -221,6 +221,84 @@ def decode_document_schemaful(data: bytes, schemas: dict) -> dict:
 
 # ── fp16/bf16 helpers (no numpy required) ───────────────────────────
 
+# ── delta application ────────────────────────────────────────────────
+
+class OP:
+    TENSOR_REPLACE = 0
+    TENSOR_ADD = 1
+    TENSOR_REMOVE = 2
+    REGION_REPLACE = 3
+    ELEMENT_SET = 4
+    QUANT_CHANGE = 5
+
+
+def apply_delta(base_doc: dict, delta_bytes: bytes) -> dict:
+    """Apply a tensor delta payload to a base document.
+
+    Implements the wire format from
+    weavepack/profiles/tensor/04-deltas.md. v0.0.1 supports
+    TENSOR_REPLACE, TENSOR_ADD, TENSOR_REMOVE, ELEMENT_SET.
+    REGION_REPLACE and QUANT_CHANGE raise NotImplementedError.
+    """
+    r = _BitReader(delta_bytes)
+    type_bit = r.read_bits(1)
+    if type_bit != 1:
+        raise ValueError("not a delta payload (type bit = 0)")
+    op_count = r.read_leb128()
+    tensors = dict(base_doc.get("tensors", {}))
+
+    for _ in range(op_count):
+        op_code = r.read_bits(3)
+
+        if op_code == OP.TENSOR_REMOVE:
+            name_len = r.read_short()
+            name = bytes(r.read_byte() for _ in range(name_len)).decode("utf-8")
+            tensors.pop(name, None)
+
+        elif op_code in (OP.TENSOR_REPLACE, OP.TENSOR_ADD):
+            name_len = r.read_short()
+            name = bytes(r.read_byte() for _ in range(name_len)).decode("utf-8")
+            dtype = r.read_bits(5)
+            rank = r.read_short()
+            shape = [r.read_leb128() for _ in range(rank)]
+            nbytes = _data_bytes(dtype, shape)
+            raw = bytes(r.read_byte() for _ in range(nbytes))
+            total = 1
+            for d in shape:
+                total *= d
+            tensors[name] = {
+                "dtype": dtype, "shape": shape,
+                "data": _materialize(dtype, raw, total),
+            }
+
+        elif op_code == OP.ELEMENT_SET:
+            name_len = r.read_short()
+            name = bytes(r.read_byte() for _ in range(name_len)).decode("utf-8")
+            dtype = r.read_bits(5)
+            rank = r.read_short()
+            shape = [r.read_leb128() for _ in range(rank)]
+            elem_count = r.read_leb128()
+            if name not in tensors:
+                raise KeyError(f"element_set on unknown tensor {name}")
+            base_data = list(tensors[name]["data"])
+            value_bytes = (_DTYPE_BITS[dtype] + 7) // 8
+            for _ in range(elem_count):
+                idx = [r.read_leb128() for _ in range(rank)]
+                eb = bytes(r.read_byte() for _ in range(value_bytes))
+                value = _materialize(dtype, eb, 1)[0]
+                # Convert multi-dim index to flat (row-major).
+                flat = 0
+                for r2 in range(rank):
+                    flat = flat * shape[r2] + idx[r2]
+                base_data[flat] = value
+            tensors[name] = {"dtype": dtype, "shape": shape, "data": base_data}
+
+        else:
+            raise NotImplementedError(f"op {op_code} not in v0.0.1")
+
+    return {"tensors": tensors}
+
+
 def fp16_bits_to_f32(raw: int) -> float:
     """IEEE 754 binary16 → f32. RFC 0001 reference algorithm."""
     raw &= 0xFFFF

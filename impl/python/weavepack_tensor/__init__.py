@@ -11,9 +11,11 @@ returns raw u16 bits and provides helpers to convert.
 from .decoder import (
     decode_document,
     decode_document_schemaful,
+    apply_delta,
     schema_hash,
     schema_hash_hex,
     DTYPE,
+    OP,
     fp16_bits_to_f32,
     bf16_bits_to_f32,
 )
@@ -21,9 +23,11 @@ from .decoder import (
 __all__ = [
     "decode_document",
     "decode_document_schemaful",
+    "apply_delta",
     "schema_hash",
     "schema_hash_hex",
     "DTYPE",
+    "OP",
     "fp16_bits_to_f32",
     "bf16_bits_to_f32",
 ]
