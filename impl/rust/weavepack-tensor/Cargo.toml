@@ -9,6 +9,7 @@ license = "MIT"
 sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+half = "2"
 
 [dev-dependencies]
 hex = "0.4"

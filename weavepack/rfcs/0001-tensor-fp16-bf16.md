@@ -1,6 +1,6 @@
 # RFC 0001 — fp16 and bf16 dtype support in weavepack-tensor
 
-**Status:** Discussion (JS reference impl landed; awaiting Rust impl + 2-week minimum)
+**Status:** Discussion (JS + Rust reference impls landed; awaiting 2-week minimum + integration with tensor encode/decode pipelines + test vectors)
 **Author(s):** Claude / arjson maintainers (TBD)
 **Created:** 2026-05-03
 **Affects:** weavepack-tensor profile

@@ -7,6 +7,7 @@ pub mod bits;
 pub mod decode;
 pub mod delta;
 pub mod encode;
+pub mod half_dtype;
 pub mod schema;
 pub mod types;
 
