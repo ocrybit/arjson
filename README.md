@@ -2,6 +2,9 @@
 
 ![](./assets/arjson.png)
 
+[![weavepack-json L3](./weavepack/badges/json/L3.svg)](./weavepack/governance/04-conformance-certification.md)
+[![weavepack-tensor L3](./weavepack/badges/tensor/L3.svg)](./weavepack/governance/04-conformance-certification.md)
+
 > **What's new:** ARJSON is now the JSON-specific profile of
 > [Weavepack](./WEAVEPACK.md), a universal structural-data compression
 > and update protocol. The same machinery now also has profiles for
