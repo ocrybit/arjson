@@ -51,13 +51,19 @@ Node versions.
 
 ## Coverage notes
 
-The current property suite covers:
+The current property suite covers (14 algebraic properties total,
+~2000 cases per run):
 
 - Round-trip across primitive/object/array/any/deep cases (1100 cases per run)
 - Delta correctness for random pairs, self-deltas, and chained updates
   (400 cases per run)
 - Composition: chained vs direct paths to final state (200 cases per run)
 - Idempotence: identity updates produce no extra payloads (200 cases per run)
+- Chain prefix-framing: any byte-prefix of a chain is itself a valid
+  parseable chain that re-emits identically (100 cases per run)
+- Validator/encoder consistency: `ARJSON.validate` accepts every chain
+  produced by the encoder, regardless of update sequence (100 cases
+  per run)
 
 NOT covered (deferred):
 
