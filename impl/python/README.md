@@ -74,7 +74,7 @@ restored = decode_document(payload)
 ### Chain helpers
 
 ```python
-from weavepack_tensor import parse_chain, serialize_chain
+from weavepack_tensor import parse_chain, serialize_chain, validate_chain
 
 # Split a multi-payload chain (anchor + deltas) into individual payloads.
 payloads = parse_chain(chain_bytes)
@@ -83,12 +83,21 @@ payloads = parse_chain(chain_bytes)
 # this is what lets a consumer reconstruct version N by reading only
 # the prefix up to that payload — no need to load the full chain.
 prefix_bytes = serialize_chain(payloads[:n + 1])
+
+# Reject malformed chains before passing to a decoder. Catches the
+# "two encoder outputs concatenated" anti-pattern (see
+# weavepack/TROUBLESHOOTING.md "Decoded JSON doesn't match either
+# input state"). Raises ValueError with a diagnostic identifying
+# the offending payload index.
+validate_chain(chain_bytes)
 ```
 
 These helpers also exist in the Rust core crate
-(`weavepack_core::chain::{chain_parse, chain_serialize}`) and the
-PyO3 wheel (`weavepack_tensor_rs.parse_chain` /
-`.serialize_chain`). All three are byte-equivalent.
+(`weavepack_core::chain::{chain_parse, chain_serialize, chain_validate}`),
+the JS reference (`ARJSON.fromBuffer`, `.toBuffer`, `.validate`), and
+the PyO3 wheel (`weavepack_tensor_rs.parse_chain` / `.serialize_chain`;
+chain_validate not yet exposed). The byte-level checks are identical
+across all three implementations.
 
 See [`weavepack/profiles/tensor/examples/chain-partial-restore.py`](../../weavepack/profiles/tensor/examples/chain-partial-restore.py)
 for a worked example.
