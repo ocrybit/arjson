@@ -76,14 +76,22 @@ fn json_eq(a: &Value, b: &Value) -> bool {
 // ── test runner ───────────────────────────────────────────────────────────────
 
 struct Runner {
-    pass:     usize,
-    fail:     usize,
-    failures: Vec<String>,
+    pass:           usize,
+    fail:           usize,
+    encode_passes:  usize,
+    encode_skips:   usize,
+    failures:       Vec<String>,
 }
 
 impl Runner {
     fn new() -> Self {
-        Self { pass: 0, fail: 0, failures: Vec::new() }
+        Self {
+            pass: 0,
+            fail: 0,
+            encode_passes: 0,
+            encode_skips: 0,
+            failures: Vec::new(),
+        }
     }
 
     fn ok(&mut self) {
@@ -132,18 +140,23 @@ impl Runner {
         }
 
         // Encoder check (Level 3): re-encode `input` and verify byte-exact
-        // match with expected_bytes_hex. Only runs when the encoder
-        // accepts the input — non-empty containers return Err and we
-        // simply skip those (decoder already verified the round-trip).
-        if let Ok(re_encoded) = encode(&v["input"]) {
-            let re_hex = to_hex(&re_encoded);
-            if re_hex != hex {
-                return self.err(
-                    &full,
-                    &format!(
-                        "encode mismatch\n    expected: {hex}\n    actual:   {re_hex}"
-                    ),
-                );
+        // match with expected_bytes_hex. Encoder declines non-empty
+        // containers (Err) — decoder verified the round-trip already.
+        match encode(&v["input"]) {
+            Ok(re_encoded) => {
+                let re_hex = to_hex(&re_encoded);
+                if re_hex != hex {
+                    return self.err(
+                        &full,
+                        &format!(
+                            "encode mismatch\n    expected: {hex}\n    actual:   {re_hex}"
+                        ),
+                    );
+                }
+                self.encode_passes += 1;
+            }
+            Err(_) => {
+                self.encode_skips += 1;
             }
         }
         self.ok();
@@ -265,6 +278,12 @@ fn main() {
 
     println!("Pass: {}", runner.pass);
     println!("Fail: {}", runner.fail);
+    println!(
+        "  encoder verified byte-exact for {} of {} vectors ({} non-empty containers skipped)",
+        runner.encode_passes,
+        runner.encode_passes + runner.encode_skips,
+        runner.encode_skips,
+    );
 
     if !runner.failures.is_empty() {
         println!("\nFailures:");
