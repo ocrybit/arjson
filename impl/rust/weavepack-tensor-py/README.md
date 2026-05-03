@@ -52,8 +52,8 @@ cd impl/rust/weavepack-tensor-py
 python3 test_conformance.py
 ```
 
-Should report `Pass: 55, Fail: 0` (matches Rust + JS for the tensor
-corpus).
+Should report `Pass: 58, Fail: 0` (matches Rust + JS for the
+tensor corpus, including the 3 delta-from-prior vectors).
 
 ## Two Python paths — when to use which
 
@@ -74,10 +74,10 @@ This binding is one of three implementations that pass the
 weavepack tensor corpus byte-exact:
 
 ```
-JS reference     pass=55
-Rust crate       pass=55
-PyO3 binding     pass=55
-Pure-Python PoC  pass=55
+JS reference     pass=58
+Rust crate       pass=58
+PyO3 binding     pass=58
+Pure-Python PoC  pass=58
 ```
 
 (Pure-Python decoder uses the same corpus, but verifies decode

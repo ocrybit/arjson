@@ -10,9 +10,11 @@ conformance against the JS reference.
 ## Status
 
 - **Decoder**: ✓ 93/93 conformance vectors pass byte-exact
-- **Encoder**: pending (V0.2-PLANNING.md item D.1)
-- Profile boundary: imports nothing from weavepack-tensor or any
-  other profile
+- **Encoder**: ✓ single-payload subset (37/68 vectors verified
+  byte-exact). Non-empty container encoding pending — V0.2-PLANNING.md
+  D.1 follow-up.
+- Profile boundary: imports nothing from weavepack-tensor; uses
+  weavepack-core for shared bit primitives
 
 ## Usage
 
