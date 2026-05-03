@@ -13,7 +13,7 @@ No external dependencies; targets Python 3.10+.
   (containers, deltas, strmap dedup) deferred — see V0.2-PLANNING.md
   item D.2.
 - **weavepack-tensor**: full encoder + decoder + delta application at
-  Level 3 (byte-exact). 55/55 corpus vectors pass. Schemaless +
+  Level 3 (byte-exact). 58/58 corpus vectors pass. Schemaless +
   schemaful + 5 delta ops (tensor_replace, tensor_add, tensor_remove,
   element_set, region_replace).
 
@@ -106,9 +106,10 @@ for a worked example.
 ## Conformance
 
 ```bash
-python3 impl/python/conformance.py          # weavepack-json (37 vectors)
-python3 impl/python/conformance_tensor.py   # weavepack-tensor (55 vectors)
-python3 -m unittest impl.python.test_chain  # chain framing (5 tests)
+python3 impl/python/conformance.py              # weavepack-json (37 vectors)
+python3 impl/python/conformance_tensor.py       # weavepack-tensor (58 vectors)
+python3 -m unittest impl.python.test_chain      # chain framing (9 tests)
+python3 impl/python/test_delta_from_prior.py    # delta-from-prior (8 tests)
 ```
 
 Or run the full cross-language check:
