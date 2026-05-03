@@ -638,6 +638,23 @@ mod tests {
     }
 
     #[test]
+    fn encode_apply_round_trip_int32() {
+        use crate::types::DTYPE_INT32;
+        // Round-trip integer tensor through encode_delta + apply_delta.
+        let base_data: Vec<u8> = (1i32..=4).flat_map(|v| v.to_le_bytes()).collect();
+        let new_data: Vec<u8> = (10i32..=40).step_by(10).flat_map(|v| v.to_le_bytes()).collect();
+        let base = vec![("m".to_string(), TensorData {
+            dtype: DTYPE_INT32, shape: vec![4], data: base_data,
+        })];
+        let new = vec![("m".to_string(), TensorData {
+            dtype: DTYPE_INT32, shape: vec![4], data: new_data,
+        })];
+        let delta = encode_delta(&base, &new).expect("delta should not be empty");
+        let result = apply_delta(&base, &delta).expect("apply should succeed");
+        assert_eq!(result, new);
+    }
+
+    #[test]
     fn encode_apply_round_trip_tensor_replace() {
         // Full round-trip: encoder builds a TENSOR_REPLACE delta (mode=0
         // is the only mode the encoder emits today), decoder applies
