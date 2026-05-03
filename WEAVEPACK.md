@@ -34,16 +34,18 @@ which no shipping format provides.
 | 2. weavepack-core spec (10 docs) | ✓ |
 | 3. JS implementation refactored to protocol/profile boundary | ✓ |
 | 4. Property-based testing (12 properties, ~1700 cases per run) | ✓ |
-| 5. Tensor profile shipped (spec, impl, 31 vectors, benchmarks) | ✓ |
-| 6.1. Rust tensor reference impl | ✓ (31/31 vectors byte-exact) |
+| 5. Tensor profile shipped (spec, impl, 39 vectors, benchmarks) | ✓ |
+| 6.1. Rust tensor reference impl | ✓ (39/39 vectors byte-exact) |
 | 6.2. Rust JSON reference impl | ✓ (93/93 vectors decode) |
-| 6.3. Rust core crate (shared primitives) | pending |
+| 6.3. Rust core crate (shared primitives) | ✓ |
 | 6.4. Python bindings (PyO3) | pending |
 | 7. Governance prose (7 docs) | ✓ |
-| 7. Operational governance (registry maintainer, RFC 0001, badges) | pending |
+| 7. Operational governance: RFC process | ✓ (RFC 0001 in Discussion) |
+| 7. Operational governance: registry maintainer, badges | pending |
 
-Plus a pure-Python proof-of-concept decoder validating the spec is
-implementable from prose alone.
+Plus a pure-Python proof-of-concept implementation covering both
+profiles end-to-end (decode + delta application), validating the
+spec is implementable from prose alone.
 
 ## Headline numbers
 
@@ -52,6 +54,9 @@ implementable from prose alone.
   `weavepack/profiles/tensor/07-benchmarks.md`).
 - **Tensor snapshot size**: within 2% of safetensors for full
   checkpoints.
+- **Cross-language conformance**: **339 vectors agree across 3
+  languages** (JS / Rust / Python), 0 failures. Run
+  `weavepack/tools/cross-language-check.sh` to verify on your machine.
 - **JSON conformance**: 93 byte-exact test vectors, 12 algebraic-law
   property tests over ~1700 random cases per run, all passing.
 - **Cross-language**: 3 implementations (JS reference, Rust, Python
