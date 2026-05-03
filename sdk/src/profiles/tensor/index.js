@@ -339,6 +339,25 @@ export function decodeDocumentSchemaful(bytes, registry) {
 // Updated from pre-5.5 format ([0][1][leb128...]) to use bit 0 = 1 (delta).
 
 const ELEMENT_SET_DENSITY_THRESHOLD = 0.3
+// V0.2 A.3 — emit tensor_replace mode=1 (delta-from-prior) when the
+// max absolute per-element delta is below this threshold. Empirically
+// (see examples/delta-from-prior-mode-bit.js) mode=1 + brotli is 1.6×
+// smaller than mode=0 + brotli at ±0.0001 noise, 1.36× at ±0.001,
+// 1.13× at ±0.01, ~1.0× above. Below the threshold the win is
+// material; above it, mode=0 is fine and avoids encoder overhead.
+// fp32/fp64 only; integer dtypes always use mode=0.
+const DELTA_FROM_PRIOR_MAX_DELTA = 0.01
+
+function maxAbsDelta(baseT, newT) {
+  if (baseT.dtype !== DTYPE.FP32 && baseT.dtype !== DTYPE.FP64) return Infinity
+  let max = 0
+  const bd = baseT.data, nd = newT.data
+  for (let i = 0; i < bd.length; i++) {
+    const d = Math.abs(nd[i] - bd[i])
+    if (d > max) max = d
+  }
+  return max
+}
 
 function shapesEqual(a, b) {
   if (a.length !== b.length) return false
@@ -431,7 +450,18 @@ function computeDelta(baseDoc, newDoc) {
         })
       }
     } else {
-      ops.push({ op: OP.TENSOR_REPLACE, name, ...newT })
+      // Dense update: TENSOR_REPLACE. Choose mode=1 (delta-from-prior)
+      // if the max abs delta is small enough that brotli will exploit
+      // the leading-zero structure of the deltas.
+      const maxD = maxAbsDelta(baseT, newT)
+      if (maxD <= DELTA_FROM_PRIOR_MAX_DELTA && maxD > 0) {
+        const Ctor = baseT.data.constructor
+        const deltaData = new Ctor(baseT.data.length)
+        for (let i = 0; i < baseT.data.length; i++) deltaData[i] = newT.data[i] - baseT.data[i]
+        ops.push({ op: OP.TENSOR_REPLACE, name, ...newT, mode: 1, deltaData })
+      } else {
+        ops.push({ op: OP.TENSOR_REPLACE, name, ...newT })
+      }
     }
   }
 
@@ -509,8 +539,13 @@ export function encodeDelta(baseDoc, newDoc) {
       u.add_dc(op.dtype, DTYPE_BITS)
       short_dc(u, op.shape.length)
       for (const dim of op.shape) leb128_dc(u, dim)
-      if (op.op === OP.TENSOR_REPLACE) u.add_dc(0, 1)  // mode bit: 0 = absolute values
-      emitDataBlock(u, op)
+      if (op.op === OP.TENSOR_REPLACE) {
+        // mode bit: 0 = absolute values, 1 = per-element delta-from-prior.
+        u.add_dc(op.mode || 0, 1)
+        emitDataBlock(u, op.mode === 1 ? { ...op, data: op.deltaData } : op)
+      } else {
+        emitDataBlock(u, op)
+      }
     } else if (op.op === OP.ELEMENT_SET) {
       emitName(u, op.name)
       u.add_dc(op.dtype, DTYPE_BITS)
