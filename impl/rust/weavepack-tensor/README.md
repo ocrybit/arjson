@@ -3,18 +3,22 @@
 [![weavepack-tensor L3](../../../weavepack/badges/tensor/L3.svg)](../../../weavepack/governance/04-conformance-certification.md)
 
 Production-grade Rust implementation of the weavepack-tensor
-profile. Full encoder + decoder + delta application; passes 55/55
-conformance vectors byte-exact against the JS reference.
+profile. Full encoder + decoder + delta application; passes 58/58
+conformance vectors byte-exact against the JS reference, including
+delta-from-prior decoder support (V0.2 A.3).
 
 ## Status
 
 - **Encoder**: ✓ schemaless + schemaful documents; tensor_replace,
   tensor_add, tensor_remove, element_set, region_replace deltas
-- **Decoder**: ✓ same coverage
-- **Conformance**: 55/55 vectors (39 tensor + 16 fp16/bf16 from
-  RFC 0001) pass byte-exact
-- **Profile boundary**: imports nothing from weavepack-json or any
-  other profile
+  (encoder always emits mode=0 for tensor_replace; mode=1 emit
+  heuristic pending — V0.2 A.3 follow-up)
+- **Decoder**: ✓ same coverage + tensor_replace mode=1
+  delta-from-prior arithmetic
+- **Conformance**: 58/58 vectors (39 tensor + 16 fp16/bf16 from
+  RFC 0001 + 3 delta-from-prior) pass byte-exact
+- **Profile boundary**: imports nothing from weavepack-json; uses
+  weavepack-core for shared bit primitives + chain framing
 
 ## Usage
 
@@ -61,7 +65,7 @@ cd impl/rust
 cargo run -p weavepack-tensor --bin conformance
 ```
 
-Should report `Pass: 55, Fail: 0`.
+Should report `Pass: 58, Fail: 0`.
 
 ## Architecture
 
