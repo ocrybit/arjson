@@ -121,6 +121,9 @@ Fix: replay the chain from the anchor; never skip deltas.
 
 ## Decoded JSON doesn't match either input state (silent corruption)
 
+Also: `payload 1: standalone anchor (mode bit = 1) past position 0`
+from `ARJSON.validate` / `chain_validate` / `validate_chain`.
+
 Symptom: you concatenate two encoder outputs into one chain
 buffer, decode, and get junk that's neither input.
 
@@ -142,6 +145,22 @@ Fix: store each chain blob independently. Snapshot
 snapshot is its own self-contained chain. To know when re-anchor
 happened, check `arj.deltas.length` after each `update()` —
 re-anchor reduces it to 1.
+
+To pre-empt this on chain bytes you didn't produce yourself, run
+the validator before passing to a decoder:
+
+```js
+ARJSON.validate(buf)         // throws on malformed
+```
+
+```python
+from weavepack_tensor import validate_chain
+validate_chain(buf)          # raises ValueError on malformed
+```
+
+```rust
+weavepack_core::chain::chain_validate(&buf)?;  // Result<(), String>
+```
 
 See `weavepack/core/05-deltas.md` §"Encoder buffer policy on
 re-anchor" for the protocol-level rule.
