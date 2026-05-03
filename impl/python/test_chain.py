@@ -3,7 +3,7 @@
 import json
 import os
 import unittest
-from weavepack_tensor import parse_chain, serialize_chain
+from weavepack_tensor import parse_chain, serialize_chain, validate_chain
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TENSOR_DELTAS_DIR = os.path.join(REPO_ROOT, "weavepack", "profiles", "tensor", "test-vectors", "deltas")
@@ -51,6 +51,27 @@ class ChainTests(unittest.TestCase):
         for cut in range(1, len(payloads) + 1):
             prefix_buf = serialize_chain(parsed[:cut])
             self.assertEqual(parse_chain(prefix_buf), payloads[:cut])
+
+    def test_validate_accepts_well_formed(self):
+        # Single anchor (mode bit 1).
+        self.assertIsNone(validate_chain(serialize_chain([b"\xea"])))
+        # Structured anchor + structured deltas (mode bit 0).
+        self.assertIsNone(validate_chain(serialize_chain([
+            b"\x0a\xff", b"\x0a\x42", b"\x0a\x99",
+        ])))
+
+    def test_validate_rejects_anchor_past_position_zero(self):
+        malformed = serialize_chain([b"\xea", b"\xeb"])
+        with self.assertRaises(ValueError) as cm:
+            validate_chain(malformed)
+        self.assertIn("standalone anchor", str(cm.exception))
+        self.assertIn("payload 1", str(cm.exception))
+
+    def test_validate_rejects_zero_length_mid_chain(self):
+        malformed = serialize_chain([b"\x0a\xff", b""])
+        with self.assertRaises(ValueError) as cm:
+            validate_chain(malformed)
+        self.assertIn("zero-length", str(cm.exception))
 
     def test_real_fixture_chains_round_trip(self):
         """Cross-language equivalence: Python parses and re-serializes

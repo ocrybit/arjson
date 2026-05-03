@@ -26,6 +26,7 @@ from .encoder import (
 from .chain import (
     parse_chain,
     serialize_chain,
+    validate_chain,
 )
 
 __all__ = [
@@ -38,6 +39,7 @@ __all__ = [
     "schema_hash_hex",
     "parse_chain",
     "serialize_chain",
+    "validate_chain",
     "DTYPE",
     "OP",
     "fp16_bits_to_f32",

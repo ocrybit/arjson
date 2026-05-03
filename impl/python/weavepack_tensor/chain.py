@@ -52,3 +52,30 @@ def serialize_chain(payloads):
         out.append(length)
         out.extend(p)
     return bytes(out)
+
+
+def validate_chain(chain_bytes):
+    """Validate that a chain conforms to "single anchor + deltas".
+
+    Returns None on success, raises ValueError with a diagnostic on
+    a malformed chain. The first payload may be in any mode;
+    subsequent payloads must be structured (first bit = 0). A
+    standalone anchor (first bit = 1) past position 0 indicates
+    multiple encoder outputs were concatenated, which is malformed
+    (receivers will either crash or silently corrupt).
+
+    See weavepack/core/05-deltas.md §"Encoder buffer policy on
+    re-anchor".
+    """
+    payloads = parse_chain(chain_bytes)
+    for i, p in enumerate(payloads[1:], start=1):
+        if len(p) == 0:
+            raise ValueError(f"payload {i}: zero-length payload mid-chain")
+        # Mode bit is the MSB of the first byte (MSB-first bit packing).
+        if (p[0] >> 7) & 1 == 1:
+            raise ValueError(
+                f"payload {i}: standalone anchor (mode bit = 1) past position 0; "
+                f"chain is malformed (multiple anchors). "
+                f'See weavepack/core/05-deltas.md §"Encoder buffer policy on re-anchor".'
+            )
+    return None
