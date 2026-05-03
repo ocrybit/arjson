@@ -229,8 +229,11 @@ pub fn encode_delta(
                 w.write_bits(OP_TENSOR_REPLACE as u32, OP_BITS);
                 write_name(&mut w, name);
                 write_tensor_body_header(&mut w, t);
-                // mode bit: 0 = absolute values (encoder always emits 0;
-                // mode=1 delta-from-prior is decoder-only for now).
+                // mode bit: 0 = absolute values. The Rust encoder always
+                // emits 0; the JS reference ships a mode=1 heuristic
+                // (max abs delta ≤ 0.01 → emit delta-from-prior).
+                // Porting that heuristic to Rust is V0.2 A.3 follow-up.
+                // The Rust decoder DOES handle mode=1 chains from JS.
                 w.write_bits(0, 1);
                 write_tensor_body_data(&mut w, t);
             }
