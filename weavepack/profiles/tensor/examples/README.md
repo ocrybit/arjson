@@ -51,12 +51,38 @@ Comparison:
   Saving:                                          7.3× smaller
 ```
 
+## sensor-grid-stream.js
+
+Time-series sensor data: a 32×32 fp32 temperature grid sampled
+60 times (1/min for an hour) where only cells near a moving
+"heat source" change between timesteps. Demonstrates USE-CASES
+scenario 6 (time-series tensor data).
+
+```bash
+node weavepack/profiles/tensor/examples/sensor-grid-stream.js
+```
+
+Sample output:
+```
+Storage:
+  Anchor (initial encode):    4108 bytes
+  Total delta cost:           9544 bytes
+  Average delta size:         159 bytes/step
+  Final chain:                13652 bytes
+
+Comparison:
+  safetensors-style (1 snapshot per step): 249856 bytes
+  weavepack chain:                         13652 bytes
+  Saving:                                  18× smaller
+```
+
 ## Summary of measured wins
 
 | Scenario | Workload | Saving vs safetensors |
 |---|---|---|
 | Periodic checkpoints | 100 training steps, 2% sparsity | **30×** smaller |
 | Variant collection | 10 variants × 5% sparsity | **7.3×** smaller |
+| Time-series sensor stream | 60 timesteps, 2.8% per-step changes | **18×** smaller |
 
 These numbers are hardware-independent (byte counts, not timings)
 and reproducible: any consumer running these scripts will get the
