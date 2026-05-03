@@ -244,6 +244,68 @@ describe("weavepack-tensor v0.1 (fp32, schemaless, no deltas)", () => {
       const restored = new TensorPack({ arj: buf })
       assert.ok(arrEq(restored.json.tensors.x.data, fp32([1, 2, 3])))
     })
+
+    // Per-payload addressability: any prefix of a chain is itself a valid
+    // chain that decodes to its corresponding intermediate state. Mirrors
+    // the same guarantee for the JSON profile (interface-lock test
+    // "any chain prefix decodes to its corresponding intermediate state").
+    // Inline length-prefix parsing here so the test doesn't depend on
+    // chainParse being exported.
+    it("any chain prefix decodes to the corresponding intermediate state", () => {
+      const versions = [
+        fp32([1, 2, 3]),
+        fp32([1, 99, 3]),
+        fp32([7, 99, 3]),
+        fp32([7, 99, 42]),
+      ]
+      const pack = new TensorPack({
+        json: { tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: versions[0] } } }
+      })
+      for (let i = 1; i < versions.length; i++) {
+        pack.update({ tensors: { w: { dtype: DTYPE.FP32, shape: [3], data: versions[i] } } })
+      }
+      const fullBuf = pack.toBuffer()
+
+      // Parse out individual length-prefixed payloads.
+      const payloads = []
+      let off = 0
+      while (off < fullBuf.length) {
+        let len = 0, shift = 0, byte
+        do { byte = fullBuf[off++]; len += (byte & 0x7f) * Math.pow(2, shift); shift += 7 } while (byte & 0x80)
+        payloads.push(fullBuf.slice(off, off + len)); off += len
+      }
+      assert.equal(payloads.length, versions.length)
+
+      // Re-emit any prefix and verify it restores to the right version.
+      function emitPrefix(prefix) {
+        let total = 0
+        const lens = []
+        for (const p of prefix) {
+          const lb = []
+          let len = p.length
+          while (len >= 128) { lb.push((len & 0x7f) | 0x80); len = Math.floor(len / 128) }
+          lb.push(len)
+          lens.push(lb)
+          total += lb.length + p.length
+        }
+        const out = new Uint8Array(total)
+        let o = 0
+        for (let i = 0; i < prefix.length; i++) {
+          for (const b of lens[i]) out[o++] = b
+          out.set(prefix[i], o); o += prefix[i].length
+        }
+        return out
+      }
+
+      for (let cut = 1; cut <= versions.length; cut++) {
+        const prefixBuf = emitPrefix(payloads.slice(0, cut))
+        const restored = new TensorPack({ arj: prefixBuf })
+        assert.ok(
+          arrEq(restored.json.tensors.w.data, versions[cut - 1]),
+          `prefix of ${cut} payloads should restore to versions[${cut - 1}]`
+        )
+      }
+    })
   })
 
   describe("delta operations (Phase 5.4)", () => {

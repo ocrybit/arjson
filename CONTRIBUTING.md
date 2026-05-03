@@ -54,7 +54,7 @@ arjson/
 ```bash
 cd sdk
 npm install
-npm test                 # 2180 sdk tests
+npm test                 # 2181 sdk tests
 npm run properties       # ~1700 property-based cases
 ```
 
