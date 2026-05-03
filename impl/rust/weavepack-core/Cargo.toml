@@ -1,0 +1,6 @@
+[package]
+name = "weavepack-core"
+version = "0.1.0"
+edition = "2021"
+description = "weavepack-core — profile-agnostic bit primitives for the weavepack protocol"
+license = "MIT"

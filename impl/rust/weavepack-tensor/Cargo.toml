@@ -6,6 +6,7 @@ description = "weavepack-tensor profile — Rust reference implementation"
 license = "MIT"
 
 [dependencies]
+weavepack-core = { path = "../weavepack-core" }
 sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

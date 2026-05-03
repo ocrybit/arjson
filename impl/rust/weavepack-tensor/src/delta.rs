@@ -206,12 +206,11 @@ pub fn apply_delta(
 ) -> Result<Vec<(String, TensorData)>, String> {
     let mut r = BitReader::new(delta);
 
-    let kind = r.read_bits(1);
-    if kind != 1 {
+    if r.read(1)? != 1 {
         return Err("expected delta (bit 0 = 1), got document (bit 0 = 0)".into());
     }
 
-    let op_count = r.read_leb128() as usize;
+    let op_count = r.leb128()? as usize;
     // Use a Vec of Option to allow in-place removal while preserving order.
     let mut tensors: Vec<Option<(String, TensorData)>> =
         base.iter().cloned().map(Some).collect();
@@ -223,7 +222,7 @@ pub fn apply_delta(
         }).collect();
 
     for _ in 0..op_count {
-        let op_code = r.read_bits(OP_BITS) as u8;
+        let op_code = r.read(OP_BITS as usize)? as u8;
 
         if op_code == OP_TENSOR_REMOVE {
             let name = read_name(&mut r)?;
@@ -242,13 +241,13 @@ pub fn apply_delta(
             }
         } else if op_code == OP_ELEMENT_SET {
             let name = read_name(&mut r)?;
-            let dtype = r.read_bits(DTYPE_BITS) as u8;
-            let rank = r.read_short() as usize;
+            let dtype = r.read(DTYPE_BITS as usize)? as u8;
+            let rank = r.short()? as usize;
             let mut shape = Vec::with_capacity(rank);
             for _ in 0..rank {
-                shape.push(r.read_leb128());
+                shape.push(r.leb128()?);
             }
-            let elem_count = r.read_leb128() as usize;
+            let elem_count = r.leb128()? as usize;
 
             let idx = *name_to_idx
                 .get(&name)
@@ -262,12 +261,12 @@ pub fn apply_delta(
             for _ in 0..elem_count {
                 let mut flat = 0usize;
                 for &dim in &shape {
-                    let idx2 = r.read_leb128() as usize;
+                    let idx2 = r.leb128()? as usize;
                     flat = flat * dim as usize + idx2;
                 }
                 let start = flat * bpe;
                 for b in &mut new_data[start..start + bpe] {
-                    *b = r.read_byte();
+                    *b = r.read(8)? as u8;
                 }
             }
             tensors[idx] = Some((name, TensorData { dtype, shape, data: new_data }));
@@ -280,25 +279,25 @@ pub fn apply_delta(
 }
 
 fn read_name(r: &mut BitReader) -> Result<String, String> {
-    let len = r.read_short() as usize;
+    let len = r.short()? as usize;
     let mut bytes = vec![0u8; len];
     for b in &mut bytes {
-        *b = r.read_byte();
+        *b = r.read(8)? as u8;
     }
     String::from_utf8(bytes).map_err(|e| format!("name UTF-8 error: {e}"))
 }
 
 fn read_tensor_body(r: &mut BitReader) -> Result<TensorData, String> {
-    let dtype = r.read_bits(DTYPE_BITS) as u8;
-    let rank = r.read_short() as usize;
+    let dtype = r.read(DTYPE_BITS as usize)? as u8;
+    let rank = r.short()? as usize;
     let mut shape = Vec::with_capacity(rank);
     for _ in 0..rank {
-        shape.push(r.read_leb128());
+        shape.push(r.leb128()?);
     }
     let byte_count = data_bytes(dtype, &shape) as usize;
     let mut data = vec![0u8; byte_count];
     for b in &mut data {
-        *b = r.read_byte();
+        *b = r.read(8)? as u8;
     }
     Ok(TensorData { dtype, shape, data })
 }

@@ -462,7 +462,10 @@ profiles. The honest commitment is to that gate.
     (impl/rust/weavepack-json/ — full structured-mode decoder; 93/93 conformance vectors pass
     (Level 1 + Level 2) against the JS reference; includes `conformance` binary that runs all
     JSON test vectors from weavepack/profiles/json/test-vectors/)
-  - [ ] Phase 6.3: weavepack-core Rust crate (shared primitives extracted)
+  - [x] Phase 6.3: weavepack-core Rust crate (shared primitives extracted)
+    (impl/rust/weavepack-core/ — BitWriter, BitReader, write_leb128, write_short,
+    write_uint; both profile crates depend on it; 31/31 tensor + 93/93 JSON
+    conformance vectors still pass byte-for-byte after migration)
   - [ ] Phase 6.4: bindings (PyO3 Python, optional WASM)
 - [~] Phase 7: Ecosystem and governance
   - [x] Governance prose: 7 docs
@@ -473,4 +476,4 @@ profiles. The honest commitment is to that gate.
   - [ ] Set up badge endpoint (after ≥ 2 certified impls)
   - [ ] Independent third-party impl recruited
 
-Next action: Phase 6.3 — weavepack-core Rust crate (shared primitives).
+Next action: Phase 6.4 — bindings (PyO3 Python, optional WASM).

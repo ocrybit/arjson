@@ -6,6 +6,7 @@ description = "weavepack-json profile — Rust reference implementation"
 license = "MIT"
 
 [dependencies]
+weavepack-core = { path = "../weavepack-core" }
 serde_json = { version = "1", features = ["preserve_order"] }
 
 [[bin]]
