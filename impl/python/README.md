@@ -9,7 +9,7 @@ No external dependencies; targets Python 3.10+.
 ## Status
 
 - **weavepack-json**: encoder + decoder for **single-payload mode** at
-  Level 3 (byte-exact). 36/93 corpus vectors pass. Structured-mode
+  Level 3 (byte-exact). 37/93 corpus vectors pass. Structured-mode
   (containers, deltas, strmap dedup) deferred — see V0.2-PLANNING.md
   item D.2.
 - **weavepack-tensor**: full encoder + decoder + delta application at
@@ -71,11 +71,34 @@ restored = decode_document(payload)
 # restored["tensors"]["weight"]["data"] = [1.0, 2.0, 3.0]
 ```
 
+### Chain helpers
+
+```python
+from weavepack_tensor import parse_chain, serialize_chain
+
+# Split a multi-payload chain (anchor + deltas) into individual payloads.
+payloads = parse_chain(chain_bytes)
+
+# Re-emit any prefix as a valid chain. Per-payload addressability:
+# this is what lets a consumer reconstruct version N by reading only
+# the prefix up to that payload — no need to load the full chain.
+prefix_bytes = serialize_chain(payloads[:n + 1])
+```
+
+These helpers also exist in the Rust core crate
+(`weavepack_core::chain::{chain_parse, chain_serialize}`) and the
+PyO3 wheel (`weavepack_tensor_rs.parse_chain` /
+`.serialize_chain`). All three are byte-equivalent.
+
+See [`weavepack/profiles/tensor/examples/chain-partial-restore.py`](../../weavepack/profiles/tensor/examples/chain-partial-restore.py)
+for a worked example.
+
 ## Conformance
 
 ```bash
-python3 impl/python/conformance.py          # weavepack-json (36 vectors)
+python3 impl/python/conformance.py          # weavepack-json (37 vectors)
 python3 impl/python/conformance_tensor.py   # weavepack-tensor (55 vectors)
+python3 -m unittest impl.python.test_chain  # chain framing (5 tests)
 ```
 
 Or run the full cross-language check:
@@ -84,8 +107,9 @@ Or run the full cross-language check:
 weavepack/tools/cross-language-check.sh
 ```
 
-Last reported output: `Pass: 387, Fail: 0` across 5 implementations
-(JS sdk, Rust JSON, Rust tensor, Python JSON, Python tensor).
+Last reported output: `Pass: 388, Fail: 0` across 6 conformance
+steps (JS sdk, Rust JSON, Rust tensor, Python JSON, Python tensor,
+Python chain framing).
 
 ## What's NOT implemented
 
