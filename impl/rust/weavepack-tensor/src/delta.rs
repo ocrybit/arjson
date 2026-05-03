@@ -638,6 +638,31 @@ mod tests {
     }
 
     #[test]
+    fn decodes_mode1_chain_from_js_encoder() {
+        // V0.2 A.3 verification: the JS encoder now picks mode=1 when
+        // max abs delta ≤ 0.01. Rust decoder must handle that chain.
+        // This is the actual delta payload (post-anchor) that JS emits
+        // for base=[1.0, 2.0, 3.0, 4.0], updated=[1.001, 2.002, 3.003, 4.004]:
+        let delta_hex = "8081777882400520ce800500cec027110ec00520cec0";
+        let delta: Vec<u8> = (0..delta_hex.len() / 2)
+            .map(|i| u8::from_str_radix(&delta_hex[i * 2..i * 2 + 2], 16).unwrap())
+            .collect();
+        let base = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_FP32, shape: vec![4],
+            data: [1.0f32, 2.0, 3.0, 4.0].iter().flat_map(|f| f.to_le_bytes()).collect(),
+        })];
+        let result = apply_delta(&base, &delta).expect("Rust must decode JS mode=1 chain");
+        let result_floats: Vec<f32> = (0..4)
+            .map(|i| f32::from_le_bytes(result[0].1.data[i*4..i*4+4].try_into().unwrap()))
+            .collect();
+        let expected = [1.001f32, 2.002, 3.003, 4.004];
+        for (i, (&got, &want)) in result_floats.iter().zip(expected.iter()).enumerate() {
+            assert!((got - want).abs() < 1e-3,
+                "elem {i}: got {got}, want {want}");
+        }
+    }
+
+    #[test]
     fn encode_apply_round_trip_int32() {
         use crate::types::DTYPE_INT32;
         // Round-trip integer tensor through encode_delta + apply_delta.

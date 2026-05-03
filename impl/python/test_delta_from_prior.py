@@ -114,6 +114,21 @@ class ApplyDeltaMode1Tests(unittest.TestCase):
         result = apply_delta(base_doc, delta)
         self.assertEqual(result["tensors"]["w"]["data"], [1.25, 1.5])
 
+    def test_decodes_mode1_chain_from_js_encoder(self):
+        """V0.2 A.3 verification: the JS encoder now picks mode=1 when
+        max abs delta ≤ 0.01. Python decoder must handle that chain.
+
+        Hardcoded delta bytes from JS for
+          base=[1.0, 2.0, 3.0, 4.0], updated=[1.001, 2.002, 3.003, 4.004]
+        """
+        from weavepack_tensor import parse_chain
+        delta_hex = "8081777882400520ce800500cec027110ec00520cec0"
+        delta = bytes.fromhex(delta_hex)
+        base_doc = {"tensors": {"w": {"dtype": DTYPE.FP32, "shape": [4], "data": [1.0, 2.0, 3.0, 4.0]}}}
+        result = apply_delta(base_doc, delta)
+        for i, want in enumerate([1.001, 2.002, 3.003, 4.004]):
+            self.assertAlmostEqual(result["tensors"]["w"]["data"][i], want, delta=1e-3)
+
     def test_unknown_tensor_errors(self):
         base_doc = {"tensors": {"x": {"dtype": DTYPE.FP32, "shape": [1], "data": [1.0]}}}
         delta_data = struct.pack("<1f", 0.5)
