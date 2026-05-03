@@ -10,9 +10,12 @@ so you can find what you need without spelunking.
 |---|---|
 | **Understand what weavepack is** | [`WEAVEPACK.md`](./WEAVEPACK.md) — overview, capability matrix, status |
 | **Use ARJSON (the JSON profile)** | [`README.md`](./README.md) — original ARJSON docs |
+| **See real-world use cases for tensors** | [`weavepack/profiles/tensor/USE-CASES.md`](./weavepack/profiles/tensor/USE-CASES.md) |
+| **Hit a confusing error** | [`weavepack/TROUBLESHOOTING.md`](./weavepack/TROUBLESHOOTING.md) — multi-language gotchas + fixes |
 | **See the current roadmap** | [`weavepack/ROADMAP.md`](./weavepack/ROADMAP.md) — phase-by-phase progress |
 | **Read the protocol spec** | [`weavepack/core/00-introduction.md`](./weavepack/core/00-introduction.md) |
 | **Read a profile spec** | [`weavepack/profiles/json/`](./weavepack/profiles/json/) or [`weavepack/profiles/tensor/`](./weavepack/profiles/tensor/) |
+| **Plan a contribution to v0.2** | [`weavepack/V0.2-PLANNING.md`](./weavepack/V0.2-PLANNING.md) — deferred features, prioritized |
 | **Implement weavepack in another language** | See [`weavepack/governance/04-conformance-certification.md`](./weavepack/governance/04-conformance-certification.md) |
 | **Add a new profile** | See [`weavepack/governance/02-profile-registry.md`](./weavepack/governance/02-profile-registry.md) |
 | **Propose a protocol change** | See [`weavepack/governance/01-rfc-process.md`](./weavepack/governance/01-rfc-process.md) |
