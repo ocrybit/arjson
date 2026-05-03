@@ -42,8 +42,9 @@ Yes, two ways:
 
 1. **Pure-Python PoC** at `impl/python/`. No external dependencies.
    Single-payload weavepack-json + full weavepack-tensor (encoder,
-   decoder, delta application, schemaful + schemaless, all 5 delta
-   ops including region_replace).
+   decoder, delta application, schemaful + schemaless, 5 of 6
+   delta ops including region_replace; quant_change is the
+   not-yet-implemented one).
 
 2. **PyO3 wheel** at `impl/rust/weavepack-tensor-py/`. Rust-backed
    bindings (faster, broader profile coverage). Build with `maturin
