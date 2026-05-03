@@ -141,11 +141,19 @@ be updated to reflect which dtypes each impl now supports.
 Required to be in at least one language before acceptance per the
 dual-implementation rule (`weavepack/governance/01-rfc-process.md`).
 
-**Recommended approach**: implement in Rust first (using the `half`
-crate, well-tested), then port to JS using the conversion algorithms
-above. Python can use numpy + ml_dtypes for free.
+**What's already implemented** (as of this RFC's Discussion phase):
 
-Implementation PRs should include:
+- **Rust**: `half::f16` + `bf16` types from the `half` crate;
+  encoder + decoder + conformance integrated. Passes 20/20 RFC
+  vectors byte-exact.
+- **JS**: hand-rolled f32↔fp16/bf16 bit conversions (no native
+  Float16Array dependency). Passes 20/20 vectors byte-exact.
+- **Python (pure)**: decoder returns raw u16 bits; helpers
+  `fp16_bits_to_f32` / `bf16_bits_to_f32` convert on the consumer
+  side. Passes 20/20 vectors via the conformance corpus.
+
+A 4th-language implementation would follow the same pattern and
+need:
 
 1. Encode path producing byte-exact output for the test vectors below
 2. Decode path materializing into the appropriate typed array
