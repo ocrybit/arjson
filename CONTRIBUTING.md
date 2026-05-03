@@ -12,7 +12,7 @@ so you can find what you need without spelunking.
 | **Get honest answers about positioning** | [`weavepack/FAQ.md`](./weavepack/FAQ.md) — when to reach for it, when not to |
 | **Use ARJSON (the JSON profile)** | [`README.md`](./README.md) — original ARJSON docs |
 | **See real-world use cases for tensors** | [`weavepack/profiles/tensor/USE-CASES.md`](./weavepack/profiles/tensor/USE-CASES.md) |
-| **Run a worked example** | [`weavepack/profiles/tensor/examples/`](./weavepack/profiles/tensor/examples/) (4 demos) and [`weavepack/profiles/json/examples/`](./weavepack/profiles/json/examples/) (2 demos) |
+| **Run a worked example** | [`weavepack/profiles/tensor/examples/`](./weavepack/profiles/tensor/examples/) (5 JS + 1 Python) and [`weavepack/profiles/json/examples/`](./weavepack/profiles/json/examples/) (2 JS) |
 | **Hit a confusing error** | [`weavepack/TROUBLESHOOTING.md`](./weavepack/TROUBLESHOOTING.md) — multi-language gotchas + fixes |
 | **See the current roadmap** | [`weavepack/ROADMAP.md`](./weavepack/ROADMAP.md) — phase-by-phase progress |
 | **Read the protocol spec** | [`weavepack/core/00-introduction.md`](./weavepack/core/00-introduction.md) |
@@ -94,7 +94,7 @@ python3 impl/python/conformance.py   # 37/37 single-payload vectors
 
 ```bash
 bash weavepack/tools/cross-language-check.sh   # 397 vectors agreeing across JS/Rust/Python
-bash weavepack/tools/run-examples.sh           # smoke-run all 7 worked examples
+bash weavepack/tools/run-examples.sh           # smoke-run all 8 worked examples
 ```
 
 ## Common contributions
