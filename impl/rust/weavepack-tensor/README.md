@@ -11,8 +11,9 @@ delta-from-prior decoder support (V0.2 A.3).
 
 - **Encoder**: ✓ schemaless + schemaful documents; tensor_replace,
   tensor_add, tensor_remove, element_set, region_replace deltas
-  (encoder always emits mode=0 for tensor_replace; mode=1 emit
-  heuristic pending — V0.2 A.3 follow-up)
+  (Rust encoder always emits mode=0 for tensor_replace; the JS
+  reference ships the mode=1 emit heuristic at threshold 0.01,
+  porting that to Rust is a V0.2 A.3 follow-up)
 - **Decoder**: ✓ same coverage + tensor_replace mode=1
   delta-from-prior arithmetic
 - **Conformance**: 58/58 vectors (39 tensor + 16 fp16/bf16 from
