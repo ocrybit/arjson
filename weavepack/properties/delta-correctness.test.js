@@ -136,4 +136,27 @@ describe("property: delta correctness — apply(delta(a, b), a) = b", () => {
       }
     }
   })
+
+  // ARJSON.validate must accept every chain produced by the encoder
+  // itself (across re-anchor, no-ops, and arbitrary update sequences).
+  // This is the contrapositive of the malformed-chain regression test
+  // — the validator should never reject the encoder's own output.
+  it("ARJSON.validate accepts every encoder-produced chain — 100 seeds", () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const seq = []
+      for (let i = 0; i < 5; i++) seq.push(sampleAny(seed * 23 + i))
+      const arj = new ARJSON({ json: seq[0] })
+      for (let i = 1; i < seq.length; i++) arj.update(seq[i])
+      const buf = arj.toBuffer()
+      // validate must return null (success), not throw.
+      assert.doesNotThrow(
+        () => ARJSON.validate(buf),
+        `seed ${seed}: validator rejected an encoder-produced chain`
+      )
+      assert.strictEqual(
+        ARJSON.validate(buf), null,
+        `seed ${seed}: validator should return null on success`
+      )
+    }
+  })
 })
