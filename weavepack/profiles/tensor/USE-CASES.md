@@ -6,6 +6,10 @@ tensor instead of safetensors / pickle / numpy.npy".
 
 ## 1. Periodic ML training checkpoints
 
+> **Worked example:** [`examples/training-checkpoint-chain.js`](examples/training-checkpoint-chain.js) —
+> 100 training steps over a 1024-element fp32 tensor at 2% per-step
+> sparsity → **30× smaller** than safetensors-style snapshots.
+
 **Scenario:** You're training a transformer for 100k steps and want
 to save a checkpoint every 100 steps. Each checkpoint is a 7B-param
 model = ~28 GB on disk in fp32 (or ~14 GB in fp16). With 1000
@@ -42,6 +46,10 @@ for (let step = 1; step <= 100000; step++) {
 To restore checkpoint at step N: `new TensorPack({ arj: fs.readFileSync(`ckpt-${N}.wpkt`) })`.
 
 ## 2. Multiple fine-tuned variants of a base model
+
+> **Worked example:** [`examples/lora-variants.js`](examples/lora-variants.js) —
+> 16k-param base + 10 LoRA-style variants at 5% sparsity each →
+> **7.3× smaller** than safetensors-style (1 base + N full snapshots).
 
 **Scenario:** You have a base LLaMA model and 50 fine-tuned variants
 (LoRA adapters, full fine-tunes, RLHF variants). Storing all 50 as
@@ -129,6 +137,10 @@ producing tensor_replace (full re-encode) deltas, not the sparse
 deltas where weavepack's compression shines.
 
 ## 6. Time-series tensor data
+
+> **Worked example:** [`examples/sensor-grid-stream.js`](examples/sensor-grid-stream.js) —
+> 32×32 fp32 temperature grid sampled 60 times with a moving heat
+> source (~2.8% per-step changes) → **18× smaller** than full snapshots.
 
 **Scenario:** Sensor or simulation data — a tensor that evolves
 over time, with most values changing only slowly.
