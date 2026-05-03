@@ -36,7 +36,7 @@ which no shipping format provides.
 | 1. JSON profile spec (5 docs + 93 conformance vectors) | ✓ |
 | 2. weavepack-core spec (10 docs) | ✓ |
 | 3. JS implementation refactored to protocol/profile boundary | ✓ |
-| 4. Property-based testing (12 properties, ~1700 cases per run) | ✓ |
+| 4. Property-based testing (14 properties, ~2000 cases per run) | ✓ |
 | 5. Tensor profile shipped (spec, impl, 39 vectors, benchmarks) | ✓ |
 | 6.1. Rust tensor reference impl | ✓ (39/39 vectors byte-exact) |
 | 6.2. Rust JSON reference impl | ✓ (93/93 vectors decode) |
@@ -68,8 +68,8 @@ spec is implementable from prose alone.
   Includes `region_replace` op in all three implementations, 20
   fp16/bf16 vectors covering ±Inf, qNaN, sNaN, subnormals, RNE
   rounding, and a chain-framing equivalence check.
-- **JSON conformance**: 93 byte-exact test vectors, 12 algebraic-law
-  property tests over ~1700 random cases per run, all passing.
+- **JSON conformance**: 93 byte-exact test vectors, 14 algebraic-law
+  property tests over ~2000 random cases per run, all passing.
 - **Cross-language**: 3 implementations (JS reference, Rust, Python
   PoC), all in agreement on the byte format for vectors they support.
 - **Per-payload addressability**: every chain payload is independently
@@ -94,7 +94,7 @@ arjson/
 │   │       ├── json/               (weavepack-json — full impl)
 │   │       ├── tensor/             (weavepack-tensor v0.1)
 │   │       └── null/               (boundary-validation profile)
-│   └── test/                       (2181 tests)
+│   └── test/                       (2184 tests)
 │
 ├── impl/
 │   ├── rust/
