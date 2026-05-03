@@ -55,23 +55,7 @@ def parse_input(json_doc):
     return out
 
 
-def parse_chain(chain_bytes):
-    """Split a leb128-length-prefixed chain into individual delta byte arrays."""
-    out = []
-    off = 0
-    while off < len(chain_bytes):
-        length = 0
-        shift = 0
-        while True:
-            b = chain_bytes[off]
-            off += 1
-            length |= (b & 0x7F) << shift
-            if not (b & 0x80):
-                break
-            shift += 7
-        out.append(chain_bytes[off:off + length])
-        off += length
-    return out
+from weavepack_tensor import parse_chain  # noqa: E402  (now publicly exported)
 
 
 def docs_equal(a, b):

@@ -23,6 +23,10 @@ from .encoder import (
     encode_document,
     encode_document_schemaful,
 )
+from .chain import (
+    parse_chain,
+    serialize_chain,
+)
 
 __all__ = [
     "decode_document",
@@ -32,6 +36,8 @@ __all__ = [
     "apply_delta",
     "schema_hash",
     "schema_hash_hex",
+    "parse_chain",
+    "serialize_chain",
     "DTYPE",
     "OP",
     "fp16_bits_to_f32",
