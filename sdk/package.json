@@ -1,7 +1,23 @@
 {
   "name": "arjson",
   "version": "0.1.3",
-  "description": "",
+  "description": "Bit-level JSON encoder + delta-chain protocol (weavepack-json reference implementation). Smaller than MessagePack/CBOR for structured/repetitive JSON; ships per-payload-addressable chains for storing edit histories.",
+  "keywords": [
+    "json",
+    "encoding",
+    "compression",
+    "weavepack",
+    "delta",
+    "msgpack-alternative",
+    "cbor-alternative",
+    "bit-packing"
+  ],
+  "homepage": "https://github.com/weavedb/arjson",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/weavedb/arjson.git"
+  },
+  "license": "MIT",
   "type": "module",
   "main": "dist/cjs/index.js",
   "module": "dist/src/index.js",
@@ -23,7 +39,6 @@
     }
   },
   "author": "",
-  "license": "MIT",
   "dependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.24.8",
     "fast-diff": "^1.3.0",
