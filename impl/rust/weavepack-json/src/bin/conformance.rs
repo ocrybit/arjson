@@ -15,7 +15,7 @@ use std::{
 };
 
 use serde_json::Value;
-use weavepack_json::decode_snapshot;
+use weavepack_json::{decode_snapshot, encode};
 
 // ── hex helper ────────────────────────────────────────────────────────────────
 
@@ -27,6 +27,14 @@ fn from_hex(s: &str) -> Result<Vec<u8>, String> {
         .map(|i| u8::from_str_radix(&s[i * 2..i * 2 + 2], 16)
              .map_err(|_| format!("bad hex byte at {i}: {}", &s[i * 2..i * 2 + 2])))
         .collect()
+}
+
+fn to_hex(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        s.push_str(&format!("{b:02x}"));
+    }
+    s
 }
 
 // ── JSON equality (handles f64 approximation) ─────────────────────────────────
@@ -121,6 +129,22 @@ impl Runner {
                     "decode mismatch\n    expected: {expected}\n    actual:   {decoded}"
                 ),
             );
+        }
+
+        // Encoder check (Level 3): re-encode `input` and verify byte-exact
+        // match with expected_bytes_hex. Only runs when the encoder
+        // accepts the input — non-empty containers return Err and we
+        // simply skip those (decoder already verified the round-trip).
+        if let Ok(re_encoded) = encode(&v["input"]) {
+            let re_hex = to_hex(&re_encoded);
+            if re_hex != hex {
+                return self.err(
+                    &full,
+                    &format!(
+                        "encode mismatch\n    expected: {hex}\n    actual:   {re_hex}"
+                    ),
+                );
+            }
         }
         self.ok();
     }

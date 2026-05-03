@@ -5,5 +5,8 @@
 
 pub mod bits;
 pub mod decode;
+pub mod encode;
+pub mod types;
 
 pub use decode::decode_snapshot;
+pub use encode::encode;
