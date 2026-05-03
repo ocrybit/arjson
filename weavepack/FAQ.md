@@ -4,17 +4,24 @@ Honest answers to questions evaluators ask. Skip the marketing.
 
 ## Is weavepack always smaller than safetensors / JSON / msgpack + brotli?
 
-**No.** For a single bundled blob (concatenate everything, then
-brotli the result), brotli is hard to beat — it has access to the
-whole byte sequence and exploits identical fp32 patterns or repeated
-JSON keys aggressively. See
-[`weavepack/profiles/tensor/examples/brotli-stacking.js`](profiles/tensor/examples/brotli-stacking.js)
-for the measurements: in both sparse and dense ML workloads,
-`safetensors + brotli` (one blob) typically beats `weavepack` alone
-on raw byte count.
+**It depends on the workload.** For a single bundled blob
+(concatenate everything, then brotli the result), brotli is hard
+to beat on **sparse** workloads — it has access to the whole byte
+sequence and exploits identical fp32 patterns or repeated JSON
+keys aggressively. See
+[`weavepack/profiles/tensor/examples/brotli-stacking.js`](profiles/tensor/examples/brotli-stacking.js):
+on a 100-step / 2%-sparsity ML scenario, `safetensors + brotli`
+gets 47× while `weavepack + brotli` gets 36×.
 
-The win for weavepack is **per-payload addressability**, not
-bundled compression. See next question.
+For **dense small-delta** workloads (Adam-style training, max
+per-element change ≤ 0.01), the V0.2 A.3 mode=1 encoder heuristic
+flips the comparison: `weavepack + brotli` is now **1.6× smaller**
+than `safetensors + brotli` because the per-element deltas have
+many leading zero bytes that brotli compresses aggressively.
+
+The other persistent win for weavepack is **per-payload
+addressability**, regardless of which regime you're in. See next
+question.
 
 ## What does "per-payload addressability" actually mean?
 
