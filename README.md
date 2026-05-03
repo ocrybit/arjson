@@ -2,6 +2,13 @@
 
 ![](./assets/arjson.png)
 
+> **What's new:** ARJSON is now the JSON-specific profile of
+> [Weavepack](./WEAVEPACK.md), a universal structural-data compression
+> and update protocol. The same machinery now also has profiles for
+> tensors (ML weights with delta updates), with reference implementations
+> in JavaScript, Rust, and Python. See [WEAVEPACK.md](./WEAVEPACK.md) for
+> the broader context.
+
 ARJSON leverages bit-level optimizations to encode JSON at lightning speed while compressing data more efficiently than other self-contained JSON encoding/compression algorithms, such as [MessagePack](https://msgpack.org/) and [CBOR](https://datatracker.ietf.org/doc/html/rfc7049).
 
 

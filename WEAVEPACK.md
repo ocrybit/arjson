@@ -1,0 +1,124 @@
+# Weavepack
+
+**Weavepack is a universal structural-data compression and update protocol.**
+
+ARJSON (described in [README.md](./README.md)) is the JSON-specific
+implementation of this protocol's first profile. Weavepack generalizes
+the same machinery — bit-packed columns, delta chains, optional schema
+sidecars, brotli composability — into a protocol that hosts multiple
+profiles for different data shapes (JSON, tensors, tables, graphs, ASTs).
+
+## Why this exists
+
+Existing structural-data formats each own a 4-or-5-cell subset of the
+following matrix. Weavepack aims to own all 7:
+
+| | bit-pack | deltas | schema | self-desc | streaming | brotli-friendly | universal |
+|---|---|---|---|---|---|---|---|
+| JSON | ✗ | ✗ | ✗ | ✓ | ✓ | ~ | ✗ |
+| CBOR / MessagePack | ✗ | ✗ | ~ | ✓ | ✓ | ~ | ✗ |
+| Protobuf / Cap'n Proto | ✗ | ✗ | ✓ | ✗ | ~ | ~ | ✗ |
+| Avro | ✗ | ✗ | ✓ | ~ | ✓ | ~ | ✗ |
+| Parquet | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ | ✗ |
+| **weavepack** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
+
+The unique combination is **delta chains over bit-packed columns**,
+which no shipping format provides.
+
+## Current state
+
+| Phase | Status |
+|---|---|
+| 0. ARJSON shipped & stable | ✓ |
+| 1. JSON profile spec (5 docs + 93 conformance vectors) | ✓ |
+| 2. weavepack-core spec (10 docs) | ✓ |
+| 3. JS implementation refactored to protocol/profile boundary | ✓ |
+| 4. Property-based testing (12 properties, ~1700 cases per run) | ✓ |
+| 5. Tensor profile shipped (spec, impl, 31 vectors, benchmarks) | ✓ |
+| 6.1. Rust tensor reference impl | ✓ (31/31 vectors byte-exact) |
+| 6.2. Rust JSON reference impl | ✓ (93/93 vectors decode) |
+| 6.3. Rust core crate (shared primitives) | pending |
+| 6.4. Python bindings (PyO3) | pending |
+| 7. Governance prose (7 docs) | ✓ |
+| 7. Operational governance (registry maintainer, RFC 0001, badges) | pending |
+
+Plus a pure-Python proof-of-concept decoder validating the spec is
+implementable from prose alone.
+
+## Headline numbers
+
+- **Tensor sparse delta**: 1000–2500× smaller than safetensors full
+  re-encode for typical training-step updates (per
+  `weavepack/profiles/tensor/07-benchmarks.md`).
+- **Tensor snapshot size**: within 2% of safetensors for full
+  checkpoints.
+- **JSON conformance**: 93 byte-exact test vectors, 12 algebraic-law
+  property tests over ~1700 random cases per run, all passing.
+- **Cross-language**: 3 implementations (JS reference, Rust, Python
+  PoC), all in agreement on the byte format for vectors they support.
+
+## Repository layout
+
+```
+arjson/
+├── README.md                       (ARJSON — JSON library description)
+├── WEAVEPACK.md                    (this file — protocol overview)
+├── sdk/                            (JS reference implementation)
+│   ├── src/
+│   │   ├── encoder.js              (generic Encoder class — substrate)
+│   │   ├── artable.js              (column structure)
+│   │   ├── utils.js                (bit primitives, alphabets)
+│   │   └── profiles/
+│   │       ├── json/               (weavepack-json — full impl)
+│   │       ├── tensor/             (weavepack-tensor v0.1)
+│   │       └── null/               (boundary-validation profile)
+│   └── test/                       (2144 tests)
+│
+├── impl/
+│   ├── rust/
+│   │   ├── weavepack-tensor/       (Rust tensor crate, 31/31 vectors)
+│   │   └── weavepack-json/         (Rust JSON crate, 93/93 vectors)
+│   └── python/                     (Pure-Python PoC decoder, 36/36 vectors)
+│
+├── weavepack/                      (the protocol spec + governance)
+│   ├── ROADMAP.md                  (phase-by-phase progress)
+│   ├── PHASE-3-PLAN.md             (refactor strategy doc)
+│   ├── core/                       (10 protocol-level spec docs)
+│   ├── profiles/
+│   │   ├── json/                   (5 spec docs + 93 vectors)
+│   │   └── tensor/                 (6 spec docs + 31 vectors + benchmarks)
+│   ├── properties/                 (property-based test generators)
+│   ├── governance/                 (7 governance docs)
+│   └── tools/                      (vector generators, verifier)
+│
+└── benchmark/                      (size + speed benchmarks)
+```
+
+## Reading order for new contributors
+
+1. **This file** — high-level overview
+2. `weavepack/ROADMAP.md` — phase-by-phase progress + design philosophy
+3. `weavepack/core/00-introduction.md` — protocol-level intro
+4. `weavepack/profiles/json/01-types.md` — concrete example of how a
+   profile slots together with the core
+5. A profile of interest (`weavepack/profiles/tensor/`) for ML
+6. `weavepack/governance/01-rfc-process.md` — how to propose changes
+
+## Adding a profile
+
+See `weavepack/governance/02-profile-registry.md` for the procedure.
+
+Briefly: write 5 spec docs in `weavepack/profiles/<name>/`, build a
+reference implementation, ship at least 10 conformance vectors, open
+a registration issue. The barrier is "do the work", not "ask permission".
+
+## Adding an implementation
+
+See `weavepack/governance/04-conformance-certification.md` for the
+self-assertion procedure. Run the conformance corpus against your
+implementation, document which profiles + levels you support, list
+your repo in `weavepack/governance/05-implementation-registry.md`.
+
+## License
+
+MIT, matching the rest of the codebase.
