@@ -108,6 +108,23 @@ These numbers are hardware-independent (byte counts, not timings)
 and reproducible: any consumer running these scripts will get the
 same byte values (modulo random seeds in the synthetic data).
 
+## chain-partial-restore.py (Python)
+
+Python analogue of the JSON profile's chain-partial-restore demo,
+specifically demonstrating per-payload addressability for the tensor
+profile from Python. Loads chain bytes produced by the JS reference
+encoder (from the conformance corpus), parses them with the new
+public Python `parse_chain` / `serialize_chain` API, and reconstructs
+each intermediate version from chain prefixes.
+
+```bash
+PYTHONPATH=impl/python python3 weavepack/profiles/tensor/examples/chain-partial-restore.py
+```
+
+Doubly useful: exercises the public Python chain API and demonstrates
+cross-language interop (JS-encoded chain bytes → Python decode +
+delta application, no contact with the JS implementation).
+
 ## Adding more examples
 
 Each example follows a consistent shape:
