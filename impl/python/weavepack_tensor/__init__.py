@@ -1,11 +1,21 @@
-"""weavepack-tensor — pure-Python decoder.
+"""weavepack-tensor — pure-Python implementation.
 
 Proof-of-concept Python implementation of the weavepack-tensor
-profile. Currently supports schemaless document decoding for the
-common dtypes: fp32, fp64, int8/16/32, uint8/16/32, bool.
+profile. Supports both schemaless and schemaful document encode +
+decode, plus delta application for 5 of 6 ops (tensor_replace,
+tensor_add, tensor_remove, element_set, region_replace; quant_change
+not implemented).
 
-fp16/bf16 require external conversion (numpy/ml_dtypes); the decoder
-returns raw u16 bits and provides helpers to convert.
+Decoder also handles tensor_replace mode=1 (delta-from-prior
+arithmetic, V0.2 A.3); the Python encoder always emits mode=0.
+
+Supported dtypes: fp32, fp64, int8/16/32/64, uint8/16/32/64, bool.
+fp16/bf16 round-trip as raw u16 bits with helpers
+`fp16_bits_to_f32` / `bf16_bits_to_f32` for consumer-side
+conversion (no numpy/ml_dtypes dependency).
+
+Conformance: 58/58 tensor corpus vectors pass byte-exact against
+the JS reference.
 """
 
 from .decoder import (
