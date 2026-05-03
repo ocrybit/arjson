@@ -95,6 +95,8 @@ for (const path of walk(JSON_ROOT)) {
 // ── weavepack-tensor helpers ──────────────────────────────────────────────
 
 // Materialise typed array from a plain JSON data array and dtype code.
+// fp16/bf16 inputs come in as plain f32 numbers; the encoder converts
+// them to raw 16-bit bits per RFC 0001.
 function jsonToTyped(dtype, arr) {
   switch (dtype) {
     case DTYPE.FP32:  return new Float32Array(arr)
@@ -105,10 +107,11 @@ function jsonToTyped(dtype, arr) {
     case DTYPE.UINT16:return new Uint16Array(arr)
     case DTYPE.INT32: return new Int32Array(arr)
     case DTYPE.UINT32:return new Uint32Array(arr)
-    // BigInt stored as decimal strings
     case DTYPE.INT64: return new BigInt64Array(arr.map(v => BigInt(v)))
     case DTYPE.UINT64:return new BigUint64Array(arr.map(v => BigInt(v)))
-    case DTYPE.BOOL:  return arr  // plain array of 0/1, as expected by encoder
+    case DTYPE.BOOL:  return arr
+    case 13:          return new Float32Array(arr)  // FP16 — encoder converts
+    case 14:          return new Float32Array(arr)  // BF16 — encoder converts
     default: throw new Error(`unsupported dtype ${dtype} in jsonToTyped`)
   }
 }
@@ -213,7 +216,17 @@ for (const path of walk(TENSOR_ROOT)) {
           record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
         }
         const decoded = tensorDec(bytes)
-        if (!tensorDocsEqual(decoded, doc)) {
+        // Special case: fp16/bf16 vectors store input as f32 numbers but
+        // the decoded data is Uint16Array of raw bits. Compare against
+        // expected_bits (set by the half-vector generator) instead of
+        // doc-level equality.
+        if (v.expected_bits) {
+          const tname = Object.keys(decoded.tensors)[0]
+          const decodedBits = Array.from(decoded.tensors[tname].data)
+          if (!equals(decodedBits, v.expected_bits)) {
+            record(prefix, v.name, "fp16/bf16 bits mismatch", v.expected_bits, decodedBits); continue
+          }
+        } else if (!tensorDocsEqual(decoded, doc)) {
           record(prefix, v.name, "decode mismatch"); continue
         }
         pass++

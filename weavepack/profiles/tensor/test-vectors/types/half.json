@@ -1,0 +1,208 @@
+[
+  {
+    "name": "fp16 unit values",
+    "description": "fp16 round-trip: 0, 1, -1, 0.5",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [
+            4
+          ],
+          "data": [
+            0,
+            1,
+            -1,
+            0.5
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a208000000780178007000",
+    "expected_bits": [
+      0,
+      15360,
+      48128,
+      14336
+    ]
+  },
+  {
+    "name": "fp16 max-finite",
+    "description": "65504 (max finite fp16, exact representation)",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [
+            1
+          ],
+          "data": [
+            65504
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a203fef600",
+    "expected_bits": [
+      31743
+    ]
+  },
+  {
+    "name": "fp16 smallest subnormal",
+    "description": "2^-24 is the smallest fp16 subnormal",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [
+            1
+          ],
+          "data": [
+            5.960464477539063e-8
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a202020000",
+    "expected_bits": [
+      1
+    ]
+  },
+  {
+    "name": "fp16 underflow to zero",
+    "description": "value below smallest subnormal flushes to 0",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [
+            1
+          ],
+          "data": [
+            2.9802322387695312e-8
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a202000000",
+    "expected_bits": [
+      0
+    ]
+  },
+  {
+    "name": "fp16 2D matrix",
+    "description": "2x3 fp16 matrix",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [
+            2,
+            3
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a404060078008000840088008a008c00",
+    "expected_bits": [
+      15360,
+      16384,
+      16896,
+      17408,
+      17664,
+      17920
+    ]
+  },
+  {
+    "name": "bf16 unit values",
+    "description": "bf16 round-trip: 0, 1, -1, 0.5",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [
+            4
+          ],
+          "data": [
+            0,
+            1,
+            -1,
+            0.5
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c2080001007f017e007e00",
+    "expected_bits": [
+      0,
+      16256,
+      49024,
+      16128
+    ]
+  },
+  {
+    "name": "bf16 large dynamic range",
+    "description": "bf16 preserves f32 exponent range; values in [1e-30, 1e30]",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [
+            3
+          ],
+          "data": [
+            1e-30,
+            1,
+            1e+30
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c207441b007e94e200",
+    "expected_bits": [
+      3490,
+      16256,
+      29002
+    ]
+  },
+  {
+    "name": "bf16 2D matrix",
+    "description": "2x3 bf16 matrix",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [
+            2,
+            3
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c40407007e0080808100814081808000",
+    "expected_bits": [
+      16256,
+      16384,
+      16448,
+      16512,
+      16544,
+      16576
+    ]
+  }
+]
