@@ -29,16 +29,24 @@ fn write_name(w: &mut BitWriter, name: &str) {
     }
 }
 
-fn write_tensor_body(w: &mut BitWriter, t: &TensorData) {
+fn write_tensor_body_header(w: &mut BitWriter, t: &TensorData) {
     w.write_bits(t.dtype as u32, DTYPE_BITS);
     write_short(w, t.shape.len() as u64);
     for &dim in &t.shape {
         write_leb128(w, dim);
     }
+}
+
+fn write_tensor_body_data(w: &mut BitWriter, t: &TensorData) {
     let n = data_bytes(t.dtype, &t.shape) as usize;
     for i in 0..n {
         w.write_bits(t.data[i] as u32, 8);
     }
+}
+
+fn write_tensor_body(w: &mut BitWriter, t: &TensorData) {
+    write_tensor_body_header(w, t);
+    write_tensor_body_data(w, t);
 }
 
 // ── element-level helpers ─────────────────────────────────────────────────────
@@ -220,7 +228,11 @@ pub fn encode_delta(
             DeltaOp::TensorReplace { name, t } => {
                 w.write_bits(OP_TENSOR_REPLACE as u32, OP_BITS);
                 write_name(&mut w, name);
-                write_tensor_body(&mut w, t);
+                write_tensor_body_header(&mut w, t);
+                // mode bit: 0 = absolute values (encoder always emits 0;
+                // mode=1 delta-from-prior is decoder-only for now).
+                w.write_bits(0, 1);
+                write_tensor_body_data(&mut w, t);
             }
             DeltaOp::ElementSet { name, t, elements } => {
                 w.write_bits(OP_ELEMENT_SET as u32, OP_BITS);
@@ -299,7 +311,11 @@ pub fn apply_delta(
             }
         } else if op_code == OP_TENSOR_ADD || op_code == OP_TENSOR_REPLACE {
             let name = read_name(&mut r)?;
-            let t = read_tensor_body(&mut r)?;
+            let t = if op_code == OP_TENSOR_REPLACE {
+                read_tensor_body_with_mode(&mut r, &name, &name_to_idx, &tensors)?
+            } else {
+                read_tensor_body(&mut r)?
+            };
             if let Some(&idx) = name_to_idx.get(&name) {
                 tensors[idx] = Some((name, t));
             } else {
@@ -450,4 +466,123 @@ fn read_tensor_body(r: &mut BitReader) -> Result<TensorData, String> {
         *b = r.read(8)? as u8;
     }
     Ok(TensorData { dtype, shape, data })
+}
+
+// tensor_replace carries an extra 1-bit mode field between shape and
+// data: 0 = absolute values, 1 = per-element arithmetic delta against
+// the prior tensor at the same name. See spec
+// weavepack/profiles/tensor/04-deltas.md "Compression beyond delta".
+fn read_tensor_body_with_mode(
+    r: &mut BitReader,
+    name: &str,
+    name_to_idx: &std::collections::BTreeMap<String, usize>,
+    tensors: &[Option<(String, TensorData)>],
+) -> Result<TensorData, String> {
+    let dtype = r.read(DTYPE_BITS as usize)? as u8;
+    let rank = r.short()? as usize;
+    let mut shape = Vec::with_capacity(rank);
+    for _ in 0..rank {
+        shape.push(r.leb128()?);
+    }
+    let mode_bit = r.read(1)? as u8;
+    let byte_count = data_bytes(dtype, &shape) as usize;
+    let mut data = vec![0u8; byte_count];
+    for b in &mut data {
+        *b = r.read(8)? as u8;
+    }
+    if mode_bit == 0 {
+        return Ok(TensorData { dtype, shape, data });
+    }
+    // mode=1: data is per-element delta. Look up base tensor and add.
+    let base = name_to_idx
+        .get(name)
+        .and_then(|&i| tensors[i].as_ref())
+        .ok_or_else(|| format!("tensor_replace mode=1 on unknown tensor '{name}'"))?;
+    if base.1.dtype != dtype {
+        return Err(format!(
+            "tensor_replace mode=1 dtype mismatch: base={}, delta={}",
+            base.1.dtype, dtype
+        ));
+    }
+    let mut new_data = base.1.data.clone();
+    apply_arithmetic_delta(dtype, &mut new_data, &data)?;
+    Ok(TensorData { dtype, shape, data: new_data })
+}
+
+fn apply_arithmetic_delta(dtype: u8, base: &mut [u8], delta: &[u8]) -> Result<(), String> {
+    use crate::types::{DTYPE_FP32, DTYPE_FP64, DTYPE_INT8, DTYPE_UINT8,
+        DTYPE_INT16, DTYPE_UINT16, DTYPE_INT32, DTYPE_UINT32,
+        DTYPE_INT64, DTYPE_UINT64};
+    if base.len() != delta.len() {
+        return Err(format!(
+            "arithmetic delta length mismatch: base={} delta={}",
+            base.len(), delta.len()
+        ));
+    }
+    match dtype {
+        d if d == DTYPE_FP32 => {
+            for i in (0..base.len()).step_by(4) {
+                let b = f32::from_le_bytes(base[i..i+4].try_into().unwrap());
+                let d = f32::from_le_bytes(delta[i..i+4].try_into().unwrap());
+                base[i..i+4].copy_from_slice(&(b + d).to_le_bytes());
+            }
+        }
+        d if d == DTYPE_FP64 => {
+            for i in (0..base.len()).step_by(8) {
+                let b = f64::from_le_bytes(base[i..i+8].try_into().unwrap());
+                let d = f64::from_le_bytes(delta[i..i+8].try_into().unwrap());
+                base[i..i+8].copy_from_slice(&(b + d).to_le_bytes());
+            }
+        }
+        d if d == DTYPE_INT8 => {
+            for i in 0..base.len() { base[i] = (base[i] as i8).wrapping_add(delta[i] as i8) as u8; }
+        }
+        d if d == DTYPE_UINT8 => {
+            for i in 0..base.len() { base[i] = base[i].wrapping_add(delta[i]); }
+        }
+        d if d == DTYPE_INT16 => {
+            for i in (0..base.len()).step_by(2) {
+                let b = i16::from_le_bytes(base[i..i+2].try_into().unwrap());
+                let d = i16::from_le_bytes(delta[i..i+2].try_into().unwrap());
+                base[i..i+2].copy_from_slice(&b.wrapping_add(d).to_le_bytes());
+            }
+        }
+        d if d == DTYPE_UINT16 => {
+            for i in (0..base.len()).step_by(2) {
+                let b = u16::from_le_bytes(base[i..i+2].try_into().unwrap());
+                let d = u16::from_le_bytes(delta[i..i+2].try_into().unwrap());
+                base[i..i+2].copy_from_slice(&b.wrapping_add(d).to_le_bytes());
+            }
+        }
+        d if d == DTYPE_INT32 => {
+            for i in (0..base.len()).step_by(4) {
+                let b = i32::from_le_bytes(base[i..i+4].try_into().unwrap());
+                let d = i32::from_le_bytes(delta[i..i+4].try_into().unwrap());
+                base[i..i+4].copy_from_slice(&b.wrapping_add(d).to_le_bytes());
+            }
+        }
+        d if d == DTYPE_UINT32 => {
+            for i in (0..base.len()).step_by(4) {
+                let b = u32::from_le_bytes(base[i..i+4].try_into().unwrap());
+                let d = u32::from_le_bytes(delta[i..i+4].try_into().unwrap());
+                base[i..i+4].copy_from_slice(&b.wrapping_add(d).to_le_bytes());
+            }
+        }
+        d if d == DTYPE_INT64 => {
+            for i in (0..base.len()).step_by(8) {
+                let b = i64::from_le_bytes(base[i..i+8].try_into().unwrap());
+                let d = i64::from_le_bytes(delta[i..i+8].try_into().unwrap());
+                base[i..i+8].copy_from_slice(&b.wrapping_add(d).to_le_bytes());
+            }
+        }
+        d if d == DTYPE_UINT64 => {
+            for i in (0..base.len()).step_by(8) {
+                let b = u64::from_le_bytes(base[i..i+8].try_into().unwrap());
+                let d = u64::from_le_bytes(delta[i..i+8].try_into().unwrap());
+                base[i..i+8].copy_from_slice(&b.wrapping_add(d).to_le_bytes());
+            }
+        }
+        _ => return Err(format!("arithmetic delta unsupported for dtype {dtype}")),
+    }
+    Ok(())
 }

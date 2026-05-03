@@ -137,6 +137,35 @@ def _materialize(dtype: int, raw_bytes: bytes, total: int) -> list:
     raise ValueError(f"unsupported dtype {dtype}; pure-Python decoder is partial")
 
 
+def _apply_arithmetic_delta(dtype: int, base: list, delta: list) -> list:
+    """Element-wise base + delta for tensor_replace mode=1.
+
+    For numerical dtypes, computes new[i] = base[i] + delta[i]. Integer
+    dtypes use wrapping (modular) arithmetic to match the JS reference.
+    """
+    if len(base) != len(delta):
+        raise ValueError(f"arithmetic delta length mismatch: base={len(base)} delta={len(delta)}")
+    if dtype in (DTYPE.FP32, DTYPE.FP64):
+        return [base[i] + delta[i] for i in range(len(base))]
+    if dtype == DTYPE.INT8:
+        return [((base[i] + delta[i] + 128) % 256 - 128) for i in range(len(base))]
+    if dtype == DTYPE.UINT8:
+        return [(base[i] + delta[i]) % 256 for i in range(len(base))]
+    if dtype == DTYPE.INT16:
+        return [((base[i] + delta[i] + 32768) % 65536 - 32768) for i in range(len(base))]
+    if dtype == DTYPE.UINT16:
+        return [(base[i] + delta[i]) % 65536 for i in range(len(base))]
+    if dtype == DTYPE.INT32:
+        return [((base[i] + delta[i] + 0x80000000) % 0x100000000 - 0x80000000) for i in range(len(base))]
+    if dtype == DTYPE.UINT32:
+        return [(base[i] + delta[i]) % 0x100000000 for i in range(len(base))]
+    if dtype == DTYPE.INT64:
+        return [((base[i] + delta[i] + (1 << 63)) % (1 << 64) - (1 << 63)) for i in range(len(base))]
+    if dtype == DTYPE.UINT64:
+        return [(base[i] + delta[i]) % (1 << 64) for i in range(len(base))]
+    raise ValueError(f"arithmetic delta unsupported for dtype {dtype}")
+
+
 # ── document decoder (schemaless) ───────────────────────────────────
 
 def decode_document(data: bytes) -> dict:
@@ -261,15 +290,23 @@ def apply_delta(base_doc: dict, delta_bytes: bytes) -> dict:
             dtype = r.read_bits(5)
             rank = r.read_short()
             shape = [r.read_leb128() for _ in range(rank)]
+            # tensor_replace carries a 1-bit mode field after shape
+            # (0 = absolute values, 1 = per-element delta-from-prior).
+            # tensor_add does not — it has no base tensor to diff against.
+            mode_bit = r.read_bits(1) if op_code == OP.TENSOR_REPLACE else 0
             nbytes = _data_bytes(dtype, shape)
             raw = bytes(r.read_byte() for _ in range(nbytes))
             total = 1
             for d in shape:
                 total *= d
-            tensors[name] = {
-                "dtype": dtype, "shape": shape,
-                "data": _materialize(dtype, raw, total),
-            }
+            new_data = _materialize(dtype, raw, total)
+            if mode_bit == 1:
+                # mode=1: new = base + delta (element-wise arithmetic).
+                if name not in tensors:
+                    raise KeyError(f"tensor_replace mode=1 on unknown tensor {name}")
+                base = tensors[name]["data"]
+                new_data = _apply_arithmetic_delta(dtype, base, new_data)
+            tensors[name] = {"dtype": dtype, "shape": shape, "data": new_data}
 
         elif op_code == OP.ELEMENT_SET:
             name_len = r.read_short()

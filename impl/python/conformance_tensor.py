@@ -101,9 +101,25 @@ for vec_file in walk(VECTORS):
     for v in vectors:
         name = v.get("name", "(unnamed)")
         if rel_str.startswith("deltas/"):
-            # Delta vector format: initial + update + expected_chain_bytes_hex.
-            # Validate that applying the delta reaches the expected_final state.
+            # Two delta vector formats:
+            #   1. initial + update + expected_chain_bytes_hex
+            #      (anchor + delta encoded together as a chain)
+            #   2. initial + delta_bytes_hex + expected_final
+            #      (raw delta to apply to initial; tests decoder only)
             try:
+                if v.get("delta_bytes_hex"):
+                    # Raw-delta vector (e.g. delta-from-prior mode=1).
+                    init_doc = parse_input(v["initial"])
+                    delta_bytes = bytes.fromhex(v["delta_bytes_hex"])
+                    doc = apply_delta(init_doc, delta_bytes)
+                    expected = parse_input(v["expected_final"])
+                    if not docs_equal(doc, expected):
+                        fails += 1
+                        failures.append(f"{rel_str} :: {name}: final state mismatch")
+                        continue
+                    passes += 1
+                    continue
+
                 init_doc = parse_input(v["initial"])
                 # The chain_bytes_hex is initial bytes + leb128(len) + delta bytes.
                 # Easier: parse the chain frame structure ourselves.

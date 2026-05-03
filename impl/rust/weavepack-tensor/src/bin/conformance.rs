@@ -38,6 +38,16 @@ fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+fn from_hex(s: &str) -> Result<Vec<u8>, String> {
+    if s.len() % 2 != 0 {
+        return Err(format!("odd-length hex string: {s}"));
+    }
+    (0..s.len() / 2)
+        .map(|i| u8::from_str_radix(&s[i * 2..i * 2 + 2], 16)
+             .map_err(|_| format!("bad hex byte at {i}")))
+        .collect()
+}
+
 /// Convert a JSON test-vector data array to raw little-endian bytes.
 fn json_data_to_bytes(dtype: u8, arr: &[Value]) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
@@ -374,6 +384,34 @@ impl Runner {
     fn run_delta_vector(&mut self, label: &str, v: &Value) {
         let name = v["name"].as_str().unwrap_or("?");
         let full = format!("{label} :: {name}");
+
+        // Raw-delta vectors: initial + delta_bytes_hex + expected_final.
+        // Tests the decoder against a manually-crafted delta (e.g. mode=1
+        // delta-from-prior) without going through the encoder.
+        if v["delta_bytes_hex"].is_string() {
+            let init_doc = match parse_tensor_map(&v["initial"]["tensors"]) {
+                Ok(d) => d,
+                Err(e) => return self.err(&full, &format!("parse initial error: {e}")),
+            };
+            let delta_hex = v["delta_bytes_hex"].as_str().unwrap();
+            let delta_bytes = match from_hex(delta_hex) {
+                Ok(b) => b,
+                Err(e) => return self.err(&full, &format!("hex parse error: {e}")),
+            };
+            let result = match apply_delta(&init_doc, &delta_bytes) {
+                Ok(r) => r,
+                Err(e) => return self.err(&full, &format!("apply_delta error: {e}")),
+            };
+            let expected_final = match parse_tensor_map(&v["expected_final"]["tensors"]) {
+                Ok(d) => d,
+                Err(e) => return self.err(&full, &format!("parse expected_final error: {e}")),
+            };
+            if !tensors_equal(&to_btree(&result), &to_btree(&expected_final)) {
+                return self.err(&full, "raw-delta decode mismatch");
+            }
+            self.ok();
+            return;
+        }
 
         let init_doc = match parse_tensor_map(&v["initial"]["tensors"]) {
             Ok(d) => d,
