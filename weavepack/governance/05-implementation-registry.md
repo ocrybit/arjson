@@ -20,9 +20,12 @@ new features.
 | weavepack-tensor (Python, PoC) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/ | tensor v0.1 (L3 encoder + decoder; schemaless + schemaful + 5 delta ops + region_replace + delta-from-prior decoder) | 58/58 vectors | 2026-05-03 |
 | weavepack-tensor-rs (PyO3) | Python 3.8+ via Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-tensor-py/ | tensor v0.1 (L3 via Rust crate, inherits delta-from-prior decoder) | 58/58 vectors | 2026-05-03 |
 
-The "TBD on last verified" entries will get real timestamps once
-the certification badge infrastructure exists. For now, claims are
-self-asserted in each implementation's README.
+"Last verified" timestamps reflect the most recent date the
+implementation passed its full conformance corpus locally. Claims
+are self-asserted in each implementation's README; cross-language
+agreement is independently verified via
+`weavepack/tools/cross-language-check.sh` (currently 397 vectors
+agreeing across all rows).
 
 ## How to register your implementation
 

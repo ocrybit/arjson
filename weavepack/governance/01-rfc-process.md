@@ -217,9 +217,9 @@ streamlined since profiles are self-contained:
    - Reference implementation exists in at least one language
    - Conformance corpus has ≥ 10 test vectors
    - Profile-id is reasonable (no collision with reserved range)
-4. Registry maintainer (currently TBD; see
-   `02-profile-registry.md`) assigns the next available
-   profile-id and updates the registry.
+4. Registry maintainer (during v0.x phase: project maintainer(s)
+   at ocrybit/arjson, per `02-profile-registry.md`) assigns the
+   next available profile-id and updates the registry.
 5. Profile is added to `weavepack/governance/02-profile-registry.md`.
 
 Estimated turnaround: days to a couple weeks, depending on
