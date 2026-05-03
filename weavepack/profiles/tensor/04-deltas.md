@@ -263,5 +263,15 @@ same input pair (base, new) + heuristic thresholds.
 ## Test vector references
 
 Delta operation test vectors live at
-`weavepack/profiles/tensor/test-vectors/deltas/` (to be populated
-in Phase 5.6).
+`weavepack/profiles/tensor/test-vectors/deltas/`:
+
+| Subdirectory | Vectors | Coverage |
+|---|---|---|
+| `tensor_replace/` | 4 | mode=0 absolute; one no-op |
+| `tensor_add_remove/` | 4 | add + remove with various dtypes |
+| `element_set/` | 2 | sparse fp32 + int32 element-set |
+| `region_replace/` | 4 | bbox region updates |
+| `delta_from_prior/` | 3 | mode=1 raw-delta tests (decoder-only via `delta_bytes_hex` field; encoder doesn't yet emit mode=1) |
+
+All vectors verified in JS, Rust, and Python implementations
+(58/58 in each).
