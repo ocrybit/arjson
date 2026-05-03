@@ -14,8 +14,11 @@ No external dependencies; targets Python 3.10+.
   item D.2.
 - **weavepack-tensor**: full encoder + decoder + delta application at
   Level 3 (byte-exact). 58/58 corpus vectors pass. Schemaless +
-  schemaful + 5 delta ops (tensor_replace, tensor_add, tensor_remove,
-  element_set, region_replace).
+  schemaful + 5 of 6 delta ops (tensor_replace, tensor_add,
+  tensor_remove, element_set, region_replace; quant_change is the
+  6th and is not yet implemented in any language). Decoder also
+  handles tensor_replace mode=1 (delta-from-prior arithmetic, V0.2
+  A.3); encoder always emits mode=0.
 
 ## Why this exists
 
