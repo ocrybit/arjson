@@ -128,11 +128,14 @@ Python chain framing).
 ## What's NOT implemented
 
 - weavepack-json structured mode (objects, arrays, nested values,
-  deltas). The 57 currently-skipped vectors all hit this gap. See
+  deltas). The 56 currently-skipped vectors all hit this gap. See
   `V0.2-PLANNING.md` item D.2 for the planning notes.
 - weavepack-tensor `quant_change` op. Spec'd but no language
   implements it yet (depends on full quantized-dtype implementation).
-- weavepack-tensor `delta-from-prior` arithmetic compression.
+- weavepack-tensor mode=1 emit from the Python encoder. The Python
+  encoder always emits `tensor_replace` as mode=0; the decoder
+  handles both modes (so it correctly reads JS-produced mode=1
+  chains). The JS encoder ships the V0.2 A.3 mode=1 heuristic.
 
 ## License
 
