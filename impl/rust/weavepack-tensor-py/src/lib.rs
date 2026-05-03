@@ -151,6 +151,35 @@ fn schema_hash_hex(schema: &Bound<'_, PyDict>) -> PyResult<String> {
     Ok(weavepack_tensor::schema::schema_hash_hex(&map))
 }
 
+/// Split a chain buffer into individual length-prefixed payloads.
+///
+/// Returns list[bytes].  Mirrors weavepack_tensor.parse_chain in the
+/// pure-Python module and chain_parse in the Rust core crate.
+#[pyfunction]
+fn parse_chain<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyList>> {
+    let segments = weavepack_tensor::chain::chain_parse(data);
+    let list = PyList::empty(py);
+    for seg in segments {
+        list.append(PyBytes::new(py, &seg))?;
+    }
+    Ok(list)
+}
+
+/// Serialize an iterable of payloads into a single chain buffer.
+///
+/// Each input must be a bytes-like object.
+#[pyfunction]
+fn serialize_chain<'py>(py: Python<'py>, payloads: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyBytes>> {
+    let mut segments: Vec<Vec<u8>> = Vec::new();
+    for item in payloads.try_iter()? {
+        let item = item?;
+        let bytes: Vec<u8> = item.extract()?;
+        segments.push(bytes);
+    }
+    let buf = weavepack_tensor::chain::chain_serialize(&segments);
+    Ok(PyBytes::new(py, &buf))
+}
+
 // ── module ────────────────────────────────────────────────────────────────────
 
 #[pymodule]
@@ -161,6 +190,8 @@ fn weavepack_tensor_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(apply_delta, m)?)?;
     m.add_function(wrap_pyfunction!(schema_hash, m)?)?;
     m.add_function(wrap_pyfunction!(schema_hash_hex, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_chain, m)?)?;
+    m.add_function(wrap_pyfunction!(serialize_chain, m)?)?;
     m.add("__version__", "0.1.0")?;
     Ok(())
 }
