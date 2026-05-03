@@ -17,6 +17,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from weavepack_tensor import (
     decode_document,
     decode_document_schemaful,
+    encode_document,
+    encode_document_schemaful,
     apply_delta,
     schema_hash_hex,
     DTYPE,
@@ -138,19 +140,24 @@ for vec_file in walk(VECTORS):
                 failures.append(f"{rel_str} :: {name}: exception: {e}")
             continue
         if rel_str.startswith("schemas/"):
-            # Schemaful decoding implemented; verify here.
+            # Schemaful encode + decode round-trip.
             try:
                 hex_str = v["expected_bytes_hex"]
                 schema = v["schema"]
                 schema_h = v["schema_hash_hex"]
-                # Verify our schema_hash_hex matches.
                 if schema_hash_hex(schema) != schema_h:
                     fails += 1
                     failures.append(f"{rel_str} :: {name}: schema hash mismatch")
                     continue
-                data = bytes.fromhex(hex_str)
-                decoded = decode_document_schemaful(data, {schema_h: schema})
-                # Just verify it decodes without error and has the right tensor names.
+                # Encoder side.
+                input_doc = parse_input(v["input"])
+                encoded = encode_document_schemaful(input_doc, schema)
+                if encoded.hex() != hex_str:
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: schemaful encode mismatch")
+                    continue
+                # Decoder side.
+                decoded = decode_document_schemaful(bytes.fromhex(hex_str), {schema_h: schema})
                 expected_names = set(v["input"]["tensors"].keys())
                 actual_names = set(decoded["tensors"].keys())
                 if expected_names != actual_names:
@@ -194,6 +201,21 @@ for vec_file in walk(VECTORS):
                         raise AssertionError(
                             f"data mismatch: got {td['data'][:5]}... expected {expected[:5]}..."
                         )
+            # Encoder check: re-encode the input and compare bytes.
+            # For fp16/bf16, the input data is f32 numbers; the encoder
+            # needs raw bits. Skip the encoder check for those (the
+            # decoder check above already validates bit-exactness).
+            has_half = any(
+                t["dtype"] in (DTYPE.FP16, DTYPE.BF16)
+                for t in v["input"]["tensors"].values()
+            )
+            if not has_half:
+                input_doc = parse_input(v["input"])
+                encoded = encode_document(input_doc)
+                if encoded.hex() != hex_str:
+                    raise AssertionError(
+                        f"encode mismatch: got {encoded.hex()[:64]}... expected {hex_str[:64]}..."
+                    )
             passes += 1
         except NotImplementedError:
             skips += 1

@@ -19,10 +19,16 @@ from .decoder import (
     fp16_bits_to_f32,
     bf16_bits_to_f32,
 )
+from .encoder import (
+    encode_document,
+    encode_document_schemaful,
+)
 
 __all__ = [
     "decode_document",
     "decode_document_schemaful",
+    "encode_document",
+    "encode_document_schemaful",
     "apply_delta",
     "schema_hash",
     "schema_hash_hex",
