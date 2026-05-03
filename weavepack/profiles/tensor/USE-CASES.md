@@ -9,6 +9,11 @@ tensor instead of safetensors / pickle / numpy.npy".
 > **Worked example:** [`examples/training-checkpoint-chain.js`](examples/training-checkpoint-chain.js) —
 > 100 training steps over a 1024-element fp32 tensor at 2% per-step
 > sparsity → **30× smaller** than safetensors-style snapshots.
+>
+> Additional headroom (V0.2 A.3 in progress): emitting `tensor_replace`
+> as **delta-from-prior** (mode=1) gives another **1.6× under brotli**
+> for small per-element changes — see
+> [`examples/delta-from-prior-mode-bit.js`](examples/delta-from-prior-mode-bit.js).
 
 **Scenario:** You're training a transformer for 100k steps and want
 to save a checkpoint every 100 steps. Each checkpoint is a 7B-param
