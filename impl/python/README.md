@@ -95,9 +95,10 @@ validate_chain(chain_bytes)
 These helpers also exist in the Rust core crate
 (`weavepack_core::chain::{chain_parse, chain_serialize, chain_validate}`),
 the JS reference (`ARJSON.fromBuffer`, `.toBuffer`, `.validate`), and
-the PyO3 wheel (`weavepack_tensor_rs.parse_chain` / `.serialize_chain`;
-chain_validate not yet exposed). The byte-level checks are identical
-across all three implementations.
+the PyO3 wheel (`weavepack_tensor_rs.parse_chain` / `.serialize_chain` /
+`.validate_chain`). The byte-level checks are identical across all
+three implementations — rebuild the wheel via `maturin develop` after
+this change to expose `validate_chain`.
 
 See [`weavepack/profiles/tensor/examples/chain-partial-restore.py`](../../weavepack/profiles/tensor/examples/chain-partial-restore.py)
 for a worked example.

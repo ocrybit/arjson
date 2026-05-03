@@ -180,6 +180,17 @@ fn serialize_chain<'py>(py: Python<'py>, payloads: &Bound<'py, PyAny>) -> PyResu
     Ok(PyBytes::new(py, &buf))
 }
 
+/// Validate a chain buffer against the "single anchor + deltas" rule.
+///
+/// Raises ValueError if any payload past position 0 is a standalone
+/// anchor (mode bit = 1) or zero-length. Returns None on success.
+/// Mirrors weavepack_tensor.validate_chain (pure Python) and
+/// weavepack_core::chain::chain_validate (Rust).
+#[pyfunction]
+fn validate_chain(data: &[u8]) -> PyResult<()> {
+    weavepack_tensor::chain::chain_validate(data).map_err(PyValueError::new_err)
+}
+
 // ── module ────────────────────────────────────────────────────────────────────
 
 #[pymodule]
@@ -192,6 +203,7 @@ fn weavepack_tensor_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(schema_hash_hex, m)?)?;
     m.add_function(wrap_pyfunction!(parse_chain, m)?)?;
     m.add_function(wrap_pyfunction!(serialize_chain, m)?)?;
+    m.add_function(wrap_pyfunction!(validate_chain, m)?)?;
     m.add("__version__", "0.1.0")?;
     Ok(())
 }
