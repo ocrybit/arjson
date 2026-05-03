@@ -10,10 +10,13 @@ tensor instead of safetensors / pickle / numpy.npy".
 > 100 training steps over a 1024-element fp32 tensor at 2% per-step
 > sparsity → **30× smaller** than safetensors-style snapshots.
 >
-> Additional headroom (V0.2 A.3 in progress): emitting `tensor_replace`
-> as **delta-from-prior** (mode=1) gives another **1.6× under brotli**
-> for small per-element changes — see
-> [`examples/delta-from-prior-mode-bit.js`](examples/delta-from-prior-mode-bit.js).
+> Dense-update headroom (V0.2 A.3 ✓ shipped): the encoder now emits
+> `tensor_replace` as **delta-from-prior** (mode=1) when the max
+> per-element change is ≤ 0.01 (typical for Adam-style training).
+> Empirically **1.6× smaller after brotli** than mode=0 on the
+> dense-Adam scenario. See
+> [`examples/delta-from-prior-mode-bit.js`](examples/delta-from-prior-mode-bit.js)
+> for the full sweep across update magnitudes.
 
 **Scenario:** You're training a transformer for 100k steps and want
 to save a checkpoint every 100 steps. Each checkpoint is a 7B-param
