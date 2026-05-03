@@ -12,6 +12,7 @@ so you can find what you need without spelunking.
 | **Get honest answers about positioning** | [`weavepack/FAQ.md`](./weavepack/FAQ.md) — when to reach for it, when not to |
 | **Use ARJSON (the JSON profile)** | [`README.md`](./README.md) — original ARJSON docs |
 | **See real-world use cases for tensors** | [`weavepack/profiles/tensor/USE-CASES.md`](./weavepack/profiles/tensor/USE-CASES.md) |
+| **Run a worked example** | [`weavepack/profiles/tensor/examples/`](./weavepack/profiles/tensor/examples/) (4 demos) and [`weavepack/profiles/json/examples/`](./weavepack/profiles/json/examples/) (2 demos) |
 | **Hit a confusing error** | [`weavepack/TROUBLESHOOTING.md`](./weavepack/TROUBLESHOOTING.md) — multi-language gotchas + fixes |
 | **See the current roadmap** | [`weavepack/ROADMAP.md`](./weavepack/ROADMAP.md) — phase-by-phase progress |
 | **Read the protocol spec** | [`weavepack/core/00-introduction.md`](./weavepack/core/00-introduction.md) |
