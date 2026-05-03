@@ -497,10 +497,12 @@ Swift, or C#); advance RFC 0001 fp16/bf16 toward Accepted once a second
 implementation validates the vectors; consider v0.2 work (V0.2-PLANNING.md).
 
 V0.2 in-progress (incremental):
-- A.3 delta-from-prior decoder: ✓ shipped in JS, Rust, Python (58/58
-  vectors). Encoder heuristic for emitting mode=1 still pending —
-  measured threshold ~0.01 magnitude (see V0.2-PLANNING.md A.3 table
-  and `weavepack/profiles/tensor/examples/delta-from-prior-mode-bit.js`).
+- A.3 delta-from-prior: ✓ DONE. Decoder in JS, Rust, Python
+  (58/58 vectors); JS encoder heuristic emits mode=1 when max
+  abs delta ≤ 0.01 on fp32/fp64 dense updates. Empirically,
+  weavepack+brotli is 1.6× smaller than safetensors+brotli on
+  the dense Adam-style training scenario (was ~1.0× before the
+  heuristic). See V0.2-PLANNING.md A.3 table for the full sweep.
 - D.1 Rust JSON encoder: ✓ single-payload subset (37/68 vectors).
   Non-empty container encoding still pending.
 

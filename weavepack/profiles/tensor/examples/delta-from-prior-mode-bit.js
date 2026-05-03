@@ -1,11 +1,14 @@
 // Worked example: hand-crafted mode=1 delta + brotli measurement.
 //
-// The v0.1 encoder always emits tensor_replace with mode=0 (absolute
-// values). The decoder supports mode=1 (per-element arithmetic delta)
-// since the V0.2 A.3 work, but encoder-side heuristics for emitting
-// mode=1 are still pending. This example hand-crafts a mode=1 delta
-// and measures the downstream-compression benefit when the per-element
-// changes are small.
+// HISTORICAL NOTE: this example was written when the encoder still
+// always emitted mode=0 (V0.2 A.3 encoder heuristic was pending). The
+// JS encoder now picks mode=1 itself when max abs delta ≤ 0.01 on
+// fp32/fp64 dense updates. Preserved here as the measurement that
+// informed the threshold choice — the brotli win curve below is the
+// reason the heuristic exists.
+//
+// The v0.1 wire format has the mode bit; both modes round-trip
+// correctly across all 3 implementations.
 //
 // Run: node weavepack/profiles/tensor/examples/delta-from-prior-mode-bit.js
 
