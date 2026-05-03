@@ -9,6 +9,7 @@ so you can find what you need without spelunking.
 | If you want to... | Start here |
 |---|---|
 | **Understand what weavepack is** | [`WEAVEPACK.md`](./WEAVEPACK.md) — overview, capability matrix, status |
+| **Get honest answers about positioning** | [`weavepack/FAQ.md`](./weavepack/FAQ.md) — when to reach for it, when not to |
 | **Use ARJSON (the JSON profile)** | [`README.md`](./README.md) — original ARJSON docs |
 | **See real-world use cases for tensors** | [`weavepack/profiles/tensor/USE-CASES.md`](./weavepack/profiles/tensor/USE-CASES.md) |
 | **Hit a confusing error** | [`weavepack/TROUBLESHOOTING.md`](./weavepack/TROUBLESHOOTING.md) — multi-language gotchas + fixes |
