@@ -495,3 +495,13 @@ profiles. The honest commitment is to that gate.
 Next action: Ongoing — recruit a third-party implementation (Go, C, Java,
 Swift, or C#); advance RFC 0001 fp16/bf16 toward Accepted once a second
 implementation validates the vectors; consider v0.2 work (V0.2-PLANNING.md).
+
+V0.2 in-progress (incremental):
+- A.3 delta-from-prior decoder: ✓ shipped in JS, Rust, Python (58/58
+  vectors). Encoder heuristic for emitting mode=1 still pending —
+  measured threshold ~0.01 magnitude (see V0.2-PLANNING.md A.3 table
+  and `weavepack/profiles/tensor/examples/delta-from-prior-mode-bit.js`).
+- D.1 Rust JSON encoder: ✓ single-payload subset (37/68 vectors).
+  Non-empty container encoding still pending.
+
+Cross-language total: 397 vectors agree across JS / Rust / Python.
