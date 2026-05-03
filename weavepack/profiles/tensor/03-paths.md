@@ -157,6 +157,14 @@ forms; the smallest valid representation).
 
 ## Test vector references
 
-Path grammar test vectors live at
-`weavepack/profiles/tensor/test-vectors/paths/` (to be populated
-in Phase 5.6).
+Path-shaped test scenarios are exercised indirectly via the
+container-shape test vectors at
+`weavepack/profiles/tensor/test-vectors/containers/shapes.json`
+(7 shape vectors covering 1D/2D/3D and edge cases) and via the
+delta op vectors that include tensors at various paths.
+
+A dedicated `test-vectors/paths/` directory is not currently
+populated — path canonicalization is implicit in encoder behavior
+and isn't a separately-testable wire-format concern. If a profile
+extension introduces wire-level path encoding, this should be
+revisited.

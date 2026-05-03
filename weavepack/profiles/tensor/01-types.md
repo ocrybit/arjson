@@ -231,5 +231,9 @@ The reference implementation will:
 ## Test vector references
 
 Conformance test vectors live at
-`weavepack/profiles/tensor/test-vectors/types/` (to be populated in
-Phase 5.6).
+`weavepack/profiles/tensor/test-vectors/types/`:
+
+- `dtypes.json` — 11 vectors covering all base dtypes
+  (fp32, fp64, int8/16/32/64, uint8/16/32/64, bool)
+- `half.json` — 20 vectors for fp16/bf16 per RFC 0001
+  (±Inf, qNaN, sNaN, subnormals, RNE rounding, mixed-dtype)
