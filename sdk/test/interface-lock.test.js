@@ -239,6 +239,19 @@ describe("interface lock: toBuffer / fromBuffer round-trip", () => {
     )
   })
 
+  it("ARJSON.validate rejects zero-length payload mid-chain", () => {
+    // A zero-length payload mid-chain (e.g. from a corrupted
+    // serialization) is malformed. Construct one manually since
+    // ARJSON.toBuffer wouldn't emit one normally.
+    const a1 = enc(42)
+    const malformed = ARJSON.toBuffer([a1, new Uint8Array(0)])
+    assert.throws(
+      () => ARJSON.validate(malformed),
+      /zero-length/,
+      "should reject zero-length payload mid-chain"
+    )
+  })
+
   it("a chain with multiple structured-mode anchors is malformed", () => {
     const a1 = enc({ a: 1 })
     const a2 = enc({ x: "different" })

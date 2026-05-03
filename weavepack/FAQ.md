@@ -152,7 +152,7 @@ weavepack-tensor, and the protocol substrate).
 
 ## How big is the test suite?
 
-- 2184 sdk tests (JS)
+- 2185 sdk tests (JS)
 - 2000+ property-based test cases per run (14 algebraic-law
   properties)
 - 388 conformance vectors agreeing across 3 languages

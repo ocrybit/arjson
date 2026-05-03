@@ -94,7 +94,7 @@ arjson/
 │   │       ├── json/               (weavepack-json — full impl)
 │   │       ├── tensor/             (weavepack-tensor v0.1)
 │   │       └── null/               (boundary-validation profile)
-│   └── test/                       (2184 tests)
+│   └── test/                       (2185 tests)
 │
 ├── impl/
 │   ├── rust/
