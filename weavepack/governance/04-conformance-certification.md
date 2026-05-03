@@ -142,15 +142,19 @@ green CI run.
 
 ## Certified-implementation badge
 
-Implementations passing conformance MAY add a badge to their README:
+Implementations passing conformance MAY add a badge to their README.
+Static SVG badges are hosted at `weavepack/badges/` in this repo
+(see `weavepack/badges/README.md` for the full list and addition guide).
 
-```
-[![weavepack-json L3](https://weavepack.dev/badge/json/L3.svg)](...)
-[![weavepack-tensor L2](https://weavepack.dev/badge/tensor/L2.svg)](...)
+```markdown
+[![weavepack-json L3](https://raw.githubusercontent.com/weavedb/arjson/weavepack/weavepack/badges/json/L3.svg)](https://github.com/weavedb/arjson/blob/weavepack/weavepack/governance/04-conformance-certification.md)
+[![weavepack-tensor L2](https://raw.githubusercontent.com/weavedb/arjson/weavepack/weavepack/badges/tensor/L2.svg)](https://github.com/weavedb/arjson/blob/weavepack/weavepack/governance/04-conformance-certification.md)
+[![weavepack-tensor L3](https://raw.githubusercontent.com/weavedb/arjson/weavepack/weavepack/badges/tensor/L3.svg)](https://github.com/weavedb/arjson/blob/weavepack/weavepack/governance/04-conformance-certification.md)
 ```
 
-(Badge URLs are placeholder; the badge endpoint will be set up
-once we have ≥ 2 implementations claiming certification.)
+Once a live HTTPS endpoint exists (planned once ≥ 2 independent certified
+implementations exist), the static files remain as fallback and the
+governance doc will be updated to show the live URL as primary.
 
 The badge is **decorative**. It carries no more weight than the
 README claim it links to. Its purpose is visibility (consumers

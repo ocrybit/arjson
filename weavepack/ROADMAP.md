@@ -482,7 +482,13 @@ profiles. The honest commitment is to that gate.
     conformance vectors covering ±Inf, qNaN, sNaN, subnormals, RNE
     rounding, mixed-dtype; verify-test-vectors.js extended with
     data_raw_bits support for non-finite test values)
-  - [ ] Set up badge endpoint (after ≥ 2 certified impls)
+  - [x] Set up badge endpoint (static SVG badges hosted at weavepack/badges/;
+    json/L3.svg, tensor/L2.svg, tensor/L3.svg; raw GitHub URLs usable now,
+    live HTTPS endpoint deferred until ≥ 2 independent certified impls;
+    04-conformance-certification.md updated with real badge URLs)
   - [ ] Independent third-party impl recruited
 
-Next action: Phase 7 — Set up badge endpoint infrastructure (static SVG badges for weavepack-json L3 and weavepack-tensor L2/L3, hosted at weavepack/badges/ until a live endpoint exists).
+Next action: Phase 7 — Recruit an independent third-party implementation
+(open a "call for implementations" issue; draft a getting-started guide for
+external implementors pointing at the conformance test corpus and badge
+infrastructure).
