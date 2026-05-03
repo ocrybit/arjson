@@ -8,11 +8,16 @@ import assert from "assert"
 import {
   encodeDocument,
   decodeDocument,
+  encodeDocumentSchemaful,
+  decodeDocumentSchemaful,
   encodeDelta,
   applyDelta,
   TensorPack,
   DTYPE,
   OP,
+  schemaHash,
+  schemaHashHex,
+  canonicalizeSchema,
 } from "../src/profiles/tensor/index.js"
 
 function fp32(values) {
@@ -452,6 +457,225 @@ describe("weavepack-tensor v0.1 (fp32, schemaless, no deltas)", () => {
         [],
         "tensor profile must not import from profiles/json/"
       )
+    })
+  })
+})
+
+// ── Phase 5.5: schema sidecar ─────────────────────────────────────────────
+
+describe("weavepack-tensor schema sidecar (Phase 5.5)", () => {
+
+  describe("schema canonicalization and hashing", () => {
+    it("canonical form sorts keys alphabetically", () => {
+      const schema = {
+        "z.bias": { dtype: DTYPE.FP32, shape: [4] },
+        "a.weight": { dtype: DTYPE.FP32, shape: [4, 4] },
+      }
+      const canonical = canonicalizeSchema(schema)
+      const parsed = JSON.parse(canonical)
+      assert.deepEqual(Object.keys(parsed), ["a.weight", "z.bias"])
+    })
+
+    it("same logical schema always hashes to the same id", () => {
+      const s1 = { b: { dtype: DTYPE.FP32, shape: [2] }, a: { dtype: DTYPE.INT8, shape: [3] } }
+      const s2 = { a: { dtype: DTYPE.INT8, shape: [3] }, b: { dtype: DTYPE.FP32, shape: [2] } }
+      assert.equal(schemaHashHex(s1), schemaHashHex(s2))
+    })
+
+    it("different schemas produce different hashes", () => {
+      const s1 = { w: { dtype: DTYPE.FP32, shape: [4] } }
+      const s2 = { w: { dtype: DTYPE.FP32, shape: [8] } }
+      assert.notEqual(schemaHashHex(s1), schemaHashHex(s2))
+    })
+
+    it("schemaHash returns 32-byte Uint8Array", () => {
+      const schema = { w: { dtype: DTYPE.FP32, shape: [4] } }
+      const h = schemaHash(schema)
+      assert.ok(h instanceof Uint8Array)
+      assert.equal(h.length, 32)
+    })
+  })
+
+  describe("schemaful encode / decode round-trip", () => {
+    it("round-trips a single fp32 tensor schemafully", () => {
+      const schema = { weight: { dtype: DTYPE.FP32, shape: [4] } }
+      const doc = { tensors: { weight: { dtype: DTYPE.FP32, shape: [4], data: fp32([1, 2, 3, 4]) } } }
+      const bytes = encodeDocumentSchemaful(doc, schema)
+      const registry = new Map([[schemaHashHex(schema), schema]])
+      const decoded = decodeDocumentSchemaful(bytes, registry)
+      assert.deepEqual(decoded.tensors.weight.shape, [4])
+      assert.equal(decoded.tensors.weight.dtype, DTYPE.FP32)
+      assert.ok(arrEq(decoded.tensors.weight.data, fp32([1, 2, 3, 4])))
+    })
+
+    it("round-trips multiple tensors schemafully in canonical key order", () => {
+      const schema = {
+        "z.bias":   { dtype: DTYPE.FP32, shape: [3] },
+        "a.weight": { dtype: DTYPE.FP32, shape: [3, 3] },
+      }
+      const doc = {
+        tensors: {
+          "z.bias":   { dtype: DTYPE.FP32, shape: [3],    data: fp32([0.1, 0.2, 0.3]) },
+          "a.weight": { dtype: DTYPE.FP32, shape: [3, 3], data: fp32([1, 2, 3, 4, 5, 6, 7, 8, 9]) },
+        }
+      }
+      const bytes = encodeDocumentSchemaful(doc, schema)
+      const registry = new Map([[schemaHashHex(schema), schema]])
+      const decoded = decodeDocumentSchemaful(bytes, registry)
+      assert.ok(arrEq(decoded.tensors["z.bias"].data, fp32([0.1, 0.2, 0.3])))
+      assert.deepEqual(decoded.tensors["a.weight"].shape, [3, 3])
+      assert.ok(arrEq(decoded.tensors["a.weight"].data, fp32([1, 2, 3, 4, 5, 6, 7, 8, 9])))
+    })
+
+    it("schemaful payload is smaller than schemaless when total metadata exceeds hash size", () => {
+      // Per-tensor schemaless metadata (name + dtype + shape) adds up across many tensors.
+      // The schema hash overhead is constant at 32 bytes, so schemaful wins once
+      // N × per_tensor_metadata > 32 bytes. With 5 tensors of 13-char names, metadata
+      // ~80 bytes > 32 bytes hash → schemaful is smaller.
+      const N = 100  // elements per tensor (data dominates, metadata difference visible)
+      const tensors = {}
+      const schemaDef = {}
+      for (let i = 0; i < 5; i++) {
+        const name = `layer${i}.weight`  // 13 chars each
+        tensors[name] = { dtype: DTYPE.FP32, shape: [N], data: new Float32Array(N) }
+        schemaDef[name] = { dtype: DTYPE.FP32, shape: [N] }
+      }
+      const doc = { tensors }
+      const schema = schemaDef
+      const sBytes = encodeDocument(doc)
+      const sfBytes = encodeDocumentSchemaful(doc, schema)
+      assert.ok(
+        sfBytes.length < sBytes.length,
+        `schemaful ${sfBytes.length} bytes should be < schemaless ${sBytes.length} for 5 tensors`
+      )
+    })
+
+    it("round-trips bool, int8, and int64 tensors schemafully", () => {
+      const schema = {
+        mask:  { dtype: DTYPE.BOOL,  shape: [8] },
+        i8:    { dtype: DTYPE.INT8,  shape: [4] },
+        i64:   { dtype: DTYPE.INT64, shape: [3] },
+      }
+      const doc = {
+        tensors: {
+          mask:  { dtype: DTYPE.BOOL,  shape: [8],  data: [1, 0, 1, 1, 0, 0, 1, 0] },
+          i8:    { dtype: DTYPE.INT8,  shape: [4],  data: new Int8Array([-128, -1, 0, 127]) },
+          i64:   { dtype: DTYPE.INT64, shape: [3],  data: new BigInt64Array([-1n, 0n, 1n]) },
+        }
+      }
+      const bytes = encodeDocumentSchemaful(doc, schema)
+      const registry = new Map([[schemaHashHex(schema), schema]])
+      const decoded = decodeDocumentSchemaful(bytes, registry)
+      for (let i = 0; i < 8; i++) assert.equal(decoded.tensors.mask.data[i], doc.tensors.mask.data[i])
+      for (let i = 0; i < 4; i++) assert.equal(decoded.tensors.i8.data[i], doc.tensors.i8.data[i])
+      for (let i = 0; i < 3; i++) assert.equal(decoded.tensors.i64.data[i], doc.tensors.i64.data[i])
+    })
+
+    it("throws on unknown schema-id", () => {
+      const schema = { w: { dtype: DTYPE.FP32, shape: [4] } }
+      const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [4], data: fp32([1, 2, 3, 4]) } } }
+      const bytes = encodeDocumentSchemaful(doc, schema)
+      const emptyRegistry = new Map()
+      assert.throws(
+        () => decodeDocumentSchemaful(bytes, emptyRegistry),
+        /unknown schema-id/
+      )
+    })
+
+    it("throws when trying to decode schemaful payload with decodeDocument", () => {
+      const schema = { w: { dtype: DTYPE.FP32, shape: [4] } }
+      const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [4], data: fp32([1, 2, 3, 4]) } } }
+      const bytes = encodeDocumentSchemaful(doc, schema)
+      assert.throws(
+        () => decodeDocument(bytes),
+        /schemaful.*use decodeDocumentSchemaful/i
+      )
+    })
+
+    it("throws when trying to decode schemaless payload with decodeDocumentSchemaful", () => {
+      const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [4], data: fp32([1, 2, 3, 4]) } } }
+      const bytes = encodeDocument(doc)
+      const registry = new Map()
+      assert.throws(
+        () => decodeDocumentSchemaful(bytes, registry),
+        /schemaless.*use decodeDocument/i
+      )
+    })
+
+    it("throws when document schema dtype mismatches", () => {
+      const schema = { w: { dtype: DTYPE.FP32, shape: [4] } }
+      const doc = { tensors: { w: { dtype: DTYPE.INT32, shape: [4], data: new Int32Array([1, 2, 3, 4]) } } }
+      assert.throws(
+        () => encodeDocumentSchemaful(doc, schema),
+        /dtype/
+      )
+    })
+
+    it("throws when document schema shape mismatches", () => {
+      const schema = { w: { dtype: DTYPE.FP32, shape: [4] } }
+      const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [8], data: fp32(Array.from({length:8}, (_,i)=>i)) } } }
+      assert.throws(
+        () => encodeDocumentSchemaful(doc, schema),
+        /shape/
+      )
+    })
+
+    it("throws when document is missing a tensor required by schema", () => {
+      const schema = {
+        w: { dtype: DTYPE.FP32, shape: [4] },
+        b: { dtype: DTYPE.FP32, shape: [4] },
+      }
+      const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [4], data: fp32([1, 2, 3, 4]) } } }
+      assert.throws(
+        () => encodeDocumentSchemaful(doc, schema),
+        /absent/
+      )
+    })
+  })
+
+  describe("schemaful wire format structure", () => {
+    it("schemaful payload starts with 0b01 (doc=0, schema=1)", () => {
+      const schema = { w: { dtype: DTYPE.FP32, shape: [2] } }
+      const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }
+      const bytes = encodeDocumentSchemaful(doc, schema)
+      // Byte 0: bits 7..6 of the bit stream. bit0=0(doc), bit1=1(schema), rest is hash start.
+      // The first byte of the bit stream has MSB = bit0 = 0, next bit = bit1 = 1.
+      // So byte[0] MSB = 0, next bit = 1: byte[0] = 0b01xxxxxx
+      assert.equal((bytes[0] >> 6) & 0b11, 0b01, "first two bits should be 01 (schemaful doc)")
+    })
+
+    it("schemaless payload starts with 0b00 (doc=0, schema=0)", () => {
+      const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }
+      const bytes = encodeDocument(doc)
+      assert.equal((bytes[0] >> 6) & 0b11, 0b00, "first two bits should be 00 (schemaless doc)")
+    })
+
+    it("delta payload starts with 0b1x (delta=1)", () => {
+      const base = { tensors: { w: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }
+      const upd  = { tensors: { w: { dtype: DTYPE.FP32, shape: [2], data: fp32([3, 4]) } } }
+      const delta = encodeDelta(base, upd)
+      assert.equal((delta[0] >> 7) & 0b1, 0b1, "first bit should be 1 (delta)")
+    })
+
+    it("schemaful payload contains the schema hash at bytes 1-32 (bits 2-257)", () => {
+      const schema = { w: { dtype: DTYPE.FP32, shape: [2] } }
+      const doc = { tensors: { w: { dtype: DTYPE.FP32, shape: [2], data: fp32([1, 2]) } } }
+      const bytes = encodeDocumentSchemaful(doc, schema)
+      const expectedHash = schemaHash(schema)
+
+      // Extract 256 bits starting at bit 2 from the byte stream.
+      const extractedHash = new Uint8Array(32)
+      for (let byteIdx = 0; byteIdx < 32; byteIdx++) {
+        let val = 0
+        for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
+          const streamBit = 2 + byteIdx * 8 + bitIdx
+          const bytePos = streamBit >> 3
+          const bitPos  = 7 - (streamBit & 7)
+          val = (val << 1) | ((bytes[bytePos] >> bitPos) & 1)
+        }
+        extractedHash[byteIdx] = val
+      }
+      assert.deepEqual(extractedHash, expectedHash)
     })
   })
 })
