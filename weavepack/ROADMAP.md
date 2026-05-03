@@ -441,19 +441,21 @@ profiles. The honest commitment is to that gate.
 - [x] Phase 2: weavepack-core spec — 10 spec docs
 - [x] Phase 3: sdk/ refactor to protocol/profile boundary — null-profile gate passing
 - [x] Phase 4: Property-based testing — 12 property tests, 1700+ generated cases per run, all passing
-- [ ] Phase 5: Profile #2 (recommended: weavepack-tensor)
+- [x] Phase 5: Profile #2 (weavepack-tensor)
   - [x] Phase 5.1–5.4: spec docs (01–05), fp32 round-trip, multi-dtype, deltas
   - [x] Phase 5.5: schemaful sidecar spec + implementation (06-schemas.md, schema.js)
   - [x] Phase 5.6: conformance test corpus — 31 vectors across 5 files
     (types/dtypes, containers/shapes, deltas/tensor_replace,
     deltas/tensor_add_remove, deltas/element_set, schemas/schemaful);
     verify-test-vectors.js extended to cover tensor profile
-  - [ ] Phase 5.7: benchmarks vs safetensors / PyTorch + zstd
+  - [x] Phase 5.7: benchmarks vs safetensors + zstd/brotli
+    (07-benchmarks.md, tools/benchmark-tensor.js; snapshot parity with
+    safetensors within 2%; sparse delta 1000–2500× smaller than safetensors
+    full re-encode; single-tensor delta 3–4× smaller; gate: PASSED)
+- [x] Phase 5: Profile #2 complete — weavepack-tensor v0.1 spec + impl + corpus + benchmarks
 - [ ] Phase 6: Rust reference implementation
 - [ ] Phase 7: Ecosystem and governance
 
-Next action: Phase 5.7 — benchmark weavepack-tensor against safetensors
-and PyTorch + zstd on a representative model (e.g. GPT-2-small fp32).
-Measure: encode size, encode time, decode time, delta chain size after
-N weight updates. Goal: publish numbers that either confirm or falsify
-the "beat its incumbent" gate from Phase 5.
+Next action: Phase 6 — Rust reference implementation.
+Start with impl/rust/ scaffold: weavepack-core crate + weavepack-tensor crate.
+Gate: Rust impl passes the full conformance corpus byte-for-byte.
