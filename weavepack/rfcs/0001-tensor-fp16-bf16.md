@@ -1,6 +1,6 @@
 # RFC 0001 — fp16 and bf16 dtype support in weavepack-tensor
 
-**Status:** Discussion (JS + Rust reference impls landed; awaiting 2-week minimum + integration with tensor encode/decode pipelines + test vectors)
+**Status:** Discussion (JS + Rust reference impls landed; conformance corpus complete — 20 vectors in types/half.json covering ±Inf, qNaN, sNaN, subnormals, RNE rounding, smallest-normal, and mixed-dtype; awaiting 2-week minimum discussion period before acceptance)
 **Author(s):** Claude / arjson maintainers (TBD)
 **Created:** 2026-05-03
 **Affects:** weavepack-tensor profile
@@ -153,21 +153,40 @@ Implementation PRs should include:
 
 ## Test vectors
 
-To be added to `weavepack/profiles/tensor/test-vectors/types/`. At
-minimum 10 vectors covering:
+Added to `weavepack/profiles/tensor/test-vectors/types/half.json`.
+20 vectors total covering:
 
-- fp16 round-trip of: 0, 1.0, -1.0, smallest denormal, largest
-  finite (65504), smallest finite, +Infinity, -Infinity, qNaN,
-  sNaN
-- bf16 round-trip of: 0, 1.0, -1.0, smallest denormal, largest
-  finite (3.39e38), +Infinity, -Infinity, NaN, a value requiring
-  round-to-nearest-even
-- Mixed-dtype documents combining fp16/bf16 with fp32
+**fp16** (8 original + 5 new):
+- Round-trip: 0, 1.0, -1.0, 0.5 (unit values)
+- Max-finite: 65504 (0x7bff)
+- Smallest subnormal: 2^-24 (0x0001)
+- Underflow to zero (below 2^-24)
+- 2D matrix [1..6]
+- Smallest normal: 2^-14 (0x0400) ← new
+- +Infinity (0x7c00) ← new
+- -Infinity (0xfc00) ← new
+- Quiet NaN / qNaN (0x7e00) ← new
+- Signaling NaN / sNaN (0x7c01) ← new
 
-Each vector specifies the f32 source value, the expected raw 16-bit
-hex on the wire, and the round-trip f32 result. Lossy conversions
-(f32 with precision beyond fp16's range) document the expected
-rounded value.
+**bf16** (3 original + 7 new):
+- Round-trip: 0, 1.0, -1.0, 0.5 (unit values)
+- Large dynamic range [1e-30, 1, 1e30]
+- 2D matrix [1..6]
+- +Infinity (0x7f80) ← new
+- -Infinity (0xff80) ← new
+- Quiet NaN (0x7fc0) ← new
+- Smallest denormal (0x0001 ≈ 9.18e-41) ← new
+- Round-to-nearest-even tie, rounds up (0x3f82) ← new
+- Round-to-nearest-even tie, rounds to even (0x3f80) ← new
+- Largest finite (3.39e38 via large-dynamic-range vector, already covered)
+
+**Mixed-dtype** (1 new):
+- Document with fp16 tensor `a` + fp32 tensor `b` ← new
+
+Each vector specifies the input values (as f32 numbers or raw uint16
+bit patterns via `data_raw_bits` for non-finite values), the
+`expected_bytes_hex` for byte-exact encoder verification, and
+`expected_bits` for decoded Uint16Array round-trip verification.
 
 ## Migration
 

@@ -103,9 +103,15 @@ A single person who can update this registry on accepted
 registrations. The role exists to avoid contention over which
 PR lands first when two profile authors race for the same id.
 
-**Current maintainer:** TBD. Until appointed, the role rotates
-informally — first person to accept a registration is the
-de-facto maintainer for that allocation.
+**Bootstrap maintainer (v0.x phase):** The project maintainer(s)
+at `ocrybit/arjson` on GitHub serve as the registry maintainer
+until the community has grown enough to warrant a dedicated role.
+Concretely: anyone with merge rights to `ocrybit/arjson:weavepack`
+may accept a registration and update this table.
+
+**Bootstrapping ends when** either (a) a second independent
+implementation passes the full conformance suite for any profile,
+or (b) the community nominates a dedicated maintainer via RFC.
 
 When the ecosystem grows enough to need a permanent maintainer,
 selection happens via RFC.

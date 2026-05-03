@@ -117,10 +117,20 @@ function jsonToTyped(dtype, arr) {
 }
 
 // Build a live tensor document from a JSON-vector tensor map.
+// Tensors may carry a `data_raw_bits` field (Uint16 bit patterns) instead of
+// `data` (f32 values) when the test value isn't representable in JSON as a
+// finite float (e.g. fp16 ±Infinity, NaN).  raw_bits are fed directly to the
+// Uint16Array path in emitDataBlock, bypassing f32→fp16 conversion.
 function parseTensorDoc(jsonDoc) {
   const tensors = {}
   for (const [name, t] of Object.entries(jsonDoc.tensors)) {
-    tensors[name] = { dtype: t.dtype, shape: t.shape, data: jsonToTyped(t.dtype, t.data) }
+    let data
+    if (t.data_raw_bits !== undefined && (t.dtype === DTYPE.FP16 || t.dtype === DTYPE.BF16)) {
+      data = new Uint16Array(t.data_raw_bits)
+    } else {
+      data = jsonToTyped(t.dtype, t.data)
+    }
+    tensors[name] = { dtype: t.dtype, shape: t.shape, data }
   }
   return { tensors }
 }

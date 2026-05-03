@@ -204,5 +204,190 @@
       16544,
       16576
     ]
+  },
+  {
+    "name": "fp16 +Infinity",
+    "description": "fp16 positive infinity (0x7c00); stored via data_raw_bits",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [1],
+          "data_raw_bits": [31744]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a20200f800",
+    "expected_bits": [31744]
+  },
+  {
+    "name": "fp16 -Infinity",
+    "description": "fp16 negative infinity (0xfc00); stored via data_raw_bits",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [1],
+          "data_raw_bits": [64512]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a20201f800",
+    "expected_bits": [64512]
+  },
+  {
+    "name": "fp16 canonical qNaN",
+    "description": "fp16 quiet NaN (0x7e00); stored via data_raw_bits",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [1],
+          "data_raw_bits": [32256]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a20200fc00",
+    "expected_bits": [32256]
+  },
+  {
+    "name": "fp16 signaling NaN",
+    "description": "fp16 sNaN (0x7c01, minimal signaling NaN: exp=31, msb-of-mantissa=0, mantissa nonzero); stored via data_raw_bits",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [1],
+          "data_raw_bits": [31745]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a20202f800",
+    "expected_bits": [31745]
+  },
+  {
+    "name": "fp16 smallest normal",
+    "description": "fp16 smallest normal value: 2^-14 = 0x0400",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 13,
+          "shape": [1],
+          "data": [0.00006103515625]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1a202000800",
+    "expected_bits": [1024]
+  },
+  {
+    "name": "bf16 +Infinity",
+    "description": "bf16 positive infinity (0x7f80); stored via data_raw_bits",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [1],
+          "data_raw_bits": [32640]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c20300fe00",
+    "expected_bits": [32640]
+  },
+  {
+    "name": "bf16 -Infinity",
+    "description": "bf16 negative infinity (0xff80); stored via data_raw_bits",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [1],
+          "data_raw_bits": [65408]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c20301fe00",
+    "expected_bits": [65408]
+  },
+  {
+    "name": "bf16 canonical NaN",
+    "description": "bf16 quiet NaN (0x7fc0, canonical form); stored via data_raw_bits",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [1],
+          "data_raw_bits": [32704]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c20380fe00",
+    "expected_bits": [32704]
+  },
+  {
+    "name": "bf16 smallest denormal",
+    "description": "bf16 smallest denormal (0x0001 = 2^-133 ≈ 9.18e-41); stored via data_raw_bits",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [1],
+          "data_raw_bits": [1]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c202020000",
+    "expected_bits": [1]
+  },
+  {
+    "name": "bf16 round-to-nearest-even (rounds up)",
+    "description": "f32=1.01171875 (0x3f818000): upper=0x3f81 (odd), lower=0x8000 (tie) → rounds up to 0x3f82",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [1],
+          "data": [1.01171875]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c203047e00",
+    "expected_bits": [16258]
+  },
+  {
+    "name": "bf16 round-to-nearest-even (rounds to even)",
+    "description": "f32=1.00390625 (0x3f808000): upper=0x3f80 (even), lower=0x8000 (tie) → rounds to even (stays 0x3f80)",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 14,
+          "shape": [1],
+          "data": [1.00390625]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1c203007e00",
+    "expected_bits": [16256]
+  },
+  {
+    "name": "mixed fp16 and fp32 tensors",
+    "description": "document with tensor 'a' (fp16 [1,2]) and tensor 'b' (fp32 [3,4]); validates multi-dtype encoding; expected_bits covers tensor 'a' (first alphabetically)",
+    "input": {
+      "tensors": {
+        "a": {
+          "dtype": 13,
+          "shape": [2],
+          "data": [1.0, 2.0]
+        },
+        "b": {
+          "dtype": 15,
+          "shape": [2],
+          "data": [3.0, 4.0]
+        }
+      }
+    },
+    "expected_bytes_hex": "008585a204007800802c4f1020000404000008040000",
+    "expected_bits": [15360, 16384]
   }
 ]

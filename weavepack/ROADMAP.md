@@ -476,8 +476,13 @@ profiles. The honest commitment is to that gate.
     (00-overview, 01-rfc-process, 02-profile-registry, 03-versioning,
     04-conformance-certification, 05-implementation-registry,
     06-spec-interpretation)
-  - [ ] Bootstrap the registry maintainer role + first RFC
+  - [x] Bootstrap the registry maintainer role + first RFC
+    (02-profile-registry.md: project maintainer at ocrybit/arjson is
+    bootstrap maintainer; RFC 0001 fp16/bf16 in Discussion with 20
+    conformance vectors covering ±Inf, qNaN, sNaN, subnormals, RNE
+    rounding, mixed-dtype; verify-test-vectors.js extended with
+    data_raw_bits support for non-finite test values)
   - [ ] Set up badge endpoint (after ≥ 2 certified impls)
   - [ ] Independent third-party impl recruited
 
-Next action: Phase 7 — Bootstrap the registry maintainer role + first RFC.
+Next action: Phase 7 — Set up badge endpoint infrastructure (static SVG badges for weavepack-json L3 and weavepack-tensor L2/L3, hosted at weavepack/badges/ until a live endpoint exists).
