@@ -35,6 +35,33 @@ version is independently retrievable at ~9 bytes per edit on
 average. The brotli'd blob can't give you version 50 without
 decompressing the entire 89-version history.
 
+## chain-partial-restore.js
+
+Concrete demonstration of the per-payload addressability claim.
+Builds a 100-version chain, then restores 5 specific versions
+(10, 25, 50, 75, 99) by reading only the chain prefix needed
+to reach that version — not the whole chain.
+
+```bash
+node weavepack/profiles/json/examples/chain-partial-restore.js
+```
+
+Sample output:
+```
+Chain encoded: 616 bytes for 101 versions
+Average per version: 6.1 bytes
+
+Per-version restore (only payloads 0..N needed):
+  v10: prefix   85 bytes (14% of chain) — ✓
+  v25: prefix  172 bytes (28% of chain) — ✓
+  v50: prefix  310 bytes (50% of chain) — ✓
+  v75: prefix  474 bytes (77% of chain) — ✓
+  v99: prefix  612 bytes (99% of chain) — ✓
+```
+
+This is what brotli-on-bundled-snapshots cannot give you: a brotli
+stream must be decompressed in full to reach any one version.
+
 ## When to reach for weavepack-json
 
 | Workload | Recommended |
