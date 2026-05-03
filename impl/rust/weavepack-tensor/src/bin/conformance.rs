@@ -19,6 +19,7 @@ use weavepack_tensor::{
     decode::{decode_document, decode_document_schemaful},
     delta::{apply_delta, encode_delta},
     encode::{encode_document, encode_document_schemaful},
+    half_dtype::{f32_to_bf16_bits, f32_to_fp16_bits},
     schema::schema_hash_hex,
     types::{
         DTYPE_BOOL, DTYPE_FP32, DTYPE_FP64, DTYPE_INT16, DTYPE_INT32, DTYPE_INT64, DTYPE_INT8,
@@ -26,6 +27,9 @@ use weavepack_tensor::{
     },
     TensorData,
 };
+
+const DTYPE_FP16: u8 = 13;
+const DTYPE_BF16: u8 = 14;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -128,9 +132,35 @@ fn json_data_to_bytes(dtype: u8, arr: &[Value]) -> Result<Vec<u8>, String> {
                 out.extend_from_slice(&f.to_le_bytes());
             }
         }
+        DTYPE_FP16 => {
+            // Accept either f32 numbers (convert via half crate) or
+            // raw u64 bit patterns. Numbers are detected via as_f64()
+            // returning Some with a non-integer or in float-like range.
+            for v in arr {
+                let bits = if let Some(f) = v.as_f64() {
+                    f32_to_fp16_bits(f as f32)
+                } else if let Some(n) = v.as_u64() {
+                    n as u16
+                } else {
+                    return Err("fp16 element not f64 or u64".into())
+                };
+                out.extend_from_slice(&bits.to_le_bytes());
+            }
+        }
+        DTYPE_BF16 => {
+            for v in arr {
+                let bits = if let Some(f) = v.as_f64() {
+                    f32_to_bf16_bits(f as f32)
+                } else if let Some(n) = v.as_u64() {
+                    n as u16
+                } else {
+                    return Err("bf16 element not f64 or u64".into())
+                };
+                out.extend_from_slice(&bits.to_le_bytes());
+            }
+        }
         d => {
-            // For fp16/bf16/fp8 and others, elements are stored as raw integer
-            // bit patterns (uint8/uint16 values).
+            // For fp8 and others, elements are stored as raw integer bit patterns.
             let bpe = weavepack_tensor::types::dtype_bits_per_elem(d)
                 .ok_or_else(|| format!("unknown dtype {d}"))?;
             let bytes_each = ((bpe + 7) / 8) as usize;

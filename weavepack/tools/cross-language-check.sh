@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Cross-language conformance check.
+#
+# Runs each implementation's conformance binary and prints a summary
+# table. Exit code 0 if all implementations report 0 failures; exit
+# code 1 if any implementation has a failure (caller can investigate
+# per-impl).
+#
+# This is the headline check for "all conforming implementations
+# agree" — pass = the wire format is genuinely cross-language stable.
+
+set -uo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+
+# ── helpers ──────────────────────────────────────────────────────────────
+
+color() {
+    case "$1" in
+        green) printf '\033[32m';;
+        red)   printf '\033[31m';;
+        yellow) printf '\033[33m';;
+        bold)  printf '\033[1m';;
+        reset) printf '\033[0m';;
+    esac
+}
+
+run_check() {
+    local name="$1"; shift
+    local cmd="$*"
+    printf "%s%-30s%s " "$(color bold)" "$name" "$(color reset)"
+    if ! out=$(eval "$cmd" 2>&1); then
+        printf "%sFAIL%s\n" "$(color red)" "$(color reset)"
+        echo "$out" | tail -5 | sed 's/^/    /'
+        return 1
+    fi
+    pass=$(echo "$out" | grep -E "^Pass:" | head -1 | awk '{print $2}')
+    fail=$(echo "$out" | grep -E "^Fail:" | head -1 | awk '{print $2}')
+    skip=$(echo "$out" | grep -E "^Skip:" | head -1 | awk '{print $2}')
+    if [[ "${fail:-1}" == "0" ]]; then
+        printf "%spass=%s%s" "$(color green)" "$pass" "$(color reset)"
+    else
+        printf "%spass=%s fail=%s%s" "$(color red)" "$pass" "$fail" "$(color reset)"
+    fi
+    if [[ -n "${skip:-}" && "$skip" != "0" ]]; then
+        printf " %sskip=%s%s" "$(color yellow)" "$skip" "$(color reset)"
+    fi
+    printf "\n"
+    [[ "${fail:-1}" == "0" ]]
+}
+
+echo
+printf "%sweavepack cross-language conformance%s\n" "$(color bold)" "$(color reset)"
+echo
+
+any_fail=0
+
+# ── JS reference (full corpus: JSON + tensor) ─────────────────────────
+run_check "JS / verify-test-vectors" \
+    "node weavepack/tools/verify-test-vectors.js" \
+    || any_fail=1
+
+# ── Rust JSON crate ───────────────────────────────────────────────────
+if command -v cargo >/dev/null 2>&1; then
+    run_check "Rust / weavepack-json" \
+        "cd impl/rust && cargo run -p weavepack-json --bin conformance --quiet 2>/dev/null" \
+        || any_fail=1
+    run_check "Rust / weavepack-tensor" \
+        "cd impl/rust && cargo run -p weavepack-tensor --bin conformance --quiet 2>/dev/null" \
+        || any_fail=1
+else
+    printf "%s%-30s%s SKIP (cargo not found)\n" "$(color yellow)" "Rust crates" "$(color reset)"
+fi
+
+# ── Python PoC ────────────────────────────────────────────────────────
+if command -v python3 >/dev/null 2>&1; then
+    run_check "Python / impl/python" \
+        "python3 impl/python/conformance.py" \
+        || any_fail=1
+else
+    printf "%s%-30s%s SKIP (python3 not found)\n" "$(color yellow)" "Python PoC" "$(color reset)"
+fi
+
+echo
+if [[ $any_fail -eq 0 ]]; then
+    printf "%sAll implementations agree.%s\n" "$(color green)" "$(color reset)"
+    exit 0
+else
+    printf "%sAt least one implementation has failures.%s\n" "$(color red)" "$(color reset)"
+    printf "Run each binary individually for details.\n"
+    exit 1
+fi
