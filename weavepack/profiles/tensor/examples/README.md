@@ -147,9 +147,9 @@ magnitude    mode=0 raw   +brotli  | mode=1 raw   +brotli  | brotli win
 ±1            4106         3844    |  4103         3853    | 1.00×
 ```
 
-The win shrinks as update magnitude grows. Concretely informs the
-encoder heuristic decision boundary (V0.2 A.3): emit mode=1 when
-typical per-element change is small (< ~0.01).
+The win shrinks as update magnitude grows. This sweep set the
+encoder heuristic decision boundary (V0.2 A.3 ✓ shipped): the JS
+encoder now emits mode=1 when max abs delta ≤ 0.01.
 
 ## Adding more examples
 
