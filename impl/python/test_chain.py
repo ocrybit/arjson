@@ -1,7 +1,12 @@
 """Smoke tests for the chain helper (Python analogue of the Rust core unit tests)."""
 
+import json
+import os
 import unittest
 from weavepack_tensor import parse_chain, serialize_chain
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+TENSOR_DELTAS_DIR = os.path.join(REPO_ROOT, "weavepack", "profiles", "tensor", "test-vectors", "deltas")
 
 
 class ChainTests(unittest.TestCase):
@@ -27,6 +32,30 @@ class ChainTests(unittest.TestCase):
         for cut in range(1, len(payloads) + 1):
             prefix_buf = serialize_chain(parsed[:cut])
             self.assertEqual(parse_chain(prefix_buf), payloads[:cut])
+
+    def test_real_fixture_chains_round_trip(self):
+        """Cross-language equivalence: Python parses and re-serializes
+        chain bytes produced by the JS reference encoder for every
+        delta corpus vector that ships an `expected_chain_bytes_hex`."""
+        if not os.path.isdir(TENSOR_DELTAS_DIR):
+            self.skipTest(f"corpus not present at {TENSOR_DELTAS_DIR}")
+        verified = 0
+        for fname in sorted(os.listdir(TENSOR_DELTAS_DIR)):
+            if not fname.endswith(".json"):
+                continue
+            with open(os.path.join(TENSOR_DELTAS_DIR, fname)) as f:
+                vectors = json.load(f)
+            for v in vectors:
+                hexstr = v.get("expected_chain_bytes_hex")
+                if not hexstr:
+                    continue
+                chain = bytes.fromhex(hexstr)
+                payloads = parse_chain(chain)
+                self.assertEqual(serialize_chain(payloads), chain,
+                    f"round-trip mismatch for {fname}::{v.get('name', '?')}")
+                self.assertGreaterEqual(len(payloads), 1)
+                verified += 1
+        self.assertGreater(verified, 0, "no fixture chains found to verify")
 
 
 if __name__ == "__main__":

@@ -88,6 +88,18 @@ if command -v python3 >/dev/null 2>&1; then
     run_check "Python / weavepack-tensor" \
         "python3 impl/python/conformance_tensor.py" \
         || any_fail=1
+    # Chain framing equivalence: parse JS-produced chain bytes from
+    # the corpus, round-trip through Python's serialize/parse helpers.
+    if (cd impl/python && python3 -m unittest test_chain 2>&1) | grep -q "^OK"; then
+        printf "%s%-30s%s %schain framing OK%s\n" \
+            "$(color bold)" "Python / chain framing" "$(color reset)" \
+            "$(color green)" "$(color reset)"
+    else
+        printf "%s%-30s%s %sFAIL%s\n" \
+            "$(color bold)" "Python / chain framing" "$(color reset)" \
+            "$(color red)" "$(color reset)"
+        any_fail=1
+    fi
     # Optional: PyO3 binding (requires `maturin develop` first).
     if python3 -c "import weavepack_tensor_rs" 2>/dev/null; then
         run_check "PyO3 / weavepack-tensor-rs" \
