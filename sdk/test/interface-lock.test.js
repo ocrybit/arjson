@@ -180,6 +180,26 @@ describe("interface lock: toBuffer / fromBuffer round-trip", () => {
     assert.deepEqual(restored.json, a.json)
     assert.equal(restored.deltas.length, a.deltas.length)
   })
+
+  // Prefix-restore: any prefix of a chain is itself a valid chain that
+  // restores to the corresponding intermediate state. This is what makes
+  // per-payload addressability work — a consumer can read the chain bytes
+  // up to the length needed for version N and reconstruct it without the
+  // tail. Documented in weavepack/profiles/json/examples/chain-partial-restore.js.
+  it("any chain prefix decodes to its corresponding intermediate state", () => {
+    const versions = [{ a: 1 }, { a: 2 }, { a: 2, b: 3 }, { a: 2, b: 4 }, { a: 2, b: 4, c: [1, 2] }]
+    const a = new ARJSON({ json: versions[0] })
+    for (let i = 1; i < versions.length; i++) a.update(versions[i])
+    const allPayloads = ARJSON.fromBuffer(a.toBuffer())
+    assert.equal(allPayloads.length, versions.length)
+    for (let cut = 1; cut <= versions.length; cut++) {
+      const prefixBuf = ARJSON.toBuffer(allPayloads.slice(0, cut))
+      const restored = new ARJSON({ arj: prefixBuf })
+      assert.deepEqual(restored.json, versions[cut - 1],
+        `prefix of ${cut} payloads should restore to versions[${cut - 1}]`)
+      assert.equal(restored.deltas.length, cut)
+    }
+  })
 })
 
 // ─── ARJSON.table() shape ─────────────────────────────────────────────────
