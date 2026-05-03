@@ -636,4 +636,24 @@ mod tests {
         let err = apply_arithmetic_delta(0, &mut base, &delta).unwrap_err();
         assert!(err.contains("unsupported"), "got: {err}");
     }
+
+    #[test]
+    fn encode_apply_round_trip_tensor_replace() {
+        // Full round-trip: encoder builds a TENSOR_REPLACE delta (mode=0
+        // is the only mode the encoder emits today), decoder applies
+        // it back. Locks the mode-bit emit/read paths against drift.
+        let base = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_FP32, shape: vec![3],
+            data: 1.0f32.to_le_bytes().iter().chain(2.0f32.to_le_bytes().iter())
+                  .chain(3.0f32.to_le_bytes().iter()).copied().collect(),
+        })];
+        let new = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_FP32, shape: vec![3],
+            data: 10.0f32.to_le_bytes().iter().chain(20.0f32.to_le_bytes().iter())
+                  .chain(30.0f32.to_le_bytes().iter()).copied().collect(),
+        })];
+        let delta_bytes = encode_delta(&base, &new).expect("delta should not be empty");
+        let result = apply_delta(&base, &delta_bytes).expect("apply should succeed");
+        assert_eq!(result, new, "round-trip should reproduce target tensor");
+    }
 }
