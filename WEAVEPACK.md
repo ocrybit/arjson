@@ -38,7 +38,7 @@ which no shipping format provides.
 | 6.1. Rust tensor reference impl | ✓ (39/39 vectors byte-exact) |
 | 6.2. Rust JSON reference impl | ✓ (93/93 vectors decode) |
 | 6.3. Rust core crate (shared primitives) | ✓ |
-| 6.4. Python bindings (PyO3) | pending |
+| 6.4. Python bindings (PyO3) | ✓ — `impl/rust/weavepack-tensor-py/` (39/39 vectors) |
 | 7. Governance prose (7 docs) | ✓ |
 | 7. Operational governance: RFC process | ✓ (RFC 0001 in Discussion) |
 | 7. Operational governance: registry maintainer, badges | pending |

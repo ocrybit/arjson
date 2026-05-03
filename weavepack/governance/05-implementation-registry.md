@@ -18,6 +18,7 @@ new features.
 | weavepack-json (Rust, partial) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-json | json v1.1 partial (L3 for single-payload only) | 36/93 vectors | TBD |
 | weavepack-json (Python, PoC) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/ | json v1.1 partial (L3 encoder + decoder for single-payload only) | 36/93 vectors | TBD |
 | weavepack-tensor (Python, PoC) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/ | tensor v0.1 (L3 encoder + decoder; schemaless + schemaful + 4 delta ops) | 39/39 vectors | TBD |
+| weavepack-tensor-rs (PyO3) | Python 3.8+ via Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-tensor-py/ | tensor v0.1 (L3 via Rust crate) | 39/39 vectors | TBD |
 
 The "TBD on last verified" entries will get real timestamps once
 the certification badge infrastructure exists. For now, claims are

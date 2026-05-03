@@ -81,6 +81,15 @@ if command -v python3 >/dev/null 2>&1; then
     run_check "Python / weavepack-tensor" \
         "python3 impl/python/conformance_tensor.py" \
         || any_fail=1
+    # Optional: PyO3 binding (requires `maturin develop` first).
+    if python3 -c "import weavepack_tensor_rs" 2>/dev/null; then
+        run_check "PyO3 / weavepack-tensor-rs" \
+            "cd impl/rust/weavepack-tensor-py && python3 test_conformance.py" \
+            || any_fail=1
+    else
+        printf "%s%-30s%s SKIP (run \`maturin develop\` in impl/rust/weavepack-tensor-py to enable)\n" \
+            "$(color yellow)" "PyO3 / weavepack-tensor-rs" "$(color reset)"
+    fi
 else
     printf "%s%-30s%s SKIP (python3 not found)\n" "$(color yellow)" "Python PoC" "$(color reset)"
 fi
