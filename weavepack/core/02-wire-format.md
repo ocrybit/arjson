@@ -270,6 +270,37 @@ A single-payload chain (N=1) is byte-equivalent to a single payload
 prefixed with its LEB128 length. Consumers that know they have N=1
 MAY skip the length prefix, but doing so is non-portable.
 
+### Per-payload addressability
+
+The length-prefix framing gives the chain a property worth naming
+explicitly: **any prefix of a chain is itself a valid chain**.
+Concretely:
+
+- A consumer who has the first K of N total payloads (i.e. the
+  first `sum(leb128_len(len_i) + len_i for i in 0..K)` bytes) can
+  decode them as a complete chain that resolves to the state at
+  payload K-1.
+- A consumer can therefore retrieve any specific intermediate state
+  by reading only the chain prefix up to the corresponding payload,
+  without needing the tail.
+- Re-emitting any prefix via the LEB128-length framing produces a
+  byte-string that any conforming parser will accept as a chain.
+
+This property is what makes weavepack chains useful for per-payload
+addressability scenarios (Arweave / IPFS / per-payload billing,
+random access into archived edit histories, partial fetches over
+HTTP) where decompressing an entire bundled blob to reach one
+intermediate state is unaffordable.
+
+Conformance: see the worked example
+[`weavepack/profiles/json/examples/chain-partial-restore.js`](../profiles/json/examples/chain-partial-restore.js)
+and the regression tests in `sdk/test/interface-lock.test.js`
+("any chain prefix decodes to its corresponding intermediate state")
+and `sdk/test/tensor-profile.test.js`
+("any chain prefix decodes to the corresponding intermediate state").
+Mirror Rust unit test in `impl/rust/weavepack-core/src/chain.rs`
+(`prefix_is_a_valid_chain`) and Python in `impl/python/test_chain.py`.
+
 ## Endianness
 
 All multi-byte fields use **little-endian** within their LEB128 chunks
