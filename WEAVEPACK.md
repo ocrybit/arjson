@@ -49,9 +49,12 @@ spec is implementable from prose alone.
 
 ## Headline numbers
 
-- **Tensor sparse delta**: 1000–2500× smaller than safetensors full
-  re-encode for typical training-step updates (per
-  `weavepack/profiles/tensor/07-benchmarks.md`).
+- **Tensor sparse delta**: e.g. 100k-element fp32 tensor with 100
+  changes (0.1% sparsity) → 0.67 KB delta vs. 391 KB full encode =
+  **579× smaller**. See
+  [`weavepack/profiles/tensor/SIZE-EXAMPLES.md`](./weavepack/profiles/tensor/SIZE-EXAMPLES.md)
+  for reproducible measurements; full benchmark methodology in
+  `weavepack/profiles/tensor/07-benchmarks.md`.
 - **Tensor snapshot size**: within 2% of safetensors for full
   checkpoints.
 - **Cross-language conformance**: **339 vectors agree across 3
