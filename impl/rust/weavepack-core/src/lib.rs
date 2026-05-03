@@ -6,3 +6,4 @@
 // profile crates import from here and add nothing to core in return.
 
 pub mod bits;
+pub mod chain;

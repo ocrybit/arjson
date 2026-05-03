@@ -16,7 +16,7 @@ use std::{
 
 use serde_json::Value;
 use weavepack_tensor::{
-    chain::{chain_parse, chain_serialize},
+    chain::{chain_parse, chain_serialize}, // re-exported from weavepack-core
     decode::{decode_document, decode_document_schemaful},
     delta::{apply_delta, encode_delta},
     encode::{encode_document, encode_document_schemaful},
