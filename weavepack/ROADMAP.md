@@ -458,7 +458,14 @@ profiles. The honest commitment is to that gate.
     (impl/rust/weavepack-tensor/ — encode/decode/delta/schema; 31/31 conformance vectors pass
     byte-for-byte against the JS reference; includes `conformance` binary that runs all
     tensor test vectors from weavepack/profiles/tensor/test-vectors/)
-  - [ ] Phase 6.2: weavepack-json Rust crate
+  - [~] Phase 6.2: weavepack-json Rust crate
+    - [x] 6.2a: single-payload mode (encode/decode/conformance binary;
+          36/36 single-payload vectors pass byte-exact; UTF-16 emit
+          for non-BMP chars matches JS semantics; 57 structured-mode
+          vectors skipped pending 6.2b)
+    - [ ] 6.2b: structured mode (containers, kref/vref columns, RLE)
+    - [ ] 6.2c: delta operations
+    - [ ] 6.2d: strdiff (string fast-diff) format
   - [ ] Phase 6.3: weavepack-core Rust crate (shared primitives extracted)
   - [ ] Phase 6.4: bindings (PyO3 Python, optional WASM)
 - [ ] Phase 7: Ecosystem and governance

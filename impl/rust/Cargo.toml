@@ -1,3 +1,3 @@
 [workspace]
-members = ["weavepack-tensor"]
+members = ["weavepack-tensor", "weavepack-json"]
 resolver = "2"
