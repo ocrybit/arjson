@@ -13,7 +13,7 @@ new features.
 
 | Name | Lang | Repo | Profiles | Levels | Last verified |
 |---|---|---|---|---|---|
-| arjson (a.k.a. weavepack-js reference) | JavaScript / Node | https://github.com/weavedb/arjson | json v1.1 (L3), tensor v0.1 (L3) + delta-from-prior decoder (V0.2 A.3) | 151/151 (JSON+tensor) | 2026-05-03 |
+| arjson (a.k.a. weavepack-js reference) | JavaScript / Node | https://github.com/weavedb/arjson | json v1.1 (L3), tensor v0.1 (L3) + V0.2 A.3 delta-from-prior decoder + encoder heuristic | 151/151 (JSON+tensor) | 2026-05-03 |
 | weavepack-tensor (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-tensor | tensor v0.1 (L3, 5 of 6 delta ops — all except quant_change — plus RFC 0001 fp16/bf16 + delta-from-prior decoder) | 58/58 vectors | 2026-05-03 |
 | weavepack-json (Rust, partial) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-json | json v1.1 (L1+L2 decoder; L3 encoder for single-payload subset) | 93/93 vectors | 2026-05-03 |
 | weavepack-json (Python, PoC) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/ | json v1.1 partial (L3 encoder + decoder for single-payload only) | 37/93 vectors | 2026-05-03 |
