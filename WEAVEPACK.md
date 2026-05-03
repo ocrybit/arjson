@@ -42,9 +42,10 @@ which no shipping format provides.
 | 6.2. Rust JSON reference impl | ✓ (93/93 vectors decode) |
 | 6.3. Rust core crate (shared primitives) | ✓ |
 | 6.4. Python bindings (PyO3) | ✓ — `impl/rust/weavepack-tensor-py/` (39/39 vectors) |
-| 7. Governance prose (7 docs) | ✓ |
+| 7. Governance prose (8 docs) | ✓ |
 | 7. Operational governance: RFC process | ✓ (RFC 0001 in Discussion) |
-| 7. Operational governance: registry maintainer, badges | pending |
+| 7. Operational governance: registry maintainer, badges, CI | ✓ |
+| 7. External implementors guide + call for impls | ✓ |
 
 Plus a pure-Python proof-of-concept implementation covering both
 profiles end-to-end (decode + delta application), validating the
@@ -70,6 +71,12 @@ spec is implementable from prose alone.
   property tests over ~1700 random cases per run, all passing.
 - **Cross-language**: 3 implementations (JS reference, Rust, Python
   PoC), all in agreement on the byte format for vectors they support.
+- **Per-payload addressability**: every chain payload is independently
+  retrievable. A 100-version JSON config chain (~600 bytes, 6 bytes/version
+  average) lets a consumer fetch and reconstruct any specific version
+  by reading only the bytes up to that version's payload — verified by
+  regression tests in both profiles. Worked example:
+  [`weavepack/profiles/json/examples/chain-partial-restore.js`](./weavepack/profiles/json/examples/chain-partial-restore.js).
 
 ## Repository layout
 
@@ -86,13 +93,15 @@ arjson/
 │   │       ├── json/               (weavepack-json — full impl)
 │   │       ├── tensor/             (weavepack-tensor v0.1)
 │   │       └── null/               (boundary-validation profile)
-│   └── test/                       (2144 tests)
+│   └── test/                       (2181 tests)
 │
 ├── impl/
 │   ├── rust/
-│   │   ├── weavepack-tensor/       (Rust tensor crate, 31/31 vectors)
+│   │   ├── weavepack-core/         (shared bit-level primitives)
+│   │   ├── weavepack-tensor/       (Rust tensor crate, 55/55 vectors)
+│   │   ├── weavepack-tensor-py/    (PyO3 bindings → Python wheel)
 │   │   └── weavepack-json/         (Rust JSON crate, 93/93 vectors)
-│   └── python/                     (Pure-Python PoC decoder, 36/36 vectors)
+│   └── python/                     (Pure-Python PoC, 36 + 55 vectors)
 │
 ├── weavepack/                      (the protocol spec + governance)
 │   ├── ROADMAP.md                  (phase-by-phase progress)
@@ -102,7 +111,7 @@ arjson/
 │   │   ├── json/                   (5 spec docs + 93 vectors)
 │   │   └── tensor/                 (6 spec docs + 31 vectors + benchmarks)
 │   ├── properties/                 (property-based test generators)
-│   ├── governance/                 (7 governance docs)
+│   ├── governance/                 (8 governance docs)
 │   └── tools/                      (vector generators, verifier)
 │
 └── benchmark/                      (size + speed benchmarks)
