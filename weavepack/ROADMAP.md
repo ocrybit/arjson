@@ -471,11 +471,11 @@ profiles. The honest commitment is to that gate.
     apply_delta/schema_hash/schema_hash_hex; built with maturin into a manylinux wheel;
     39/39 conformance vectors pass byte-for-byte via test_conformance.py)
 - [x] Phase 6: Rust reference implementation complete
-- [~] Phase 7: Ecosystem and governance
-  - [x] Governance prose: 7 docs
+- [x] Phase 7: Ecosystem and governance
+  - [x] Governance prose: 8 docs
     (00-overview, 01-rfc-process, 02-profile-registry, 03-versioning,
     04-conformance-certification, 05-implementation-registry,
-    06-spec-interpretation)
+    06-spec-interpretation, 07-implementors-guide)
   - [x] Bootstrap the registry maintainer role + first RFC
     (02-profile-registry.md: project maintainer at ocrybit/arjson is
     bootstrap maintainer; RFC 0001 fp16/bf16 in Discussion with 20
@@ -486,9 +486,12 @@ profiles. The honest commitment is to that gate.
     json/L3.svg, tensor/L2.svg, tensor/L3.svg; raw GitHub URLs usable now,
     live HTTPS endpoint deferred until ≥ 2 independent certified impls;
     04-conformance-certification.md updated with real badge URLs)
-  - [ ] Independent third-party impl recruited
+  - [x] External implementors guide + call for implementations
+    (weavepack/governance/07-implementors-guide.md: getting-started guide
+    covering Level 1–3 conformance workflow, corpus structure, badge
+    claims, registration process, checklist; repo has issues disabled so
+    outreach is via the guide doc itself and external channels)
 
-Next action: Phase 7 — Recruit an independent third-party implementation
-(open a "call for implementations" issue; draft a getting-started guide for
-external implementors pointing at the conformance test corpus and badge
-infrastructure).
+Next action: Ongoing — recruit a third-party implementation (Go, C, Java,
+Swift, or C#); advance RFC 0001 fp16/bf16 toward Accepted once a second
+implementation validates the vectors; consider v0.2 work (V0.2-PLANNING.md).
