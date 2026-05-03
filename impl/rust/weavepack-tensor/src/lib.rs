@@ -4,6 +4,7 @@
 // All wire format knowledge lives in this crate alone.
 
 pub mod bits;
+pub mod chain;
 pub mod decode;
 pub mod delta;
 pub mod encode;

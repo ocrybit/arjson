@@ -16,6 +16,7 @@ use std::{
 
 use serde_json::Value;
 use weavepack_tensor::{
+    chain::{chain_parse, chain_serialize},
     decode::{decode_document, decode_document_schemaful},
     delta::{apply_delta, encode_delta},
     encode::{encode_document, encode_document_schemaful},
@@ -228,45 +229,6 @@ fn parse_schema(obj: &Value) -> Result<BTreeMap<String, (u8, Vec<u64>)>, String>
         schema.insert(name.clone(), (dtype, shape));
     }
     Ok(schema)
-}
-
-/// LEB128-prefixed chain serialization used by TensorPack.
-fn chain_parse(buf: &[u8]) -> Vec<Vec<u8>> {
-    let mut off = 0;
-    let mut segments = Vec::new();
-    while off < buf.len() {
-        let mut len: usize = 0;
-        let mut shift = 0;
-        loop {
-            let byte = buf[off];
-            off += 1;
-            len |= ((byte & 0x7f) as usize) << shift;
-            shift += 7;
-            if byte & 0x80 == 0 {
-                break;
-            }
-        }
-        segments.push(buf[off..off + len].to_vec());
-        off += len;
-    }
-    segments
-}
-
-fn chain_serialize(segments: &[Vec<u8>]) -> Vec<u8> {
-    let mut out = Vec::new();
-    for seg in segments {
-        let mut len = seg.len();
-        loop {
-            if len < 128 {
-                out.push(len as u8);
-                break;
-            }
-            out.push(((len & 0x7f) | 0x80) as u8);
-            len >>= 7;
-        }
-        out.extend_from_slice(seg);
-    }
-    out
 }
 
 /// Structural tensor equality (order-independent BTreeMap comparison).
