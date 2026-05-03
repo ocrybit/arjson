@@ -14,22 +14,8 @@ import { brotliCompressSync } from "node:zlib"
 
 const N = 1024
 
-// Smooth base tensor.
+// Smooth base tensor (fixed across all magnitudes for fair comparison).
 const baseValues = new Float32Array(N).map((_, i) => Math.sin(i / 100))
-
-// "Training step" updates: every element changes by a tiny amount.
-const newValues = new Float32Array(baseValues)
-let seed = 42
-const rand = () => { seed = (seed * 1664525 + 1013904223) % 0x100000000; return seed / 0x100000000 }
-for (let i = 0; i < N; i++) newValues[i] += (rand() - 0.5) * 0.001
-
-// Mode=0 delta (what the v0.1 encoder produces): TENSOR_REPLACE with absolute new values.
-// We'll simulate this by encoding new tensor as a fresh document and extracting just the data.
-const baseDoc = { tensors: { w: { dtype: DTYPE.FP32, shape: [N], data: baseValues } } }
-const newDoc  = { tensors: { w: { dtype: DTYPE.FP32, shape: [N], data: newValues } } }
-const pack = new TensorPack({ json: baseDoc })
-pack.update(newDoc)
-const mode0DeltaBytes = pack.toBuffer().length - encodeDocument(baseDoc).length
 
 // Mode=1 delta: hand-craft. Wire format
 //   [type=1] [op_count=1] [op=TENSOR_REPLACE] [name "w"] [dtype=FP32] [rank=1] [dim=N] [mode=1] [data]
@@ -68,26 +54,54 @@ function craftMode1Delta(name, deltaArray) {
   return out
 }
 
-const deltaArray = new Float32Array(N)
-for (let i = 0; i < N; i++) deltaArray[i] = newValues[i] - baseValues[i]
-const mode1DeltaBytes = craftMode1Delta("w", deltaArray)
+function measure(magnitude) {
+  let seed = 42
+  const rand = () => { seed = (seed * 1664525 + 1013904223) % 0x100000000; return seed / 0x100000000 }
+  const newValues = new Float32Array(baseValues)
+  for (let i = 0; i < N; i++) newValues[i] += (rand() - 0.5) * 2 * magnitude
 
-// Round-trip check: applying the mode=1 delta to the base must equal newDoc.
-const restored = applyDelta(baseDoc, mode1DeltaBytes)
-const restoredOk = Array.from(restored.tensors.w.data).every((v, i) => Math.abs(v - newValues[i]) < 1e-6)
+  const baseDoc = { tensors: { w: { dtype: DTYPE.FP32, shape: [N], data: baseValues } } }
+  const newDoc  = { tensors: { w: { dtype: DTYPE.FP32, shape: [N], data: newValues } } }
+  const pack = new TensorPack({ json: baseDoc })
+  pack.update(newDoc)
+  const baseBuf = encodeDocument(baseDoc)
+  const fullBuf = pack.toBuffer()
+  const mode0Delta = fullBuf.subarray(baseBuf.length + 1)  // skip base + leb128(len)
+  const mode0Brotli = brotliCompressSync(mode0Delta).length
 
-const fmt = n => n.toString().padStart(7) + " bytes"
-console.log("Delta-from-prior mode bit: hand-crafted mode=1 vs encoder's mode=0")
+  const deltaArray = new Float32Array(N)
+  for (let i = 0; i < N; i++) deltaArray[i] = newValues[i] - baseValues[i]
+  const mode1Delta = craftMode1Delta("w", deltaArray)
+  const mode1Brotli = brotliCompressSync(mode1Delta).length
+
+  // Round-trip check: applying the mode=1 delta to the base must equal newDoc.
+  const restored = applyDelta(baseDoc, mode1Delta)
+  const restoredOk = Array.from(restored.tensors.w.data).every((v, i) => Math.abs(v - newValues[i]) < 1e-6)
+
+  return { mode0: mode0Delta.length, mode0Brotli, mode1: mode1Delta.length, mode1Brotli, restoredOk }
+}
+
+const fmt = n => n.toString().padStart(5)
+
+console.log("Delta-from-prior mode bit: brotli stacking across update magnitudes")
+console.log(`  N = ${N} fp32 elements; every element changes by ±magnitude`)
 console.log()
-console.log("Per-element fp32 delta on a", N, "-element tensor (training-step style updates)")
-console.log()
-console.log("                            raw       + brotli")
-console.log(`  mode=0 (absolute):        ${fmt(mode0DeltaBytes)}  ${fmt(brotliCompressSync(pack.toBuffer().subarray(pack.toBuffer().length - mode0DeltaBytes - 5)).length)}`)
-console.log(`  mode=1 (delta-from-prior):${fmt(mode1DeltaBytes.length)}  ${fmt(brotliCompressSync(mode1DeltaBytes).length)}`)
-console.log()
-console.log(`Round-trip check (apply mode=1 delta to base ≈ newDoc): ${restoredOk ? "✓" : "✗"}`)
+console.log("magnitude    mode=0 raw   +brotli  | mode=1 raw   +brotli  | brotli win  RT")
+console.log("─────────────────────────────────────────────────────────────────────────────")
+
+const magnitudes = [0.0001, 0.001, 0.01, 0.1, 1.0]
+for (const m of magnitudes) {
+  const r = measure(m)
+  const win = (r.mode0Brotli / r.mode1Brotli)
+  const rt = r.restoredOk ? "✓" : "✗"
+  console.log(
+    `±${m.toString().padEnd(6)}    ${fmt(r.mode0)}        ${fmt(r.mode0Brotli)}    | ${fmt(r.mode1)}        ${fmt(r.mode1Brotli)}    | ${win.toFixed(2)}×       ${rt}`
+  )
+}
+
 console.log()
 console.log("The raw byte counts are similar (both encode N fp32 values).")
 console.log("The win shows up under brotli: mode=1 deltas are small numbers")
 console.log("with many leading zero/sign bytes, which brotli dedups aggressively.")
-console.log("mode=0 absolute values have full-precision floats with no such structure.")
+console.log("As update magnitude grows, the deltas approach the absolute values")
+console.log("and the brotli win shrinks.")

@@ -136,18 +136,20 @@ values) on the same training-step update.
 node weavepack/profiles/tensor/examples/delta-from-prior-mode-bit.js
 ```
 
-Sample output:
+Sample output (sweep across update magnitudes):
 ```
-                            raw       + brotli
-  mode=0 (absolute):           4107 bytes     3802 bytes
-  mode=1 (delta-from-prior):   4103 bytes     2827 bytes
+magnitude    mode=0 raw   +brotli  | mode=1 raw   +brotli  | brotli win
+─────────────────────────────────────────────────────────────────────────
+±0.0001       4106         3791    |  4103         2332    | 1.63×
+±0.001        4106         3767    |  4103         2765    | 1.36×
+±0.01         4106         3813    |  4103         3383    | 1.13×
+±0.1          4106         3777    |  4103         3673    | 1.03×
+±1            4106         3844    |  4103         3853    | 1.00×
 ```
 
-Raw bytes are similar (both carry N fp32 values), but **mode=1 +
-brotli is 25% smaller** than mode=0 + brotli for typical training-
-step magnitudes. The encoder doesn't yet emit mode=1 (the V0.2 A.3
-heuristic is pending); this example shows what the win looks like
-once it lands.
+The win shrinks as update magnitude grows. Concretely informs the
+encoder heuristic decision boundary (V0.2 A.3): emit mode=1 when
+typical per-element change is small (< ~0.01).
 
 ## Adding more examples
 
