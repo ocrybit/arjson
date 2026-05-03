@@ -2,7 +2,8 @@
 
 Shared bit-level primitives that every weavepack profile needs:
 the MSB-first bit reader/writer, length-encoded integers (short,
-uint, leb128), and helpers for finalizing a payload.
+uint, leb128), helpers for finalizing a payload, and the LEB128
+chain framing used to concatenate multiple payloads.
 
 This crate intentionally has **zero profile-specific knowledge**.
 It exports primitives; the profile crates (weavepack-json,
@@ -12,8 +13,10 @@ decoders.
 ## Status
 
 - Bit primitives extracted in Phase 6.3.
-- Used by weavepack-tensor (full); will be used by weavepack-json
-  encoder when V0.2 ships.
+- Chain helpers (parse / serialize / validate) added.
+- Used by both weavepack-tensor and weavepack-json (the latter
+  uses the bits module; chain helpers are re-exported via
+  weavepack-tensor for backward compat).
 
 ## What's exported
 
@@ -31,6 +34,22 @@ assert_eq!(value, 0b1011);
 
 Plus `r.short()`, `r.uint()`, `r.leb128()` for the variable-length
 primitives defined in `weavepack/core/03-bit-encoding.md`.
+
+```rust
+use weavepack_core::chain::{chain_parse, chain_serialize, chain_validate};
+
+let payloads: Vec<Vec<u8>> = vec![/* ... */];
+let buffer = chain_serialize(&payloads);     // LEB128-prefix concat
+let split = chain_parse(&buffer);            // inverse
+chain_validate(&buffer)?;                    // protocol-level check
+```
+
+## Test coverage
+
+8 unit tests covering round-trip (empty / single / multiple /
+empty-payload), LEB128 length boundary at 127↔128, prefix-is-a-
+valid-chain, validate accepts well-formed chains, validate
+rejects zero-length payload mid-chain.
 
 ## Spec reference
 
