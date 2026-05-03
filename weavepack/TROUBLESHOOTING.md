@@ -122,7 +122,7 @@ Fix: replay the chain from the anchor; never skip deltas.
 ## Decoded JSON doesn't match either input state (silent corruption)
 
 Also: `payload 1: standalone anchor (mode bit = 1) past position 0`
-from `ARJSON.validate` / `chain_validate` / `validate_chain`.
+from `ARJSON.validate` (the JSON-profile-specific validator).
 
 Symptom: you concatenate two encoder outputs into one chain
 buffer, decode, and get junk that's neither input.
