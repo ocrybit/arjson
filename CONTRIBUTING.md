@@ -54,9 +54,24 @@ arjson/
 ```bash
 cd sdk
 npm install
-npm test                 # 2167 sdk tests
+npm test                 # 2179 sdk tests
 npm run properties       # ~1700 property-based cases
 ```
+
+### CLI utility
+
+```bash
+echo '{"a":1,"b":[1,2,3]}' | node sdk/bin/wpkt-json.js size
+# JSON:     19 bytes
+# weavepack: 12 bytes
+# ratio:    1.58× smaller
+
+echo '{"a":1}' | node sdk/bin/wpkt-json.js encode > /tmp/x.wpkt
+node sdk/bin/wpkt-json.js decode < /tmp/x.wpkt
+# {"a":1}
+```
+
+After `npm install -g arjson`, `wpkt-json` is on PATH.
 
 ### Rust crates
 
