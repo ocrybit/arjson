@@ -90,6 +90,32 @@ mod tests {
     }
 
     #[test]
+    fn round_trip_empty_payload() {
+        // A 0-length payload encodes as a single 0x00 length-prefix byte.
+        let segments = vec![vec![]];
+        let buf = chain_serialize(&segments);
+        assert_eq!(buf, vec![0x00]);
+        assert_eq!(chain_parse(&buf), segments);
+    }
+
+    #[test]
+    fn leb128_boundary_127_vs_128() {
+        // 127 fits in one length byte; 128 requires two.
+        let buf127 = chain_serialize(&vec![vec![0u8; 127]]);
+        assert_eq!(buf127[0], 0x7f);
+        assert_eq!(buf127.len(), 1 + 127);
+
+        let buf128 = chain_serialize(&vec![vec![0u8; 128]]);
+        assert_eq!(buf128[0], 0x80);
+        assert_eq!(buf128[1], 0x01);
+        assert_eq!(buf128.len(), 2 + 128);
+
+        // Both round-trip.
+        assert_eq!(chain_parse(&buf127), vec![vec![0u8; 127]]);
+        assert_eq!(chain_parse(&buf128), vec![vec![0u8; 128]]);
+    }
+
+    #[test]
     fn prefix_is_a_valid_chain() {
         // Per-payload addressability: any prefix of a chain can be
         // re-emitted on its own and parses back to its constituents.

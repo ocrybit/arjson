@@ -23,6 +23,25 @@ class ChainTests(unittest.TestCase):
         payloads = [b"\x00" * 5, b"\xff" * 200, b"\x01\x02\x03", b"\x00" * 16384]
         self.assertEqual(parse_chain(serialize_chain(payloads)), payloads)
 
+    def test_round_trip_empty_payload(self):
+        """A 0-length payload encodes as a single 0x00 length-prefix byte."""
+        self.assertEqual(serialize_chain([b""]), b"\x00")
+        self.assertEqual(parse_chain(b"\x00"), [b""])
+
+    def test_leb128_boundary_127_vs_128(self):
+        """127 fits in one length byte; 128 requires two."""
+        buf127 = serialize_chain([b"\x00" * 127])
+        self.assertEqual(buf127[0], 0x7F)
+        self.assertEqual(len(buf127), 1 + 127)
+
+        buf128 = serialize_chain([b"\x00" * 128])
+        self.assertEqual(buf128[0], 0x80)
+        self.assertEqual(buf128[1], 0x01)
+        self.assertEqual(len(buf128), 2 + 128)
+
+        self.assertEqual(parse_chain(buf127), [b"\x00" * 127])
+        self.assertEqual(parse_chain(buf128), [b"\x00" * 128])
+
     def test_prefix_is_a_valid_chain(self):
         """Per-payload addressability: any prefix re-emits to a valid chain."""
         payloads = [b"\x01\x02\x03", b"\x04\x05", b"\x06", b"\x07\x08\x09\x0a"]
