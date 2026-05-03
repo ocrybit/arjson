@@ -6,8 +6,8 @@
 
 use crate::bits::{finalize, write_leb128, write_short, BitReader, BitWriter};
 use crate::types::{
-    data_bytes, dtype_bits_per_elem, DTYPE_BITS, OP_BITS, OP_ELEMENT_SET, OP_TENSOR_ADD,
-    OP_TENSOR_REMOVE, OP_TENSOR_REPLACE,
+    data_bytes, dtype_bits_per_elem, DTYPE_BITS, OP_BITS, OP_ELEMENT_SET, OP_REGION_REPLACE,
+    OP_TENSOR_ADD, OP_TENSOR_REMOVE, OP_TENSOR_REPLACE,
 };
 use crate::TensorData;
 use std::collections::BTreeMap;
@@ -270,8 +270,90 @@ pub fn apply_delta(
                 }
             }
             tensors[idx] = Some((name, TensorData { dtype, shape, data: new_data }));
+        } else if op_code == OP_REGION_REPLACE {
+            // Wire format: name + dtype + full shape + bbox-rank + per-dim
+            // ranges (start, end) + region data block in row-major order.
+            let name = read_name(&mut r)?;
+            let dtype = r.read(DTYPE_BITS as usize)? as u8;
+            let rank = r.short()? as usize;
+            let mut shape = Vec::with_capacity(rank);
+            for _ in 0..rank {
+                shape.push(r.leb128()?);
+            }
+            let bbox_rank = r.short()? as usize;
+            let mut bbox: Vec<(u64, u64)> = Vec::with_capacity(bbox_rank);
+            let mut region_elements: u64 = 1;
+            for _ in 0..bbox_rank {
+                let s = r.leb128()?;
+                let e = r.leb128()?;
+                region_elements *= e - s;
+                bbox.push((s, e));
+            }
+            let bpe = bytes_per_elem(dtype);
+            let region_bytes = region_elements as usize * bpe;
+            let mut region_data = vec![0u8; region_bytes];
+            for b in &mut region_data {
+                *b = r.read(8)? as u8;
+            }
+
+            let idx = *name_to_idx
+                .get(&name)
+                .ok_or_else(|| format!("region_replace on unknown tensor \"{name}\""))?;
+            let base_t = tensors[idx]
+                .as_ref()
+                .ok_or_else(|| format!("region_replace on removed tensor \"{name}\""))?;
+            let mut new_data = base_t.1.data.clone();
+
+            // Iterate the bbox in row-major order, copy region into new_data.
+            let strides: Vec<usize> = {
+                let mut s = vec![1usize; rank];
+                for i in (0..rank.saturating_sub(1)).rev() {
+                    s[i] = s[i + 1] * shape[i + 1] as usize;
+                }
+                s
+            };
+            let mut idx_v = vec![0u64; bbox_rank];
+            let mut region_ptr = 0usize;
+            // Recursive descent inlined as a stack-based loop (Rust closures
+            // can't easily recurse without boxing).
+            fn walk(
+                dim: usize,
+                bbox_rank: usize,
+                bbox: &[(u64, u64)],
+                idx_v: &mut [u64],
+                strides: &[usize],
+                region_data: &[u8],
+                region_ptr: &mut usize,
+                new_data: &mut [u8],
+                bpe: usize,
+            ) {
+                if dim == bbox_rank {
+                    let mut flat = 0usize;
+                    for d in 0..bbox_rank {
+                        flat += idx_v[d] as usize * strides[d];
+                    }
+                    let dst = flat * bpe;
+                    new_data[dst..dst + bpe]
+                        .copy_from_slice(&region_data[*region_ptr..*region_ptr + bpe]);
+                    *region_ptr += bpe;
+                    return;
+                }
+                let (s, e) = bbox[dim];
+                for i in s..e {
+                    idx_v[dim] = i;
+                    walk(
+                        dim + 1, bbox_rank, bbox, idx_v, strides,
+                        region_data, region_ptr, new_data, bpe,
+                    );
+                }
+            }
+            walk(
+                0, bbox_rank, &bbox, &mut idx_v, &strides,
+                &region_data, &mut region_ptr, &mut new_data, bpe,
+            );
+            tensors[idx] = Some((name, TensorData { dtype, shape, data: new_data }));
         } else {
-            return Err(format!("unsupported op code {op_code} (region/quant ops not in v0.1)"));
+            return Err(format!("unsupported op code {op_code} (quant_change not in v0.1)"));
         }
     }
 

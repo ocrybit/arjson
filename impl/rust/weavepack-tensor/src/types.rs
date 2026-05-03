@@ -30,7 +30,9 @@ pub const DTYPE_QFP8: u8 = 30;
 pub const OP_TENSOR_REPLACE: u8 = 0;
 pub const OP_TENSOR_ADD: u8 = 1;
 pub const OP_TENSOR_REMOVE: u8 = 2;
+pub const OP_REGION_REPLACE: u8 = 3;
 pub const OP_ELEMENT_SET: u8 = 4;
+pub const OP_QUANT_CHANGE: u8 = 5;
 
 /// Bits per element for each dtype code.
 pub fn dtype_bits_per_elem(dtype: u8) -> Option<u32> {
