@@ -18,6 +18,7 @@ Usage:
 """
 
 from .decoder import decode
+from .encoder import encode
 
-__all__ = ["decode"]
+__all__ = ["decode", "encode"]
 __version__ = "0.0.1"

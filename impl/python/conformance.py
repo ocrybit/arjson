@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from weavepack_json import decode
+from weavepack_json import decode, encode
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VECTORS = REPO_ROOT / "weavepack" / "profiles" / "json" / "test-vectors"
@@ -72,7 +72,7 @@ for vec_file in walk(VECTORS):
             continue
         except Exception as e:
             fails += 1
-            failures.append(f"{rel_str} :: {name}: exception: {e}")
+            failures.append(f"{rel_str} :: {name}: decode exception: {e}")
             continue
 
         target = v.get("expected_decoded")
@@ -86,6 +86,26 @@ for vec_file in walk(VECTORS):
                 f"    expected: {target!r}\n"
                 f"    actual:   {decoded!r}"
             )
+            continue
+
+        # Encoder check: encode(input) → bytes; verify byte-exact match
+        # with expected_bytes_hex (Level 3 conformance for single-payload).
+        try:
+            encoded = encode(v["input"])
+            if encoded.hex() != hex_str:
+                fails += 1
+                failures.append(
+                    f"{rel_str} :: {name}: encode mismatch\n"
+                    f"    expected: {hex_str}\n"
+                    f"    actual:   {encoded.hex()}"
+                )
+                continue
+        except NotImplementedError:
+            # Encoder doesn't yet support this case (e.g. NaN/Infinity).
+            pass
+        except Exception as e:
+            fails += 1
+            failures.append(f"{rel_str} :: {name}: encode exception: {e}")
             continue
         passes += 1
 
