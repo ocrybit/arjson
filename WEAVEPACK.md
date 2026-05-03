@@ -63,8 +63,7 @@ spec is implementable from prose alone.
   checkpoints.
 - **Cross-language conformance**: **397 vectors agree across 3
   languages** (JS 151 + Rust 93+58 + Python 37+58), 0 failures.
-  Verified on every push + PR via `.github/workflows/conformance.yml`;
-  reproducible locally via `weavepack/tools/cross-language-check.sh`.
+  Reproducible locally via `weavepack/tools/cross-language-check.sh`.
   Includes `region_replace` op in all three implementations, 20
   fp16/bf16 vectors covering ±Inf, qNaN, sNaN, subnormals, RNE
   rounding, and a chain-framing equivalence check.

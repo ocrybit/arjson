@@ -586,3 +586,54 @@ fn apply_arithmetic_delta(dtype: u8, base: &mut [u8], delta: &[u8]) -> Result<()
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{DTYPE_FP32, DTYPE_INT32, DTYPE_UINT8};
+
+    #[test]
+    fn arithmetic_delta_fp32_basic() {
+        // base = [10.0, 20.0], delta = [0.5, -1.5] → [10.5, 18.5]
+        let mut base = Vec::new();
+        base.extend_from_slice(&10.0f32.to_le_bytes());
+        base.extend_from_slice(&20.0f32.to_le_bytes());
+        let mut delta = Vec::new();
+        delta.extend_from_slice(&0.5f32.to_le_bytes());
+        delta.extend_from_slice(&(-1.5f32).to_le_bytes());
+
+        apply_arithmetic_delta(DTYPE_FP32, &mut base, &delta).unwrap();
+        let v0 = f32::from_le_bytes(base[0..4].try_into().unwrap());
+        let v1 = f32::from_le_bytes(base[4..8].try_into().unwrap());
+        assert_eq!(v0, 10.5);
+        assert_eq!(v1, 18.5);
+    }
+
+    #[test]
+    fn arithmetic_delta_int32_wraps() {
+        // base = i32::MAX, delta = 1 → wraps to i32::MIN.
+        let mut base = i32::MAX.to_le_bytes().to_vec();
+        let delta = 1i32.to_le_bytes().to_vec();
+        apply_arithmetic_delta(DTYPE_INT32, &mut base, &delta).unwrap();
+        let v = i32::from_le_bytes(base[0..4].try_into().unwrap());
+        assert_eq!(v, i32::MIN, "wrapping add should overflow correctly");
+    }
+
+    #[test]
+    fn arithmetic_delta_uint8_wraps() {
+        // base = [255, 0], delta = [1, 255] → [0, 255] (modular).
+        let mut base = vec![255u8, 0u8];
+        let delta = vec![1u8, 255u8];
+        apply_arithmetic_delta(DTYPE_UINT8, &mut base, &delta).unwrap();
+        assert_eq!(base, vec![0u8, 255u8]);
+    }
+
+    #[test]
+    fn arithmetic_delta_unsupported_dtype_errors() {
+        let mut base = vec![0u8; 2];
+        let delta = vec![0u8; 2];
+        // BOOL (dtype 0) is not in apply_arithmetic_delta's match arms.
+        let err = apply_arithmetic_delta(0, &mut base, &delta).unwrap_err();
+        assert!(err.contains("unsupported"), "got: {err}");
+    }
+}
