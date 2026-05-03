@@ -98,4 +98,42 @@ describe("property: delta correctness — apply(delta(a, b), a) = b", () => {
       )
     }
   })
+
+  // Prefix-restore framing property: any byte-prefix of a chain that
+  // contains a whole number of LEB128-framed payloads is itself a
+  // valid chain (parses without error, decodes to *some* state).
+  //
+  // Note: ARJSON's update() re-anchors in some cases (non-structural
+  // root replace, empty-path diff, object-replace), which collapses
+  // earlier payloads. So we cannot assert "prefix N decodes to the
+  // state after the Nth update". The actual framing-level guarantee
+  // is structural: the chain bytes are losslessly splittable, every
+  // prefix [0..k] is parseable, and decoding it succeeds. That's what
+  // per-payload addressability rests on, regardless of any encoder-
+  // side coalescing.
+  it("any chain prefix is a valid parseable chain — 100 seeds", () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const seq = []
+      for (let i = 0; i < 4; i++) seq.push(sampleAny(seed * 17 + i))
+      const arj = new ARJSON({ json: seq[0] })
+      for (let i = 1; i < seq.length; i++) arj.update(seq[i])
+      const fullBuf = arj.toBuffer()
+      const allPayloads = ARJSON.fromBuffer(fullBuf)
+      // Structural property #1: round-trip framing.
+      const reEmitted = ARJSON.toBuffer(allPayloads)
+      assert.deepEqual(
+        Array.from(reEmitted), Array.from(fullBuf),
+        `seed ${seed}: re-emit of parsed payloads should be byte-identical`
+      )
+      // Structural property #2: every prefix decodes without error.
+      for (let cut = 1; cut <= allPayloads.length; cut++) {
+        const prefixBuf = ARJSON.toBuffer(allPayloads.slice(0, cut))
+        const restored = new ARJSON({ arj: prefixBuf })
+        assert.ok(
+          restored.deltas.length === cut,
+          `seed ${seed}: prefix of ${cut} payloads should re-parse into ${cut} payloads`
+        )
+      }
+    }
+  })
 })
