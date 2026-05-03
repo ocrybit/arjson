@@ -5,12 +5,14 @@ No external dependencies; targets Python 3.10+.
 
 ## Status
 
-- **weavepack-json**: decoder for single-payload mode only
-  (Phase 6.4 stretch). 36/36 single-payload conformance vectors
-  pass against the JS reference.
-- Encoder: not implemented.
-- Structured mode (containers, deltas): not implemented.
-- weavepack-tensor: not implemented.
+- **weavepack-json**: encoder + decoder for **single-payload mode**.
+  36/93 corpus vectors pass byte-exact (encode + decode, Level 3
+  conformance for the supported subset). Structured-mode (containers,
+  deltas, strmap dedup) deferred — see V0.2-PLANNING.md item D.2.
+- **weavepack-tensor**: full encoder + decoder + delta application.
+  55/55 corpus vectors pass (Level 3 for schemaless + schemaful;
+  decoder supports tensor_replace, tensor_add, tensor_remove,
+  element_set, region_replace).
 
 ## Why this exists
 
@@ -19,40 +21,77 @@ the Rust crate. This pure-Python decoder is **not** that — it's a
 parallel proof-of-concept demonstrating:
 
 1. The spec docs are implementable from prose alone (this code
-   was written referencing only `weavepack/profiles/json/01-types.md`
-   and `weavepack/core/03-bit-encoding.md`, not the JS or Rust
-   source).
+   was written referencing only the spec docs in `weavepack/`,
+   not the JS or Rust source).
 2. Cross-language portability extends beyond JS+Rust.
 3. A minimal third-party-style implementation can land conformance
    without complex tooling.
 
-For production use, prefer the eventual PyO3 bindings (faster,
-broader profile coverage) once they ship.
+For production use, prefer the PyO3 bindings at
+`impl/rust/weavepack-tensor-py/` (faster, broader profile coverage).
+The pure-Python PoC is the spec-implementability proof; the PyO3
+binding is the production path.
 
 ## Usage
 
+### weavepack-json single-payload
+
 ```python
-from weavepack_json import decode
+from weavepack_json import encode, decode
+
+encode(0)               # → b'\xc0'
+encode(None)            # → b'\x80'
+encode("Hello")         # → b'\xbe...'  (multi-char base64url)
+encode("中文")  # → b'\xbf...'  (multi-char fallback)
 
 decode(bytes.fromhex("c0"))            # → 0
 decode(bytes.fromhex("80"))            # → None
-decode(bytes.fromhex("ed"))            # → 'D' (single char, strmap idx 3)
-decode(bytes.fromhex("bf2bdb00380bc030"))  # → '😀' (UTF-16 surrogate pair)
+decode(bytes.fromhex("ed"))            # → 'D'
+decode(bytes.fromhex("bf2bdb00380bc030"))  # → '😀'
+```
+
+### weavepack-tensor
+
+```python
+from weavepack_tensor import (
+    encode_document, decode_document,
+    apply_delta,
+    DTYPE,
+)
+import struct
+
+# Encode a single fp32 tensor.
+weight_bytes = struct.pack("<3f", 1.0, 2.0, 3.0)
+doc = {"tensors": {"weight": {"dtype": DTYPE.FP32, "shape": [3], "data": [1.0, 2.0, 3.0]}}}
+payload = encode_document(doc)
+restored = decode_document(payload)
+# restored["tensors"]["weight"]["data"] = [1.0, 2.0, 3.0]
 ```
 
 ## Conformance
 
 ```bash
-python3 impl/python/conformance.py
+python3 impl/python/conformance.py          # weavepack-json (36 vectors)
+python3 impl/python/conformance_tensor.py   # weavepack-tensor (55 vectors)
 ```
 
-Walks `weavepack/profiles/json/test-vectors/`, validates each
-single-payload vector against the JS reference's
-`expected_decoded` value.
+Or run the full cross-language check:
 
-Last verified output: `Pass: 36, Fail: 0, Skip: 57` (skipped
-vectors are structured-mode containers + deltas, out of scope
-for this v0.0.1 decoder).
+```bash
+weavepack/tools/cross-language-check.sh
+```
+
+Last reported output: `Pass: 387, Fail: 0` across 5 implementations
+(JS sdk, Rust JSON, Rust tensor, Python JSON, Python tensor).
+
+## What's NOT implemented
+
+- weavepack-json structured mode (objects, arrays, nested values,
+  deltas). The 57 currently-skipped vectors all hit this gap. See
+  `V0.2-PLANNING.md` item D.2 for the planning notes.
+- weavepack-tensor `quant_change` op. Spec'd but no language
+  implements it yet (depends on full quantized-dtype implementation).
+- weavepack-tensor `delta-from-prior` arithmetic compression.
 
 ## License
 
