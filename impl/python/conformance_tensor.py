@@ -81,7 +81,14 @@ def docs_equal(a, b):
         ta, tb = a["tensors"][name], b["tensors"][name]
         if ta["dtype"] != tb["dtype"] or ta["shape"] != tb["shape"]:
             return False
-        if list(ta["data"]) != list(tb["data"]):
+        # Float comparisons: tolerate fp32 precision loss when corpus
+        # values were stored as fp64 JSON but flow through an fp32
+        # tensor (decoded fp32 → Python float → expected fp64).
+        if ta["dtype"] == DTYPE.FP32:
+            for x, y in zip(ta["data"], tb["data"]):
+                if abs(x - y) > max(1e-6, 1e-6 * abs(y)):
+                    return False
+        elif list(ta["data"]) != list(tb["data"]):
             return False
     return True
 

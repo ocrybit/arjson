@@ -82,7 +82,10 @@ enum DeltaOp<'a> {
     TensorAdd { name: &'a str, t: &'a TensorData },
     TensorReplace { name: &'a str, t: &'a TensorData },
     ElementSet { name: &'a str, t: &'a TensorData, elements: Vec<(Vec<u64>, &'a [u8])> },
+    RegionReplace { name: &'a str, t: &'a TensorData, bbox: Vec<(u64, u64)>, region: Vec<u8> },
 }
+
+const REGION_DENSITY_THRESHOLD: f64 = 0.5;
 
 fn compute_ops<'a>(
     base_slice: &'a [(String, TensorData)],
@@ -120,6 +123,54 @@ fn compute_ops<'a>(
 
         if let Some(changed) = changed_elements(base_t, new_t) {
             if bpe > 0 && (changed.len() as f64) / (total as f64) < DENSITY_THRESHOLD {
+                // Compute bounding box. If most of the bbox is touched,
+                // region_replace beats element_set.
+                let rank = base_t.shape.len();
+                let mut mins = vec![u64::MAX; rank];
+                let mut maxs = vec![0u64; rank];
+                for (_, indices) in &changed {
+                    for r in 0..rank {
+                        if indices[r] < mins[r] { mins[r] = indices[r]; }
+                        if indices[r] >= maxs[r] { maxs[r] = indices[r] + 1; }
+                    }
+                }
+                let bbox: Vec<(u64, u64)> = (0..rank).map(|r| (mins[r], maxs[r])).collect();
+                let bbox_size: u64 = bbox.iter().map(|(s, e)| e - s).product();
+                if bbox_size > 0 && bbox_size < total as u64
+                    && (changed.len() as f64) / (bbox_size as f64) > REGION_DENSITY_THRESHOLD
+                {
+                    // Extract region in row-major order.
+                    let strides: Vec<usize> = {
+                        let mut s = vec![1usize; rank];
+                        for i in (0..rank.saturating_sub(1)).rev() {
+                            s[i] = s[i + 1] * base_t.shape[i + 1] as usize;
+                        }
+                        s
+                    };
+                    let mut region = Vec::with_capacity(bbox_size as usize * bpe);
+                    let mut idx_v = vec![0u64; rank];
+                    fn walk(
+                        dim: usize, rank: usize, bbox: &[(u64, u64)],
+                        idx_v: &mut [u64], strides: &[usize],
+                        src: &[u8], region: &mut Vec<u8>, bpe: usize,
+                    ) {
+                        if dim == rank {
+                            let mut flat = 0usize;
+                            for d in 0..rank { flat += idx_v[d] as usize * strides[d]; }
+                            region.extend_from_slice(&src[flat * bpe..(flat + 1) * bpe]);
+                            return;
+                        }
+                        let (s, e) = bbox[dim];
+                        for i in s..e {
+                            idx_v[dim] = i;
+                            walk(dim + 1, rank, bbox, idx_v, strides, src, region, bpe);
+                        }
+                    }
+                    walk(0, rank, &bbox, &mut idx_v, &strides, &new_t.data, &mut region, bpe);
+                    ops.push(DeltaOp::RegionReplace { name, t: new_t, bbox, region });
+                    continue;
+                }
+
                 let elements: Vec<(Vec<u64>, &'a [u8])> = changed
                     .into_iter()
                     .map(|(flat, indices)| {
@@ -188,6 +239,23 @@ pub fn encode_delta(
                     for b in &val[..bpe] {
                         w.write_bits(*b as u32, 8);
                     }
+                }
+            }
+            DeltaOp::RegionReplace { name, t, bbox, region } => {
+                w.write_bits(OP_REGION_REPLACE as u32, OP_BITS);
+                write_name(&mut w, name);
+                w.write_bits(t.dtype as u32, DTYPE_BITS);
+                write_short(&mut w, t.shape.len() as u64);
+                for &dim in &t.shape {
+                    write_leb128(&mut w, dim);
+                }
+                write_short(&mut w, bbox.len() as u64);
+                for &(s, e) in bbox {
+                    write_leb128(&mut w, s);
+                    write_leb128(&mut w, e);
+                }
+                for b in region {
+                    w.write_bits(*b as u32, 8);
                 }
             }
         }
