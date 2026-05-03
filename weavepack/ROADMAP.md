@@ -453,9 +453,14 @@ profiles. The honest commitment is to that gate.
     safetensors within 2%; sparse delta 1000–2500× smaller than safetensors
     full re-encode; single-tensor delta 3–4× smaller; gate: PASSED)
 - [x] Phase 5: Profile #2 complete — weavepack-tensor v0.1 spec + impl + corpus + benchmarks
-- [ ] Phase 6: Rust reference implementation
+- [~] Phase 6: Rust reference implementation
+  - [x] Phase 6.1: weavepack-tensor Rust crate scaffold
+    (impl/rust/weavepack-tensor/ — encode/decode/delta/schema; 31/31 conformance vectors pass
+    byte-for-byte against the JS reference; includes `conformance` binary that runs all
+    tensor test vectors from weavepack/profiles/tensor/test-vectors/)
+  - [ ] Phase 6.2: weavepack-json Rust crate
+  - [ ] Phase 6.3: weavepack-core Rust crate (shared primitives extracted)
+  - [ ] Phase 6.4: bindings (PyO3 Python, optional WASM)
 - [ ] Phase 7: Ecosystem and governance
 
-Next action: Phase 6 — Rust reference implementation.
-Start with impl/rust/ scaffold: weavepack-core crate + weavepack-tensor crate.
-Gate: Rust impl passes the full conformance corpus byte-for-byte.
+Next action: Phase 6.2 — weavepack-json Rust crate (or Phase 6.3 — core crate first).
