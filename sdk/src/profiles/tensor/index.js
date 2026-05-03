@@ -404,17 +404,90 @@ function computeDelta(baseDoc, newDoc) {
     let total = 1
     for (const d of baseT.shape) total *= d
     const changed = findChangedElements(baseT, newT)
-    if (changed && changed.length / total < ELEMENT_SET_DENSITY_THRESHOLD) {
-      ops.push({
-        op: OP.ELEMENT_SET, name, dtype: newT.dtype, shape: newT.shape,
-        elements: changed.map(c => ({ indices: c.indices, value: newT.data[c.flat] })),
-      })
+    if (!changed) {
+      // Sub-byte dtype (bool); fall back to full replace.
+      ops.push({ op: OP.TENSOR_REPLACE, name, ...newT })
+      continue
+    }
+    const sparsity = changed.length / total
+
+    if (sparsity < ELEMENT_SET_DENSITY_THRESHOLD) {
+      // Compute bounding box. If most of the bbox is touched, region_replace
+      // wins (per 04-deltas.md heuristic: > 50% density inside bbox).
+      const bbox = boundingBox(changed, baseT.shape)
+      const bboxSize = bboxElementCount(bbox)
+      if (bboxSize > 0 && changed.length / bboxSize > REGION_REPLACE_DENSITY_THRESHOLD
+          && bboxSize < total) {
+        // region_replace beats element_set for this dense bounding box.
+        ops.push({
+          op: OP.REGION_REPLACE, name,
+          dtype: newT.dtype, shape: newT.shape, bbox,
+          regionData: extractRegion(newT, bbox),
+        })
+      } else {
+        ops.push({
+          op: OP.ELEMENT_SET, name, dtype: newT.dtype, shape: newT.shape,
+          elements: changed.map(c => ({ indices: c.indices, value: newT.data[c.flat] })),
+        })
+      }
     } else {
       ops.push({ op: OP.TENSOR_REPLACE, name, ...newT })
     }
   }
 
   return ops
+}
+
+const REGION_REPLACE_DENSITY_THRESHOLD = 0.5
+
+/// boundingBox(changed, shape) → array of [start, end] (end-exclusive) per dim.
+function boundingBox(changed, shape) {
+  const rank = shape.length
+  const mins = new Array(rank).fill(Infinity)
+  const maxs = new Array(rank).fill(-Infinity)
+  for (const c of changed) {
+    for (let r = 0; r < rank; r++) {
+      if (c.indices[r] < mins[r]) mins[r] = c.indices[r]
+      if (c.indices[r] > maxs[r]) maxs[r] = c.indices[r]
+    }
+  }
+  return mins.map((m, r) => [m, maxs[r] + 1])  // end-exclusive
+}
+
+function bboxElementCount(bbox) {
+  let n = 1
+  for (const [s, e] of bbox) n *= (e - s)
+  return n
+}
+
+/// Extract a contiguous region from tensor t into a typed array.
+function extractRegion(t, bbox) {
+  const rank = t.shape.length
+  const elementCount = bboxElementCount(bbox)
+  // Iterate the bbox in row-major order, copy elements into a new array
+  // matching t.data's typed-array kind.
+  const data = t.data
+  const Ctor = data.constructor
+  const out = new Ctor(elementCount)
+  let outIdx = 0
+  // Recursive iteration over dims.
+  const idx = new Array(rank)
+  function recur(dim) {
+    if (dim === rank) {
+      // Convert idx to flat offset in the source tensor.
+      let flat = 0
+      for (let r = 0; r < rank; r++) flat = flat * t.shape[r] + idx[r]
+      out[outIdx++] = data[flat]
+      return
+    }
+    const [s, e] = bbox[dim]
+    for (let i = s; i < e; i++) {
+      idx[dim] = i
+      recur(dim + 1)
+    }
+  }
+  recur(0)
+  return out
 }
 
 export function encodeDelta(baseDoc, newDoc) {
@@ -449,8 +522,31 @@ export function encodeDelta(baseDoc, newDoc) {
         const eb = encodeSingleElement(op.dtype, elem.value)
         for (let b = 0; b < vb; b++) u.add_dc(eb[b], 8)
       }
+    } else if (op.op === OP.REGION_REPLACE) {
+      // Wire format: name + dtype + full shape + rank + per-dim ranges
+      // (start, end) + region data block in row-major order. Carrying
+      // the full shape (not just the rank) lets the decoder validate
+      // against the base tensor; carrying the dtype is for parity with
+      // tensor_replace's robust form.
+      emitName(u, op.name)
+      u.add_dc(op.dtype, DTYPE_BITS)
+      short_dc(u, op.shape.length)
+      for (const dim of op.shape) leb128_dc(u, dim)
+      // Range list: rank ranges, each (start, end-exclusive).
+      short_dc(u, op.bbox.length)
+      for (const [s, e] of op.bbox) {
+        leb128_dc(u, s)
+        leb128_dc(u, e)
+      }
+      // Region data block. Element count = product(end-start) for each dim.
+      const regionElements = bboxElementCount(op.bbox)
+      const vb = bytesPerElem(op.dtype)
+      const regionBytes = vb * regionElements
+      // op.regionData is a typed array; serialize as little-endian bytes.
+      const dataView = new Uint8Array(op.regionData.buffer, op.regionData.byteOffset, regionBytes)
+      for (let i = 0; i < regionBytes; i++) u.add_dc(dataView[i], 8)
     } else {
-      throw new Error(`unsupported op code ${op.op} (region/quant ops not in v0.1)`)
+      throw new Error(`unsupported op code ${op.op} (quant_change not in v0.1)`)
     }
   }
 
@@ -543,8 +639,55 @@ export function applyDelta(baseDoc, deltaBytes) {
       }
       tensors[name] = { dtype, shape, data: newData }
 
+    } else if (opCode === OP.REGION_REPLACE) {
+      const nameLen = readShort()
+      const nb = new Uint8Array(nameLen)
+      for (let j = 0; j < nameLen; j++) nb[j] = readBits(8)
+      const name = new TextDecoder().decode(nb)
+      const dtype = readBits(DTYPE_BITS)
+      const rank = readShort()
+      const shape = []
+      for (let r = 0; r < rank; r++) shape.push(readLeb128())
+      const bboxRank = readShort()
+      const bbox = []
+      for (let r = 0; r < bboxRank; r++) {
+        const s = readLeb128()
+        const e = readLeb128()
+        bbox.push([s, e])
+      }
+      let regionElements = 1
+      for (const [s, e] of bbox) regionElements *= (e - s)
+      const vb = bytesPerElem(dtype)
+      const regionBytes = vb * regionElements
+      const regionU8 = new Uint8Array(regionBytes)
+      for (let j = 0; j < regionBytes; j++) regionU8[j] = readBits(8)
+
+      // Apply: copy region into existing tensor data.
+      if (!(name in tensors)) throw new Error(`region_replace on unknown tensor ${name}`)
+      const baseT = tensors[name]
+      const newData = (baseT.data instanceof Uint8Array) ? new Uint8Array(baseT.data) : baseT.data.slice()
+      const regionData = materializeData(dtype, regionU8, regionElements)
+      // Iterate the bbox in row-major order, copy into newData.
+      const idx = new Array(rank)
+      let regionIdx = 0
+      function recur(dim) {
+        if (dim === rank) {
+          let flat = 0
+          for (let r = 0; r < rank; r++) flat = flat * shape[r] + idx[r]
+          newData[flat] = regionData[regionIdx++]
+          return
+        }
+        const [s, e] = bbox[dim]
+        for (let i = s; i < e; i++) {
+          idx[dim] = i
+          recur(dim + 1)
+        }
+      }
+      recur(0)
+      tensors[name] = { dtype, shape, data: newData }
+
     } else {
-      throw new Error(`unsupported op code ${opCode} (region/quant ops not in v0.1)`)
+      throw new Error(`unsupported op code ${opCode} (quant_change not in v0.1)`)
     }
   }
 
