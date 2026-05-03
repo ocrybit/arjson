@@ -213,6 +213,32 @@ describe("interface lock: toBuffer / fromBuffer round-trip", () => {
   //
   // What's locked in: the result is NOT the second anchor's value.
   // Producers must split into independent chain blobs instead.
+  // ARJSON.validate() — programmatic check for malformed chains.
+  it("ARJSON.validate accepts well-formed chains", () => {
+    // Single-payload anchor only.
+    const a1 = enc({ x: 1 })
+    assert.strictEqual(ARJSON.validate(ARJSON.toBuffer([a1])), null)
+    // Anchor + structural deltas.
+    const arj = new ARJSON({ json: { x: 1 } })
+    arj.update({ x: 1, y: 2 })
+    arj.update({ x: 1, y: 3 })
+    assert.strictEqual(ARJSON.validate(arj.toBuffer()), null)
+  })
+
+  it("ARJSON.validate rejects standalone anchor past position 0", () => {
+    // a1 + a2 are both single-payload-mode (mode bit = 1):
+    // primitives encode with mode bit 1 (a non-empty object would
+    // encode in structured mode and not trigger this check).
+    const a1 = enc(42)
+    const a2 = enc("string")
+    const malformed = ARJSON.toBuffer([a1, a2])
+    assert.throws(
+      () => ARJSON.validate(malformed),
+      /payload 1.*standalone anchor/,
+      "should reject second-position single-payload anchor"
+    )
+  })
+
   it("a chain with multiple structured-mode anchors is malformed", () => {
     const a1 = enc({ a: 1 })
     const a2 = enc({ x: "different" })

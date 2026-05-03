@@ -148,6 +148,36 @@ export class ARJSON {
 
     return buffer
   }
+
+  // Validate a chain buffer against the protocol's "single anchor +
+  // deltas" rule. Returns null on success; throws Error with a
+  // diagnostic identifying the offending payload index otherwise.
+  //
+  // First payload may be in any mode; subsequent payloads must be
+  // structured (mode bit = 0). A standalone anchor (mode bit = 1)
+  // past position 0 means the chain was constructed by concatenating
+  // independent encoder outputs — receivers will either crash or
+  // silently corrupt. See weavepack/core/05-deltas.md "Encoder buffer
+  // policy on re-anchor".
+  static validate(buffer) {
+    const payloads = ARJSON.fromBuffer(buffer)
+    for (let i = 1; i < payloads.length; i++) {
+      const p = payloads[i]
+      if (p.length === 0) {
+        throw new Error(`payload ${i}: zero-length payload mid-chain`)
+      }
+      const modeBit = (p[0] >> 7) & 1
+      if (modeBit === 1) {
+        throw new Error(
+          `payload ${i}: standalone anchor (mode bit = 1) past position 0; ` +
+          `chain is malformed (multiple anchors). ` +
+          `See weavepack/core/05-deltas.md "Encoder buffer policy on re-anchor".`
+        )
+      }
+    }
+    return null
+  }
+
   toBuffer() {
     if (this.buflen !== this.deltas.length) {
       this.cache = ARJSON.toBuffer(this.deltas)
