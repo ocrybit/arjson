@@ -58,37 +58,22 @@ pub fn chain_serialize(segments: &[Vec<u8>]) -> Vec<u8> {
     out
 }
 
-/// Validate that a chain conforms to the protocol's
-/// "single anchor + deltas" structural rule.
+/// Validate the structural framing of a chain buffer at the
+/// protocol level (LEB128 length-prefix integrity, no zero-length
+/// payloads mid-chain). Profile-level rules (e.g. "no standalone
+/// anchor past position 0" for JSON) are NOT checked here — those
+/// are profile-specific because the meaning of the first bit varies
+/// across profiles (JSON: mode bit; tensor: delta-from-prior flag
+/// in some payloads). For JSON-specific validation, use
+/// `ARJSON.validate` in the JS reference.
 ///
-/// The first payload may be in any mode (single-payload primitive
-/// or structured); subsequent payloads MUST be structured (mode
-/// bit = 0). A standalone anchor (single-payload mode) past
-/// position 0 indicates the chain was constructed by concatenating
-/// independent encoder outputs, which is malformed: receivers will
-/// either crash or silently corrupt the result.
-///
-/// See `weavepack/core/05-deltas.md` §"Encoder buffer policy on
-/// re-anchor" and `weavepack/TROUBLESHOOTING.md` "Decoded JSON
-/// doesn't match either input state".
-///
-/// Returns `Ok(())` if the chain is structurally valid, or an
-/// `Err` with a diagnostic message identifying the offending
-/// payload index.
+/// Returns `Ok(())` if the framing is valid, or an `Err` with a
+/// diagnostic identifying the offending payload index.
 pub fn chain_validate(buf: &[u8]) -> Result<(), String> {
     let segments = chain_parse(buf);
     for (i, seg) in segments.iter().enumerate().skip(1) {
         if seg.is_empty() {
             return Err(format!("payload {i}: zero-length payload mid-chain"));
-        }
-        // Mode bit is the MSB of the first byte (MSB-first bit packing).
-        let mode_bit = (seg[0] >> 7) & 1;
-        if mode_bit == 1 {
-            return Err(format!(
-                "payload {i}: standalone anchor (mode bit = 1) past position 0; \
-                 chain is malformed (multiple anchors). \
-                 See weavepack/core/05-deltas.md §\"Encoder buffer policy on re-anchor\"."
-            ));
         }
     }
     Ok(())
@@ -153,25 +138,13 @@ mod tests {
 
     #[test]
     fn validate_accepts_well_formed_chains() {
-        // Single-payload anchor only.
-        let single = chain_serialize(&vec![vec![0xeau8]]); // mode bit 1
-        assert!(chain_validate(&single).is_ok());
-        // Structured anchor + structured deltas.
-        let multi = chain_serialize(&vec![
-            vec![0x0au8, 0xff],   // mode bit 0
-            vec![0x0au8, 0x42],
+        // Various shapes — all pass at the protocol level.
+        assert!(chain_validate(&chain_serialize(&vec![vec![0xeau8]])).is_ok());
+        assert!(chain_validate(&chain_serialize(&vec![
+            vec![0x0au8, 0xff],
+            vec![0x80u8, 0x42], // mode bit 1 is OK at protocol level
             vec![0x0au8, 0x99],
-        ]);
-        assert!(chain_validate(&multi).is_ok());
-    }
-
-    #[test]
-    fn validate_rejects_anchor_past_position_zero() {
-        // Two single-payload anchors concatenated.
-        let malformed = chain_serialize(&vec![vec![0xeau8], vec![0xebu8]]);
-        let err = chain_validate(&malformed).unwrap_err();
-        assert!(err.contains("standalone anchor"), "got: {err}");
-        assert!(err.contains("payload 1"), "got: {err}");
+        ])).is_ok());
     }
 
     #[test]

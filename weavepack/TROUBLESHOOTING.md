@@ -146,21 +146,20 @@ snapshot is its own self-contained chain. To know when re-anchor
 happened, check `arj.deltas.length` after each `update()` —
 re-anchor reduces it to 1.
 
-To pre-empt this on chain bytes you didn't produce yourself, run
-the validator before passing to a decoder:
+To pre-empt this on JSON-profile chain bytes you didn't produce
+yourself, use the JS reference's profile-aware validator:
 
 ```js
-ARJSON.validate(buf)         // throws on malformed
+ARJSON.validate(buf)         // throws on malformed JSON-profile chain
 ```
 
-```python
-from weavepack_tensor import validate_chain
-validate_chain(buf)          # raises ValueError on malformed
-```
-
-```rust
-weavepack_core::chain::chain_validate(&buf)?;  // Result<(), String>
-```
+The cross-language `chain_validate` helpers in
+`weavepack_core::chain` (Rust) and `weavepack_tensor.validate_chain`
+(Python) only check protocol-level framing (LEB128 integrity, no
+zero-length payloads). They do NOT enforce the JSON-profile-
+specific "no standalone anchor past position 0" rule, because the
+first-bit semantics differ between profiles (JSON: mode bit;
+tensor: delta-from-prior flag in some payloads).
 
 See `weavepack/core/05-deltas.md` §"Encoder buffer policy on
 re-anchor" for the protocol-level rule.

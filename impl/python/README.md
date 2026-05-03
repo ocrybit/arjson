@@ -84,21 +84,21 @@ payloads = parse_chain(chain_bytes)
 # the prefix up to that payload — no need to load the full chain.
 prefix_bytes = serialize_chain(payloads[:n + 1])
 
-# Reject malformed chains before passing to a decoder. Catches the
-# "two encoder outputs concatenated" anti-pattern (see
-# weavepack/TROUBLESHOOTING.md "Decoded JSON doesn't match either
-# input state"). Raises ValueError with a diagnostic identifying
-# the offending payload index.
+# Protocol-level framing check: LEB128 integrity, no zero-length
+# payloads mid-chain. Profile-specific rules (e.g. JSON's "no
+# standalone anchor past position 0") are NOT enforced here —
+# use ARJSON.validate (JS reference) for JSON-profile validation.
 validate_chain(chain_bytes)
 ```
 
-These helpers also exist in the Rust core crate
-(`weavepack_core::chain::{chain_parse, chain_serialize, chain_validate}`),
-the JS reference (`ARJSON.fromBuffer`, `.toBuffer`, `.validate`), and
-the PyO3 wheel (`weavepack_tensor_rs.parse_chain` / `.serialize_chain` /
-`.validate_chain`). The byte-level checks are identical across all
-three implementations — rebuild the wheel via `maturin develop` after
-this change to expose `validate_chain`.
+The protocol-level helpers also exist in the Rust core crate
+(`weavepack_core::chain::{chain_parse, chain_serialize, chain_validate}`)
+and the PyO3 wheel (`weavepack_tensor_rs.parse_chain` /
+`.serialize_chain` / `.validate_chain`). The JS reference adds a
+JSON-profile-specific validator: `ARJSON.validate(buf)` checks the
+"no standalone anchor past position 0" rule that the protocol-level
+validators can't enforce (because first-bit semantics differ across
+profiles).
 
 See [`weavepack/profiles/tensor/examples/chain-partial-restore.py`](../../weavepack/profiles/tensor/examples/chain-partial-restore.py)
 for a worked example.

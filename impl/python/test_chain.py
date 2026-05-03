@@ -53,19 +53,11 @@ class ChainTests(unittest.TestCase):
             self.assertEqual(parse_chain(prefix_buf), payloads[:cut])
 
     def test_validate_accepts_well_formed(self):
-        # Single anchor (mode bit 1).
+        # Various shapes — all pass at the protocol level.
         self.assertIsNone(validate_chain(serialize_chain([b"\xea"])))
-        # Structured anchor + structured deltas (mode bit 0).
         self.assertIsNone(validate_chain(serialize_chain([
-            b"\x0a\xff", b"\x0a\x42", b"\x0a\x99",
+            b"\x0a\xff", b"\x80\x42", b"\x0a\x99",  # mode bit 1 OK
         ])))
-
-    def test_validate_rejects_anchor_past_position_zero(self):
-        malformed = serialize_chain([b"\xea", b"\xeb"])
-        with self.assertRaises(ValueError) as cm:
-            validate_chain(malformed)
-        self.assertIn("standalone anchor", str(cm.exception))
-        self.assertIn("payload 1", str(cm.exception))
 
     def test_validate_rejects_zero_length_mid_chain(self):
         malformed = serialize_chain([b"\x0a\xff", b""])
