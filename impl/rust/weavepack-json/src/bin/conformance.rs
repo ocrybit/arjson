@@ -1,128 +1,252 @@
-// weavepack-json — conformance runner.
+// weavepack-json conformance test runner.
 //
-// Walks weavepack/profiles/json/test-vectors/ and validates byte-for-byte
-// against the JS reference. Currently supports only single-payload
-// vectors (containers and deltas are skipped with a SKIP report).
+// Usage:
+//   cargo run --bin conformance [path/to/test-vectors]
+//
+// Path defaults to ../../../weavepack/profiles/json/test-vectors relative to
+// CARGO_MANIFEST_DIR.  Level 1 + Level 2: decode expected_bytes_hex and
+// compare the result to the input JSON value.
+//
+// Exit code 0 = all pass; exit code 1 = one or more failures.
 
-use serde_json::Value as Json;
-use std::fs;
-use std::path::{Path, PathBuf};
-use weavepack_json::{decode, encode};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+use serde_json::Value;
+use weavepack_json::decode_snapshot;
+
+// ── hex helper ────────────────────────────────────────────────────────────────
+
+fn from_hex(s: &str) -> Result<Vec<u8>, String> {
+    if s.len() % 2 != 0 {
+        return Err(format!("odd-length hex string: {s}"));
+    }
+    (0..s.len() / 2)
+        .map(|i| u8::from_str_radix(&s[i * 2..i * 2 + 2], 16)
+             .map_err(|_| format!("bad hex byte at {i}: {}", &s[i * 2..i * 2 + 2])))
+        .collect()
+}
+
+// ── JSON equality (handles f64 approximation) ─────────────────────────────────
+
+fn json_eq(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Null,    Value::Null)    => true,
+        (Value::Bool(x), Value::Bool(y)) => x == y,
+        (Value::String(x), Value::String(y)) => x == y,
+        (Value::Number(x), Value::Number(y)) => {
+            // Compare as f64 with a small tolerance for float representation.
+            match (x.as_f64(), y.as_f64()) {
+                (Some(xf), Some(yf)) => {
+                    if xf == yf { return true; }
+                    let max = xf.abs().max(yf.abs());
+                    if max == 0.0 { return true; }
+                    ((xf - yf) / max).abs() < 1e-9
+                }
+                _ => x.to_string() == y.to_string(),
+            }
+        }
+        (Value::Array(a), Value::Array(b)) => {
+            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| json_eq(x, y))
+        }
+        (Value::Object(a), Value::Object(b)) => {
+            if a.len() != b.len() { return false; }
+            for (k, av) in a {
+                match b.get(k) {
+                    Some(bv) => if !json_eq(av, bv) { return false; },
+                    None => return false,
+                }
+            }
+            true
+        }
+        _ => false,
+    }
+}
+
+// ── test runner ───────────────────────────────────────────────────────────────
+
+struct Runner {
+    pass:     usize,
+    fail:     usize,
+    failures: Vec<String>,
+}
+
+impl Runner {
+    fn new() -> Self {
+        Self { pass: 0, fail: 0, failures: Vec::new() }
+    }
+
+    fn ok(&mut self) {
+        self.pass += 1;
+    }
+
+    fn err(&mut self, label: &str, reason: &str) {
+        self.fail += 1;
+        self.failures.push(format!("  {label}\n    reason: {reason}"));
+    }
+
+    // Snapshot vector: has `input` and `expected_bytes_hex`.
+    // Level 1: decode expected_bytes_hex → must equal input (or expected_decoded).
+    fn run_snapshot(&mut self, label: &str, v: &Value) {
+        let name = v["name"].as_str().unwrap_or("?");
+        let full = format!("{label} :: {name}");
+
+        let hex = match v["expected_bytes_hex"].as_str() {
+            Some(h) => h,
+            None => return self.err(&full, "expected_bytes_hex missing"),
+        };
+        let bytes = match from_hex(hex) {
+            Ok(b) => b,
+            Err(e) => return self.err(&full, &format!("hex parse error: {e}")),
+        };
+
+        let decoded = match decode_snapshot(&bytes) {
+            Ok(d) => d,
+            Err(e) => return self.err(&full, &format!("decode error: {e}")),
+        };
+
+        // Compare against expected_decoded if present, otherwise against input.
+        let expected = if !v["expected_decoded"].is_null() && v.get("expected_decoded").is_some() {
+            &v["expected_decoded"]
+        } else {
+            &v["input"]
+        };
+
+        if !json_eq(&decoded, expected) {
+            return self.err(
+                &full,
+                &format!(
+                    "decode mismatch\n    expected: {expected}\n    actual:   {decoded}"
+                ),
+            );
+        }
+        self.ok();
+    }
+
+    // Delta vector: has `initial` and `initial_delta_hex`.
+    // Level 1: decode initial_delta_hex → must equal initial.
+    fn run_delta(&mut self, label: &str, v: &Value) {
+        let name = v["name"].as_str().unwrap_or("?");
+        let full = format!("{label}(delta) :: {name}");
+
+        let hex = match v["initial_delta_hex"].as_str() {
+            Some(h) => h,
+            None => return self.err(&full, "initial_delta_hex missing"),
+        };
+        let bytes = match from_hex(hex) {
+            Ok(b) => b,
+            Err(e) => return self.err(&full, &format!("hex parse error: {e}")),
+        };
+
+        let decoded = match decode_snapshot(&bytes) {
+            Ok(d) => d,
+            Err(e) => return self.err(&full, &format!("decode error: {e}")),
+        };
+
+        let expected = &v["initial"];
+        if !json_eq(&decoded, expected) {
+            return self.err(
+                &full,
+                &format!(
+                    "decode mismatch\n    expected: {expected}\n    actual:   {decoded}"
+                ),
+            );
+        }
+        self.ok();
+    }
+}
+
+// ── directory walker ──────────────────────────────────────────────────────────
+
+fn walk_json(dir: &Path, files: &mut Vec<PathBuf>) {
+    let rd = match fs::read_dir(dir) {
+        Ok(r) => r,
+        Err(_) => return,
+    };
+    let mut entries: Vec<_> = rd.filter_map(|e| e.ok()).collect();
+    entries.sort_by_key(|e| e.path());
+    for entry in entries {
+        let path = entry.path();
+        if path.is_dir() {
+            walk_json(&path, files);
+        } else if path.extension().map_or(false, |e| e == "json") {
+            files.push(path);
+        }
+    }
+}
+
+// ── main ──────────────────────────────────────────────────────────────────────
 
 fn main() {
-    // Walk up to find weavepack/profiles/json/test-vectors/.
-    let mut root: PathBuf = std::env::current_dir().unwrap();
-    while !root.join("weavepack").join("profiles").join("json").exists() {
-        match root.parent() {
-            Some(p) => root = p.to_path_buf(),
-            None => {
-                eprintln!("could not find weavepack/profiles/json/ from {}", std::env::current_dir().unwrap().display());
-                std::process::exit(1);
-            }
-        }
-    }
-    let vectors_root = root.join("weavepack/profiles/json/test-vectors");
-    let mut pass = 0usize;
-    let mut fail = 0usize;
-    let mut skip = 0usize;
-    let mut failures: Vec<String> = Vec::new();
+    let vectors_root: PathBuf = std::env::args()
+        .nth(1)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            let manifest = env!("CARGO_MANIFEST_DIR");
+            PathBuf::from(manifest)
+                .join("../../../weavepack/profiles/json/test-vectors")
+        });
 
-    for path in walk(&vectors_root) {
-        let rel = path.strip_prefix(&vectors_root).unwrap();
-        let rel_str = rel.to_string_lossy();
-        if rel_str.starts_with("deltas/") || rel_str.starts_with("containers/") {
-            // Structured-mode payloads — out of scope for v0.1.
-            let vectors: Vec<Json> = match read_vectors(&path) {
-                Ok(v) => v,
-                Err(e) => { failures.push(format!("{}: {}", rel_str, e)); fail += 1; continue; }
-            };
-            skip += vectors.len();
-            continue;
-        }
-        let vectors: Vec<Json> = match read_vectors(&path) {
-            Ok(v) => v,
-            Err(e) => { failures.push(format!("{}: {}", rel_str, e)); fail += 1; continue; }
-        };
-        for v in vectors {
-            let name = v.get("name").and_then(|x| x.as_str()).unwrap_or("(unnamed)");
-            let input = match v.get("input") {
-                Some(x) => x.clone(),
-                None => { skip += 1; continue; }
-            };
-            let expected_hex = v.get("expected_bytes_hex").and_then(|x| x.as_str()).unwrap_or("");
-            let expected_decoded = v.get("expected_decoded").cloned();
+    let vectors_root = vectors_root
+        .canonicalize()
+        .unwrap_or_else(|_| vectors_root.clone());
 
-            // Encode.
-            let bytes = match encode(&input) {
-                Ok(b) => b,
-                Err(e) => {
-                    skip += 1;  // Likely a structured value we don't handle yet.
-                    let _ = e;
-                    continue;
-                }
-            };
-            let actual_hex = hex::encode(&bytes);
-            if actual_hex != expected_hex {
-                fail += 1;
-                failures.push(format!("{} :: {}: encode bytes mismatch\n    expected: {}\n    actual:   {}",
-                    rel_str, name, expected_hex, actual_hex));
-                continue;
-            }
-            // Decode.
-            let decoded = match decode(&bytes) {
-                Ok(d) => d,
-                Err(e) => {
-                    fail += 1;
-                    failures.push(format!("{} :: {}: decode error: {}", rel_str, name, e));
-                    continue;
-                }
-            };
-            let target = expected_decoded.unwrap_or(input.clone());
-            if !json_equal(&decoded, &target) {
-                fail += 1;
-                failures.push(format!("{} :: {}: decode mismatch\n    expected: {}\n    actual:   {}",
-                    rel_str, name, target, decoded));
-                continue;
-            }
-            pass += 1;
-        }
-    }
+    let mut files = Vec::new();
+    walk_json(&vectors_root, &mut files);
 
-    println!("Pass: {}", pass);
-    println!("Fail: {}", fail);
-    println!("Skip: {} (structured-mode vectors not supported in v0.1)", skip);
-    if fail > 0 {
-        println!("\nFailures:");
-        for f in &failures { println!("  {}", f); }
+    if files.is_empty() {
+        eprintln!("No test vector files found under {}", vectors_root.display());
         std::process::exit(1);
     }
-}
 
-fn walk(dir: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    if let Ok(entries) = fs::read_dir(dir) {
-        for e in entries.flatten() {
-            let p = e.path();
-            if p.is_dir() {
-                out.extend(walk(&p));
-            } else if p.extension().map(|x| x == "json").unwrap_or(false) {
-                out.push(p);
+    let mut runner = Runner::new();
+
+    for path in &files {
+        let rel = path
+            .strip_prefix(&vectors_root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string();
+
+        // Skip the README.
+        if rel == "README.md" { continue; }
+
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(e) => {
+                runner.err(&rel, &format!("read error: {e}"));
+                continue;
+            }
+        };
+        let vectors: Vec<Value> = match serde_json::from_str(&content) {
+            Ok(v) => v,
+            Err(e) => {
+                runner.err(&rel, &format!("JSON parse error: {e}"));
+                continue;
+            }
+        };
+
+        let is_delta = rel.starts_with("deltas/");
+
+        for v in &vectors {
+            if is_delta {
+                runner.run_delta(&rel, v);
+            } else {
+                runner.run_snapshot(&rel, v);
             }
         }
     }
-    out
-}
 
-fn read_vectors(path: &Path) -> Result<Vec<Json>, String> {
-    let s = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let v: Json = serde_json::from_str(&s).map_err(|e| e.to_string())?;
-    match v {
-        Json::Array(arr) => Ok(arr),
-        _ => Err("expected JSON array".to_string()),
+    println!("Pass: {}", runner.pass);
+    println!("Fail: {}", runner.fail);
+
+    if !runner.failures.is_empty() {
+        println!("\nFailures:");
+        for f in &runner.failures {
+            println!("{f}");
+        }
+        std::process::exit(1);
     }
-}
-
-// JSON-level equality: structural with NaN-coerced-to-null semantics.
-fn json_equal(a: &Json, b: &Json) -> bool {
-    a == b
 }

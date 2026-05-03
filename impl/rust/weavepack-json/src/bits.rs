@@ -1,162 +1,118 @@
-// MSB-first bit writer and reader for the weavepack-tensor wire format.
+// MSB-first bit reader matching the JS Decoder.n() behaviour.
 //
-// All integers are packed most-significant-bit first, matching the JS
-// reference's Encoder.add_dc / dump() behaviour. Padding at the end of
-// each payload is zero-bit aligned to the next byte boundary.
-
-pub struct BitWriter {
-    bytes: Vec<u8>,
-    cur: u8,
-    bits_used: u8,
-}
-
-impl BitWriter {
-    pub fn new() -> Self {
-        Self { bytes: Vec::new(), cur: 0, bits_used: 0 }
-    }
-
-    /// Write the `count` lowest-order bits of `val`, MSB first.
-    pub fn write_bits(&mut self, val: u32, count: u8) {
-        debug_assert!(count <= 32, "write_bits count > 32");
-        if count == 0 {
-            return;
-        }
-        // Mask to exactly `count` bits.
-        let val = if count == 32 { val } else { val & ((1u32 << count) - 1) };
-        let mut remaining = count;
-        while remaining > 0 {
-            let free = 8 - self.bits_used;
-            if remaining <= free {
-                // All remaining bits fit in the current byte.
-                let shift = free - remaining;
-                self.cur |= (val as u8) << shift;
-                self.bits_used += remaining;
-                if self.bits_used == 8 {
-                    self.bytes.push(self.cur);
-                    self.cur = 0;
-                    self.bits_used = 0;
-                }
-                return;
-            }
-            // Fill current byte with the top `free` bits of val.
-            let shift = remaining - free;
-            let part = (val >> shift) as u8 & ((1u8 << free) - 1);
-            self.cur |= part;
-            self.bytes.push(self.cur);
-            self.cur = 0;
-            self.bits_used = 0;
-            remaining -= free;
-        }
-    }
-
-    pub fn write_byte(&mut self, b: u8) {
-        self.write_bits(b as u32, 8);
-    }
-
-    /// Pad with zero bits to the next byte boundary and return the bytes.
-    pub fn finish(mut self) -> Vec<u8> {
-        if self.bits_used > 0 {
-            // cur already has bits in the high positions; low bits are 0.
-            self.bytes.push(self.cur);
-        }
-        self.bytes
-    }
-}
-
-// ── bit reader ────────────────────────────────────────────────────────────────
+// Bits are numbered from 0 (MSB of byte 0). Reading N bits starting at
+// position `pos` extracts bits pos..pos+N in that left-to-right order.
 
 pub struct BitReader<'a> {
-    data: &'a [u8],
-    pub bit_pos: usize,
+    pub data: &'a [u8],
+    /// Current bit position (0 = MSB of first byte).
+    pub pos: usize,
 }
 
 impl<'a> BitReader<'a> {
     pub fn new(data: &'a [u8]) -> Self {
-        Self { data, bit_pos: 0 }
+        Self { data, pos: 0 }
     }
 
-    pub fn read_bits(&mut self, count: u8) -> u32 {
-        let mut val = 0u32;
-        for _ in 0..count {
-            let byte_idx = self.bit_pos >> 3;
-            let bit_idx = 7 - (self.bit_pos & 7);
-            let bit = ((self.data[byte_idx] >> bit_idx) & 1) as u32;
-            val = (val << 1) | bit;
-            self.bit_pos += 1;
+    /// Read `n` bits (MSB first) and advance `pos` by `n`.
+    pub fn read(&mut self, n: usize) -> Result<u64, String> {
+        debug_assert!(n <= 32, "read() called with n={n} > 32");
+        if n == 0 {
+            return Ok(0);
         }
-        val
-    }
+        let byte_idx = self.pos >> 3;
+        let bit_off = self.pos & 7;
+        self.pos += n;
 
-    pub fn read_byte(&mut self) -> u8 {
-        self.read_bits(8) as u8
-    }
+        // Fast path: up to 24 bits fit in a 4-byte window.
+        if n <= 24 {
+            let b0 = *self.data.get(byte_idx).unwrap_or(&0) as u32;
+            let b1 = *self.data.get(byte_idx + 1).unwrap_or(&0) as u32;
+            let b2 = *self.data.get(byte_idx + 2).unwrap_or(&0) as u32;
+            let b3 = *self.data.get(byte_idx + 3).unwrap_or(&0) as u32;
+            let w = (b0 << 24) | (b1 << 16) | (b2 << 8) | b3;
+            let shift = 32 - bit_off - n;
+            return Ok(((w >> shift) & ((1u32 << n) - 1)) as u64);
+        }
 
-    pub fn read_leb128(&mut self) -> u64 {
+        // Slow path: > 24 bits.
         let mut result = 0u64;
-        let mut shift = 0u32;
+        let start = self.pos - n;
+        for i in 0..n {
+            let bit_pos = start + i;
+            if bit_pos / 8 < self.data.len() {
+                let byte = self.data[bit_pos / 8];
+                let bit = (byte >> (7 - (bit_pos & 7))) & 1;
+                result = (result << 1) | (bit as u64);
+            }
+        }
+        Ok(result)
+    }
+
+    /// Decode an unsigned LEB128 value.
+    pub fn leb128(&mut self) -> Result<u64, String> {
+        let mut result = 0u64;
+        let mut shift = 0u64;
         loop {
-            let byte = self.read_bits(8) as u8;
+            let byte = self.read(8)? as u8;
             result |= ((byte & 0x7f) as u64) << shift;
             shift += 7;
             if byte & 0x80 == 0 {
                 break;
             }
+            if shift > 63 {
+                return Err("leb128 overflow".into());
+            }
         }
-        result
+        Ok(result)
     }
 
-    pub fn read_short(&mut self) -> u64 {
-        let prefix = self.read_bits(2);
-        match prefix {
-            0 => self.read_bits(2) as u64,
-            1 => self.read_bits(3) as u64,
-            2 => self.read_bits(4) as u64,
-            _ => self.read_leb128(),
+    /// `short()`: 2-bit selector → 2/3/4-bit value or leb128.
+    ///   selector 0 → 2 bits  (values 0..3)
+    ///   selector 1 → 3 bits  (values 0..7)
+    ///   selector 2 → 4 bits  (values 0..15)
+    ///   selector 3 → leb128
+    pub fn short(&mut self) -> Result<u64, String> {
+        let x = self.read(2)?;
+        match x {
+            3 => self.leb128(),
+            2 => self.read(4),
+            1 => self.read(3),
+            _ => self.read(2),
+        }
+    }
+
+    /// `uint()`: 2-bit selector → 3/4/6-bit value or leb128.
+    ///   selector 0 → 3 bits  (values 0..7)
+    ///   selector 1 → 4 bits  (values 0..15)
+    ///   selector 2 → 6 bits  (values 0..63)
+    ///   selector 3 → leb128
+    pub fn uint(&mut self) -> Result<u64, String> {
+        let x = self.read(2)?;
+        match x {
+            3 => self.leb128(),
+            2 => self.read(6),
+            1 => self.read(4),
+            _ => self.read(3),
+        }
+    }
+
+    /// Advance to the next byte boundary.
+    pub fn align_byte(&mut self) {
+        if self.pos & 7 != 0 {
+            self.pos += 8 - (self.pos & 7);
         }
     }
 }
 
-// ── common write helpers ──────────────────────────────────────────────────────
+// ── strmap alphabet: A-Za-z (52 chars) ─────────────────────────────────────
+// strmap_rev[i] = char at index i.  Matches JS `strmap_rev`.
+pub const STRMAP_CHARS: &[u8; 52] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-/// Raw LEB128 (no prefix) — 7 bits per group, continuation bit in MSB.
-pub fn write_leb128(w: &mut BitWriter, mut v: u64) {
-    loop {
-        if v < 128 {
-            w.write_bits(v as u32, 8);
-            break;
-        }
-        w.write_bits(((v & 0x7f) | 0x80) as u32, 8);
-        v >>= 7;
-    }
-}
-
-/// Variable-length short integer (2-bit prefix + value body).
-///
-///  prefix 00 → 2-bit value  (0..3)
-///  prefix 01 → 3-bit value  (0..7)
-///  prefix 10 → 4-bit value  (0..15)
-///  prefix 11 → raw LEB128
-pub fn write_short(w: &mut BitWriter, v: u64) {
-    if v < 4 {
-        w.write_bits(0, 2);
-        w.write_bits(v as u32, 2);
-    } else if v < 8 {
-        w.write_bits(1, 2);
-        w.write_bits(v as u32, 3);
-    } else if v < 16 {
-        w.write_bits(2, 2);
-        w.write_bits(v as u32, 4);
-    } else {
-        w.write_bits(3, 2);
-        write_leb128(w, v);
-    }
-}
-
-/// Append the finalize trailer (1 bit + short(0)) and pad to byte boundary.
-/// Must be called once after all payload bits have been written.
-pub fn finalize(mut w: BitWriter) -> Vec<u8> {
-    w.write_bits(0, 1); // trailer bit
-    w.write_bits(0, 2); // short(0) prefix
-    w.write_bits(0, 2); // short(0) value
-    w.finish()
+// ── base64url reverse table: index → char byte ─────────────────────────────
+// Alphabet: A-Za-z0-9-_  (64 entries).  Matches JS `base64_rev_byte`.
+pub fn base64url_char(idx: u64) -> u8 {
+    const ALPHA: &[u8] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    ALPHA[idx as usize]
 }
