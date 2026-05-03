@@ -116,3 +116,16 @@ dist
 .now
 .vercel
 .claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Rust
+target/
+
+# Local Cargo.lock churn (when not pinning)
+# (intentionally NOT ignoring Cargo.lock — workspace pins versions)
