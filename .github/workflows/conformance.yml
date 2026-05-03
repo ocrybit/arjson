@@ -87,3 +87,5 @@ jobs:
         run: npm install
       - name: Run cross-language check
         run: bash weavepack/tools/cross-language-check.sh
+      - name: Smoke-run worked examples
+        run: bash weavepack/tools/run-examples.sh
