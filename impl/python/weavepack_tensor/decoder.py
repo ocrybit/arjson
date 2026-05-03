@@ -293,6 +293,52 @@ def apply_delta(base_doc: dict, delta_bytes: bytes) -> dict:
                 base_data[flat] = value
             tensors[name] = {"dtype": dtype, "shape": shape, "data": base_data}
 
+        elif op_code == OP.REGION_REPLACE:
+            # Wire format per JS reference (sdk/src/profiles/tensor/index.js):
+            #   name + dtype + full shape + bbox-rank + (start, end) per dim
+            #   + region data block (row-major).
+            name_len = r.read_short()
+            name = bytes(r.read_byte() for _ in range(name_len)).decode("utf-8")
+            dtype = r.read_bits(5)
+            rank = r.read_short()
+            shape = [r.read_leb128() for _ in range(rank)]
+            bbox_rank = r.read_short()
+            bbox = []
+            for _ in range(bbox_rank):
+                s = r.read_leb128()
+                e = r.read_leb128()
+                bbox.append((s, e))
+            region_elements = 1
+            for s, e in bbox:
+                region_elements *= (e - s)
+            value_bytes = (_DTYPE_BITS[dtype] + 7) // 8
+            region_raw = bytes(
+                r.read_byte() for _ in range(value_bytes * region_elements)
+            )
+            region_data = _materialize(dtype, region_raw, region_elements)
+            if name not in tensors:
+                raise KeyError(f"region_replace on unknown tensor {name}")
+            base_data = list(tensors[name]["data"])
+            # Iterate bbox in row-major order, copy region into base_data.
+            idx = [0] * rank
+            ptr = [0]  # mutable counter for region_data index
+
+            def recur(dim):
+                if dim == rank:
+                    flat = 0
+                    for d in range(rank):
+                        flat = flat * shape[d] + idx[d]
+                    base_data[flat] = region_data[ptr[0]]
+                    ptr[0] += 1
+                    return
+                s, e = bbox[dim]
+                for i in range(s, e):
+                    idx[dim] = i
+                    recur(dim + 1)
+
+            recur(0)
+            tensors[name] = {"dtype": dtype, "shape": shape, "data": base_data}
+
         else:
             raise NotImplementedError(f"op {op_code} not in v0.0.1")
 
