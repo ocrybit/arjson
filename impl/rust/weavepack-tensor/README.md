@@ -1,5 +1,7 @@
 # weavepack-tensor — Rust reference implementation
 
+[![weavepack-tensor L3](../../../weavepack/badges/tensor/L3.svg)](../../../weavepack/governance/04-conformance-certification.md)
+
 Production-grade Rust implementation of the weavepack-tensor
 profile. Full encoder + decoder + delta application; passes 55/55
 conformance vectors byte-exact against the JS reference.

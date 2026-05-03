@@ -1,5 +1,7 @@
 # weavepack-tensor-rs — PyO3 Python bindings
 
+[![weavepack-tensor L3](../../../weavepack/badges/tensor/L3.svg)](../../../weavepack/governance/04-conformance-certification.md)
+
 Production-grade Python bindings for the weavepack-tensor profile,
 wrapping the Rust crate via PyO3. Shipped under Phase 6.4 of the
 weavepack roadmap.

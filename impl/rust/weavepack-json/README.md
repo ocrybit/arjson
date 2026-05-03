@@ -1,5 +1,8 @@
 # weavepack-json — Rust reference implementation
 
+[![weavepack-json L1](../../../weavepack/badges/json/L1.svg)](../../../weavepack/governance/04-conformance-certification.md)
+[![weavepack-json L2](../../../weavepack/badges/json/L2.svg)](../../../weavepack/governance/04-conformance-certification.md)
+
 Decoder for the JSON profile of weavepack. Handles single-payload
 mode and structured mode (containers, deltas) at Level 1+2
 conformance against the JS reference.
