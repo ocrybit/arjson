@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "weavepack-tensor-rs"
+version = "0.1.0"
+description = "weavepack-tensor Python bindings (Rust/PyO3)"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+
+[tool.maturin]
+module-name = "weavepack_tensor_rs"
+manifest-path = "Cargo.toml"

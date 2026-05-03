@@ -466,7 +466,11 @@ profiles. The honest commitment is to that gate.
     (impl/rust/weavepack-core/ — BitWriter, BitReader, write_leb128, write_short,
     write_uint; both profile crates depend on it; 31/31 tensor + 93/93 JSON
     conformance vectors still pass byte-for-byte after migration)
-  - [ ] Phase 6.4: bindings (PyO3 Python, optional WASM)
+  - [x] Phase 6.4: bindings (PyO3 Python)
+    (impl/rust/weavepack-tensor-py/ — PyO3 crate exposing encode/decode/encode_delta/
+    apply_delta/schema_hash/schema_hash_hex; built with maturin into a manylinux wheel;
+    39/39 conformance vectors pass byte-for-byte via test_conformance.py)
+- [x] Phase 6: Rust reference implementation complete
 - [~] Phase 7: Ecosystem and governance
   - [x] Governance prose: 7 docs
     (00-overview, 01-rfc-process, 02-profile-registry, 03-versioning,
@@ -476,4 +480,4 @@ profiles. The honest commitment is to that gate.
   - [ ] Set up badge endpoint (after ≥ 2 certified impls)
   - [ ] Independent third-party impl recruited
 
-Next action: Phase 6.4 — bindings (PyO3 Python, optional WASM).
+Next action: Phase 7 — Bootstrap the registry maintainer role + first RFC.

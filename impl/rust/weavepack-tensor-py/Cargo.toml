@@ -1,0 +1,18 @@
+[package]
+name = "weavepack-tensor-py"
+version = "0.1.0"
+edition = "2021"
+description = "weavepack-tensor — Python bindings (PyO3)"
+license = "MIT"
+
+[lib]
+name = "weavepack_tensor_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+weavepack-tensor = { path = "../weavepack-tensor" }
+pyo3 = { version = "0.28", features = ["extension-module"] }
+
+[profile.release]
+strip = true
+opt-level = 3
