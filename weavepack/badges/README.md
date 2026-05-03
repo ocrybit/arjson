@@ -8,7 +8,10 @@ implementations exist — see governance/04-conformance-certification.md).
 
 | Badge | File | Meaning |
 |---|---|---|
+| ![weavepack-json L1](json/L1.svg) | `badges/json/L1.svg` | weavepack-json, Level 1 (decoder only) |
+| ![weavepack-json L2](json/L2.svg) | `badges/json/L2.svg` | weavepack-json, Level 2 (encoder round-trip) |
 | ![weavepack-json L3](json/L3.svg) | `badges/json/L3.svg` | weavepack-json, Level 3 (byte-exact) |
+| ![weavepack-tensor L1](tensor/L1.svg) | `badges/tensor/L1.svg` | weavepack-tensor, Level 1 (decoder only) |
 | ![weavepack-tensor L2](tensor/L2.svg) | `badges/tensor/L2.svg` | weavepack-tensor, Level 2 (round-trip) |
 | ![weavepack-tensor L3](tensor/L3.svg) | `badges/tensor/L3.svg` | weavepack-tensor, Level 3 (byte-exact) |
 
