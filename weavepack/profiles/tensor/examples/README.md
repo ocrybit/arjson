@@ -125,6 +125,30 @@ Doubly useful: exercises the public Python chain API and demonstrates
 cross-language interop (JS-encoded chain bytes → Python decode +
 delta application, no contact with the JS implementation).
 
+## delta-from-prior-mode-bit.js
+
+Concrete demonstration of the V0.2 A.3 wire-format feature.
+Hand-crafts a tensor_replace mode=1 (per-element arithmetic delta)
+payload and measures its size vs the v0.1 encoder's mode=0 (absolute
+values) on the same training-step update.
+
+```bash
+node weavepack/profiles/tensor/examples/delta-from-prior-mode-bit.js
+```
+
+Sample output:
+```
+                            raw       + brotli
+  mode=0 (absolute):           4107 bytes     3802 bytes
+  mode=1 (delta-from-prior):   4103 bytes     2827 bytes
+```
+
+Raw bytes are similar (both carry N fp32 values), but **mode=1 +
+brotli is 25% smaller** than mode=0 + brotli for typical training-
+step magnitudes. The encoder doesn't yet emit mode=1 (the V0.2 A.3
+heuristic is pending); this example shows what the win looks like
+once it lands.
+
 ## Adding more examples
 
 Each example follows a consistent shape:
