@@ -24,6 +24,8 @@ VECTORS = REPO_ROOT / "weavepack" / "profiles" / "json" / "test-vectors"
 passes = 0
 fails = 0
 skips = 0
+encode_passes = 0
+encode_skips = 0
 failures = []
 
 
@@ -94,9 +96,10 @@ for vec_file in walk(VECTORS):
                     f"    actual:   {encoded.hex()}"
                 )
                 continue
+            encode_passes += 1
         except NotImplementedError:
             # Encoder doesn't yet support this case (e.g. NaN/Infinity).
-            pass
+            encode_skips += 1
         except Exception as e:
             fails += 1
             failures.append(f"{rel_str} :: {name}: encode exception: {e}")
@@ -106,6 +109,8 @@ for vec_file in walk(VECTORS):
 print(f"Pass: {passes}")
 print(f"Fail: {fails}")
 print(f"Skip: {skips} (structured-mode or non-byte-vectored)")
+print(f"  encoder verified byte-exact for {encode_passes} of {encode_passes + encode_skips} vectors "
+      f"({encode_skips} skipped via NotImplementedError)")
 
 if fails:
     print("\nFailures:")
