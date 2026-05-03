@@ -38,10 +38,10 @@ which no shipping format provides.
 | 3. JS implementation refactored to protocol/profile boundary | ✓ |
 | 4. Property-based testing (14 properties, ~2000 cases per run) | ✓ |
 | 5. Tensor profile shipped (spec, impl, 39 vectors, benchmarks) | ✓ |
-| 6.1. Rust tensor reference impl | ✓ (39/39 vectors byte-exact) |
+| 6.1. Rust tensor reference impl | ✓ (58/58 vectors byte-exact, includes V0.2 A.3 decoder) |
 | 6.2. Rust JSON reference impl | ✓ (93/93 vectors decode) |
 | 6.3. Rust core crate (shared primitives) | ✓ |
-| 6.4. Python bindings (PyO3) | ✓ — `impl/rust/weavepack-tensor-py/` (39/39 vectors) |
+| 6.4. Python bindings (PyO3) | ✓ — `impl/rust/weavepack-tensor-py/` (58/58 vectors via Rust crate) |
 | 7. Governance prose (8 docs) | ✓ |
 | 7. Operational governance: RFC process | ✓ (RFC 0001 in Discussion) |
 | 7. Operational governance: registry maintainer, badges, CI | ✓ |
