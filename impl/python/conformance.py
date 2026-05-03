@@ -44,15 +44,6 @@ def values_equal(a, b):
 for vec_file in walk(VECTORS):
     rel = vec_file.relative_to(VECTORS)
     rel_str = str(rel)
-    if rel_str.startswith(("deltas/", "containers/")):
-        # Structured-mode: out of scope for v0.0.1 Python decoder.
-        with open(vec_file) as f:
-            try:
-                vectors = json.load(f)
-                skips += len(vectors)
-            except Exception:
-                pass
-        continue
 
     with open(vec_file) as f:
         vectors = json.load(f)
@@ -61,13 +52,16 @@ for vec_file in walk(VECTORS):
         name = v.get("name", "(unnamed)")
         hex_str = v.get("expected_bytes_hex", "")
         if not hex_str:
+            # Vector has no single-payload byte form (e.g. delta-only
+            # vectors carry expected_chain_bytes_hex instead).
             skips += 1
             continue
         try:
             data = bytes.fromhex(hex_str)
             decoded = decode(data)
         except NotImplementedError:
-            # Vector requires structured mode.
+            # Decoder explicitly bails on this construct (e.g. structured
+            # mode). Honest skip — count it.
             skips += 1
             continue
         except Exception as e:
