@@ -1,0 +1,200 @@
+[
+  {
+    "name": "tensor_replace basic",
+    "description": "replace all values in a 3-element fp32 tensor",
+    "initial": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            10,
+            20,
+            30
+          ]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "120045dde2060001007e00000080000080800012808177788180001020800050208000782080",
+    "expected_final": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            10,
+            20,
+            30
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "dtype change fp32 to int32",
+    "description": "changing dtype produces tensor_remove + tensor_add ops",
+    "initial": {
+      "tensors": {
+        "x": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "x": {
+          "dtype": 7,
+          "shape": [
+            2
+          ],
+          "data": [
+            100,
+            200
+          ]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "0e0045e1e2040001007e00000080001081217822f0710264000000c800000000",
+    "expected_final": {
+      "tensors": {
+        "x": {
+          "dtype": 7,
+          "shape": [
+            2
+          ],
+          "data": [
+            100,
+            200
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "int32 tensor_replace",
+    "description": "replace all values in an int32 tensor",
+    "initial": {
+      "tensors": {
+        "m": {
+          "dtype": 7,
+          "shape": [
+            4
+          ],
+          "data": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "m": {
+          "dtype": 7,
+          "shape": [
+            4
+          ],
+          "data": [
+            100,
+            200,
+            300,
+            400
+          ]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "160045b4e20800000000020000000400000006000000001680816d38823200000064000000160080004800800000",
+    "expected_final": {
+      "tensors": {
+        "m": {
+          "dtype": 7,
+          "shape": [
+            4
+          ],
+          "data": [
+            100,
+            200,
+            300,
+            400
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "identity update no-op",
+    "description": "when the document is unchanged, no delta frame is appended",
+    "initial": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "0e0045dde2040001007e0000008000",
+    "expected_final": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "note": "chain does not grow: before 15 bytes = after 15 bytes"
+  }
+]

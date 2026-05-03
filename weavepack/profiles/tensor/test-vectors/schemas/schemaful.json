@@ -1,0 +1,138 @@
+[
+  {
+    "name": "schemaful single fp32",
+    "description": "schemaful document: 2-bit header + 32-byte hash + raw data blocks, no inline metadata",
+    "schema": {
+      "weight": {
+        "dtype": 15,
+        "shape": [
+          4
+        ]
+      }
+    },
+    "schema_hash_hex": "feee367dae1bc25b45e1162712e9f0de47cd60746fe08fed499ed85afb7dff8f",
+    "input": {
+      "tensors": {
+        "weight": {
+          "dtype": 15,
+          "shape": [
+            4
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "7fbb8d9f6b86f096d1784589c4ba7c3791f3581d1bf823fb5267b616bedf7fe3c000200fc0000010000010100000201000"
+  },
+  {
+    "name": "schemaful multi-tensor canonical key order",
+    "description": "two tensors encoded in alphabetical key order (a.weight before z.bias)",
+    "schema": {
+      "z.bias": {
+        "dtype": 15,
+        "shape": [
+          3
+        ]
+      },
+      "a.weight": {
+        "dtype": 15,
+        "shape": [
+          3,
+          3
+        ]
+      }
+    },
+    "schema_hash_hex": "80189a0a297a8f7c6fa6f9f514ece14dacd0983eddf11e7423bb03f98ecfbe18",
+    "input": {
+      "tensors": {
+        "z.bias": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            0.10000000149011612,
+            0.20000000298023224,
+            0.30000001192092896
+          ]
+        },
+        "a.weight": {
+          "dtype": 15,
+          "shape": [
+            3,
+            3
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "600626828a5ea3df1be9be7d453b38536b34260fb77c479d08eec0fe63b3ef860000200fc0000010000010100000201000002810000030100000381000000010400004107373330f7373130fa6a6664f80"
+  },
+  {
+    "name": "schemaful bool and int8",
+    "description": "schemaful document with bool (1-bit packed) and int8 tensors",
+    "schema": {
+      "i8": {
+        "dtype": 3,
+        "shape": [
+          4
+        ]
+      },
+      "mask": {
+        "dtype": 0,
+        "shape": [
+          8
+        ]
+      }
+    },
+    "schema_hash_hex": "02f65c276d0d0c84d3db33b000e307b0f3b314e1bdcbd251a5b19669e6521444",
+    "input": {
+      "tensors": {
+        "i8": {
+          "dtype": 3,
+          "shape": [
+            4
+          ],
+          "data": [
+            -128,
+            -1,
+            0,
+            127
+          ]
+        },
+        "mask": {
+          "dtype": 0,
+          "shape": [
+            8
+          ],
+          "data": [
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "40bd9709db43432134f6ccec0038c1ec3cecc5386f72f494696c659a79948511203fc01fec80"
+  }
+]

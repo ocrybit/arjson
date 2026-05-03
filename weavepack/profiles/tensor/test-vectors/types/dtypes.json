@@ -1,0 +1,246 @@
+[
+  {
+    "name": "fp32 1D tensor",
+    "description": "four-element fp32 1D tensor encoding",
+    "input": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            4
+          ],
+          "data": [
+            0,
+            1,
+            -1,
+            3.140000104904175
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045dde208000000000001007e0001017f87ea908000"
+  },
+  {
+    "name": "int8 1D tensor",
+    "description": "min/max int8 boundary values",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 3,
+          "shape": [
+            5
+          ],
+          "data": [
+            -128,
+            -1,
+            0,
+            1,
+            127
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e0620b01fe0002fe00"
+  },
+  {
+    "name": "uint8 1D tensor",
+    "description": "min/max uint8 boundary values",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 4,
+          "shape": [
+            5
+          ],
+          "data": [
+            0,
+            1,
+            127,
+            128,
+            255
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e0820a0002ff01fe00"
+  },
+  {
+    "name": "int16 1D tensor",
+    "description": "min/max int16 boundary values",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 5,
+          "shape": [
+            5
+          ],
+          "data": [
+            -32768,
+            -1,
+            0,
+            1,
+            32767
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e0a20a0101fffe00000201fefe00"
+  },
+  {
+    "name": "uint16 1D tensor",
+    "description": "min/max uint16 boundary values",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 6,
+          "shape": [
+            5
+          ],
+          "data": [
+            0,
+            1,
+            32767,
+            32768,
+            65535
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e0c20a00000201fefe0101fffe00"
+  },
+  {
+    "name": "int32 1D tensor",
+    "description": "min/max int32 boundary values",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 7,
+          "shape": [
+            5
+          ],
+          "data": [
+            -2147483648,
+            -1,
+            0,
+            1,
+            2147483647
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e0e20a00000101fffffffe0000000002000001fffffefe00"
+  },
+  {
+    "name": "uint32 1D tensor",
+    "description": "min/max uint32 boundary values",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 8,
+          "shape": [
+            5
+          ],
+          "data": [
+            0,
+            1,
+            2147483647,
+            2147483648,
+            4294967295
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e1020a0000000002000001fffffefe00000101fffffffe00"
+  },
+  {
+    "name": "fp64 1D tensor",
+    "description": "fp64 double-precision values including large exponent",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 16,
+          "shape": [
+            4
+          ],
+          "data": [
+            0,
+            1,
+            -1,
+            1e+100
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e202080000000000000000000000000001e07e000000000001e17efb87284b5a9364a800"
+  },
+  {
+    "name": "bool tensor sub-byte alignment",
+    "description": "11 booleans packed into 2 bytes (5 trailing bits unused)",
+    "input": {
+      "tensors": {
+        "mask": {
+          "dtype": 0,
+          "shape": [
+            11
+          ],
+          "data": [
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            1,
+            1,
+            0
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0058dac2e6d6010bb2c000"
+  },
+  {
+    "name": "int64 1D tensor",
+    "description": "int64 min/max boundary values — data stored as decimal strings",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 9,
+          "shape": [
+            5
+          ],
+          "data": [
+            "-9223372036854775808",
+            "-1",
+            "0",
+            "1",
+            "9223372036854775807"
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e1220a0000000000000101fffffffffffffffe00000000000000000200000000000001fffffffffffffefe00"
+  },
+  {
+    "name": "uint64 1D tensor",
+    "description": "uint64 min/max boundary values — data stored as decimal strings",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 10,
+          "shape": [
+            3
+          ],
+          "data": [
+            "0",
+            "1",
+            "18446744073709551615"
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e1420600000000000000000200000000000001fffffffffffffffe00"
+  }
+]

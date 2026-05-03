@@ -442,12 +442,18 @@ profiles. The honest commitment is to that gate.
 - [x] Phase 3: sdk/ refactor to protocol/profile boundary — null-profile gate passing
 - [x] Phase 4: Property-based testing — 12 property tests, 1700+ generated cases per run, all passing
 - [ ] Phase 5: Profile #2 (recommended: weavepack-tensor)
+  - [x] Phase 5.1–5.4: spec docs (01–05), fp32 round-trip, multi-dtype, deltas
+  - [x] Phase 5.5: schemaful sidecar spec + implementation (06-schemas.md, schema.js)
+  - [x] Phase 5.6: conformance test corpus — 31 vectors across 5 files
+    (types/dtypes, containers/shapes, deltas/tensor_replace,
+    deltas/tensor_add_remove, deltas/element_set, schemas/schemaful);
+    verify-test-vectors.js extended to cover tensor profile
+  - [ ] Phase 5.7: benchmarks vs safetensors / PyTorch + zstd
 - [ ] Phase 6: Rust reference implementation
 - [ ] Phase 7: Ecosystem and governance
 
-Next action: open Phase 5 by selecting profile #2 (recommended:
-weavepack-tensor) and writing its spec docs first
-(`profiles/tensor/01-types.md`, `02-containers.md`, etc.) before
-implementing. Goal: validate the protocol/profile boundary by shipping
-a profile genuinely different from JSON (binary tensor data, fixed-
-shape, no string strmap).
+Next action: Phase 5.7 — benchmark weavepack-tensor against safetensors
+and PyTorch + zstd on a representative model (e.g. GPT-2-small fp32).
+Measure: encode size, encode time, decode time, delta chain size after
+N weight updates. Goal: publish numbers that either confirm or falsify
+the "beat its incumbent" gate from Phase 5.

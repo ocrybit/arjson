@@ -1,0 +1,183 @@
+[
+  {
+    "name": "fp32 1D shape [8]",
+    "description": "1D tensor with 8 elements",
+    "input": {
+      "tensors": {
+        "v": {
+          "dtype": 15,
+          "shape": [
+            8
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d9e2100001007e00000080000080800001008000014080000180800001c0800000008200"
+  },
+  {
+    "name": "fp32 2D shape [2,3]",
+    "description": "2×3 matrix stored in C row-major order",
+    "input": {
+      "tensors": {
+        "m": {
+          "dtype": 15,
+          "shape": [
+            2,
+            3
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045b5e404060001007e000000800000808000010080000140800001808000"
+  },
+  {
+    "name": "fp32 3D shape [2,3,4]",
+    "description": "3D tensor: 2 slices of 3×4 in C row-major order",
+    "input": {
+      "tensors": {
+        "t": {
+          "dtype": 15,
+          "shape": [
+            2,
+            3,
+            4
+          ],
+          "data": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045d1e6040608000000000001007e00000080000080800001008000014080000180800001c08000000082000020820000408200006082000080820000a0820000c0820000e082000100820001108200012082000130820001408200015082000160820001708200"
+  },
+  {
+    "name": "multi-tensor document",
+    "description": "document with two tensors: a weight matrix and a bias vector",
+    "input": {
+      "tensors": {
+        "layer.weight": {
+          "dtype": 15,
+          "shape": [
+            2,
+            4
+          ],
+          "data": [
+            0.10000000149011612,
+            0.20000000298023224,
+            0.30000001192092896,
+            0.4000000059604645,
+            0.5,
+            0.6000000238418579,
+            0.699999988079071,
+            0.800000011920929
+          ]
+        },
+        "layer.bias": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            0.009999999776482582,
+            0.019999999552965164
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "00ac6c617965722e77656967687479010266e6661ee6e6261f4d4ccc9f66e6661f0000001fcd4c8c9f9999999fe6e6261fd4d8c2f2cae45cc4d2c2e6f1020ad7233c0ad7a33c00"
+  },
+  {
+    "name": "empty tensor shape [0]",
+    "description": "zero-element tensor: valid encoding with no data bytes",
+    "input": {
+      "tensors": {
+        "empty": {
+          "dtype": 15,
+          "shape": [
+            0
+          ],
+          "data": []
+        }
+      }
+    },
+    "expected_bytes_hex": "005acadae0e8f2f10000"
+  },
+  {
+    "name": "scalar fp32 shape [1]",
+    "description": "single-element 1D tensor",
+    "input": {
+      "tensors": {
+        "s": {
+          "dtype": 15,
+          "shape": [
+            1
+          ],
+          "data": [
+            3.140000104904175
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045cde20387ea908000"
+  },
+  {
+    "name": "utf-8 tensor name",
+    "description": "tensor named with Chinese characters — UTF-8 encoded on wire",
+    "input": {
+      "tensors": {
+        "中文_weight": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "006de4b8ade696875f77656967687478810000401f8000002000"
+  }
+]

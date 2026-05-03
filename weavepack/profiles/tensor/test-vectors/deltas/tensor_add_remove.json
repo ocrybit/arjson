@@ -1,0 +1,257 @@
+[
+  {
+    "name": "tensor_add new tensor",
+    "description": "add tensor 'b' to a document that already has tensor 'a'",
+    "initial": {
+      "tensors": {
+        "a": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "a": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        },
+        "b": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "0e004585e2040001007e000000800012809162788180002020000040200000502000",
+    "expected_final": {
+      "tensors": {
+        "a": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        },
+        "b": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "tensor_remove",
+    "description": "remove tensor 'b', keeping 'a'",
+    "initial": {
+      "tensors": {
+        "a": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        },
+        "b": {
+          "dtype": 15,
+          "shape": [
+            3
+          ],
+          "data": [
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "a": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "1e008585e2040001007e000000802c4f10300004040000080400000a0400000480a16200",
+    "expected_final": {
+      "tensors": {
+        "a": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "add two new mixed-dtype tensors",
+    "description": "adds int8 and uint8 tensors to an existing fp32 tensor",
+    "initial": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            4
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            4
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        "b1": {
+          "dtype": 3,
+          "shape": [
+            2
+          ],
+          "data": [
+            -1,
+            1
+          ]
+        },
+        "b2": {
+          "dtype": 4,
+          "shape": [
+            2
+          ],
+          "data": [
+            0,
+            255
+          ]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "160045dde2080001007e00000080000080800001008000108112623118817f809262322081007f80",
+    "expected_final": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [
+            4
+          ],
+          "data": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        "b1": {
+          "dtype": 3,
+          "shape": [
+            2
+          ],
+          "data": [
+            -1,
+            1
+          ]
+        },
+        "b2": {
+          "dtype": 4,
+          "shape": [
+            2
+          ],
+          "data": [
+            0,
+            255
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "remove all tensors",
+    "description": "delta removes all tensors leaving an empty document",
+    "initial": {
+      "tensors": {
+        "a": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            2
+          ]
+        },
+        "b": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            3,
+            4
+          ]
+        }
+      }
+    },
+    "update": {
+      "tensors": {}
+    },
+    "expected_chain_bytes_hex": "1a008585e2040001007e000000802c4f10200004040000080400000681216142c400",
+    "expected_final": {
+      "tensors": {}
+    }
+  }
+]
