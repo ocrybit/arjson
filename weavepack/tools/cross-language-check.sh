@@ -26,6 +26,8 @@ color() {
     esac
 }
 
+total_pass=0
+
 run_check() {
     local name="$1"; shift
     local cmd="$*"
@@ -40,6 +42,7 @@ run_check() {
     skip=$(echo "$out" | grep -E "^Skip:" | head -1 | awk '{print $2}')
     if [[ "${fail:-1}" == "0" ]]; then
         printf "%spass=%s%s" "$(color green)" "$pass" "$(color reset)"
+        total_pass=$((total_pass + ${pass:-0}))
     else
         printf "%spass=%s fail=%s%s" "$(color red)" "$pass" "$fail" "$(color reset)"
     fi
@@ -97,6 +100,10 @@ fi
 echo
 if [[ $any_fail -eq 0 ]]; then
     printf "%sAll implementations agree.%s\n" "$(color green)" "$(color reset)"
+    if [[ -n "${total_pass:-}" ]]; then
+        printf "%sTotal: %d vectors passing across all implementations.%s\n" \
+            "$(color green)" "$total_pass" "$(color reset)"
+    fi
     exit 0
 else
     printf "%sAt least one implementation has failures.%s\n" "$(color red)" "$(color reset)"

@@ -57,9 +57,11 @@ spec is implementable from prose alone.
   `weavepack/profiles/tensor/07-benchmarks.md`.
 - **Tensor snapshot size**: within 2% of safetensors for full
   checkpoints.
-- **Cross-language conformance**: **339 vectors agree across 3
+- **Cross-language conformance**: **351 vectors agree across 3
   languages** (JS / Rust / Python), 0 failures. Run
   `weavepack/tools/cross-language-check.sh` to verify on your machine.
+  Includes `region_replace` op in all three implementations (encoder
+  in JS + Rust; decoder in JS + Rust + Python).
 - **JSON conformance**: 93 byte-exact test vectors, 12 algebraic-law
   property tests over ~1700 random cases per run, all passing.
 - **Cross-language**: 3 implementations (JS reference, Rust, Python
