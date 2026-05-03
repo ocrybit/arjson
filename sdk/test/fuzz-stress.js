@@ -238,6 +238,12 @@ const propDeltaReplay = (states) => {
   if (!equals(b.json, final)) {
     fail("delta-replay buffer", states, () => false)
   }
+  // ARJSON.validate must accept every chain the encoder produces.
+  try {
+    ARJSON.validate(a.toBuffer())
+  } catch (e) {
+    fail("validator-rejects-own-chain", states, () => false)
+  }
 }
 
 const propMutationChain = (initial, n) => {
