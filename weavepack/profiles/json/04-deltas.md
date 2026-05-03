@@ -30,10 +30,21 @@ ARTable_i = compact(ARTable_{i-1}, decode(Delta_i).table())
 JSON_i    = build(ARTable_i)
 ```
 
-The chain is **append-only**: deltas are never modified or reordered,
-and the initial-state delta is never replaced. This matches the
-permanent-storage use case where each update is a separate transaction
-on an immutable ledger.
+**Append-only at the wire level.** Once a chain payload is serialized
+out (i.e. its bytes have left the encoder), those bytes are immutable
+— no consumer ever rewrites previously-emitted payload bytes. This
+matches the permanent-storage use case where each update is a separate
+transaction on an immutable ledger.
+
+**Not append-only at the in-memory level.** A live encoder instance
+(e.g. `ARJSON` in JS) may **re-anchor** in response to certain
+updates (see Re-anchor section below), which replaces its in-memory
+`deltas` array with a single fresh anchor and discards prior
+payloads from its own view. Consumers that need durable history
+across re-anchor boundaries must snapshot `toBuffer()` to external
+storage between updates. The protocol's append-only guarantee
+applies to bytes already emitted, not to the encoder's internal
+buffer state.
 
 ### Chain serialization
 
