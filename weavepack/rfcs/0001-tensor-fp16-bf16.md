@@ -1,6 +1,6 @@
 # RFC 0001 — fp16 and bf16 dtype support in weavepack-tensor
 
-**Status:** Discussion (JS + Rust reference impls landed; conformance corpus complete — 20 vectors in types/half.json covering ±Inf, qNaN, sNaN, subnormals, RNE rounding, smallest-normal, and mixed-dtype; awaiting 2-week minimum discussion period before acceptance)
+**Status:** Discussion (JS + Rust + Python reference impls all landed and agree byte-exact; conformance corpus complete — 20 vectors in types/half.json covering ±Inf, qNaN, sNaN, subnormals, RNE rounding, smallest-normal, and mixed-dtype; awaiting 2-week minimum discussion period before acceptance)
 **Author(s):** Claude / arjson maintainers (TBD)
 **Created:** 2026-05-03
 **Affects:** weavepack-tensor profile
