@@ -59,6 +59,12 @@ spec is implementable from prose alone.
   [`weavepack/profiles/tensor/SIZE-EXAMPLES.md`](./weavepack/profiles/tensor/SIZE-EXAMPLES.md)
   for reproducible measurements; full benchmark methodology in
   `weavepack/profiles/tensor/07-benchmarks.md`.
+- **Tensor dense small-delta** (V0.2 A.3): for Adam-style training
+  steps where every element changes by ≤ 0.01, the encoder emits
+  `tensor_replace mode=1` (per-element delta-from-prior). Brotli
+  exploits the leading-zero structure: weavepack+brotli is **1.6×
+  smaller** than safetensors+brotli on the dense scenario in
+  [`examples/brotli-stacking.js`](./weavepack/profiles/tensor/examples/brotli-stacking.js).
 - **Tensor snapshot size**: within 2% of safetensors for full
   checkpoints.
 - **Cross-language conformance**: **397 vectors agree across 3
