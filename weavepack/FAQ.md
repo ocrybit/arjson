@@ -152,10 +152,10 @@ weavepack-tensor, and the protocol substrate).
 
 ## How big is the test suite?
 
-- 2185 sdk tests (JS)
+- 2188 sdk tests (JS)
 - 2000+ property-based test cases per run (14 algebraic-law
   properties)
-- 388 conformance vectors agreeing across 3 languages
+- 397 conformance vectors agreeing across 3 languages
   (JS / Rust / Python)
 - 4 chain unit tests in Rust core, 5 chain tests in Python
 - Cross-language CI runs on every push
@@ -173,7 +173,7 @@ for production Python.
 
 If you want to evaluate, run
 `weavepack/tools/cross-language-check.sh` from the repo root —
-all 388 vectors should pass in ~3 seconds.
+all 397 vectors should pass in ~3 seconds.
 
 ## Where do I report bugs / propose changes?
 

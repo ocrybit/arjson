@@ -61,8 +61,8 @@ spec is implementable from prose alone.
   `weavepack/profiles/tensor/07-benchmarks.md`.
 - **Tensor snapshot size**: within 2% of safetensors for full
   checkpoints.
-- **Cross-language conformance**: **388 vectors agree across 3
-  languages** (JS 148 + Rust 93+55 + Python 37+55), 0 failures.
+- **Cross-language conformance**: **397 vectors agree across 3
+  languages** (JS 151 + Rust 93+58 + Python 37+58), 0 failures.
   Verified on every push + PR via `.github/workflows/conformance.yml`;
   reproducible locally via `weavepack/tools/cross-language-check.sh`.
   Includes `region_replace` op in all three implementations, 20
@@ -94,15 +94,15 @@ arjson/
 │   │       ├── json/               (weavepack-json — full impl)
 │   │       ├── tensor/             (weavepack-tensor v0.1)
 │   │       └── null/               (boundary-validation profile)
-│   └── test/                       (2185 tests)
+│   └── test/                       (2188 tests)
 │
 ├── impl/
 │   ├── rust/
 │   │   ├── weavepack-core/         (shared bit-level primitives)
-│   │   ├── weavepack-tensor/       (Rust tensor crate, 55/55 vectors)
+│   │   ├── weavepack-tensor/       (Rust tensor crate, 58/58 vectors)
 │   │   ├── weavepack-tensor-py/    (PyO3 bindings → Python wheel)
 │   │   └── weavepack-json/         (Rust JSON crate, 93/93 vectors)
-│   └── python/                     (Pure-Python PoC, 37 + 55 vectors)
+│   └── python/                     (Pure-Python PoC, 37 + 58 vectors)
 │
 ├── weavepack/                      (the protocol spec + governance)
 │   ├── ROADMAP.md                  (phase-by-phase progress)
