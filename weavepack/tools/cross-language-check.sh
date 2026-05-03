@@ -32,11 +32,15 @@ run_check() {
     local name="$1"; shift
     local cmd="$*"
     printf "%s%-30s%s " "$(color bold)" "$name" "$(color reset)"
+    local start_time=$(date +%s%N)
     if ! out=$(eval "$cmd" 2>&1); then
-        printf "%sFAIL%s\n" "$(color red)" "$(color reset)"
+        local elapsed_ms=$(( ( $(date +%s%N) - start_time ) / 1000000 ))
+        printf "%sFAIL%s %s(%dms)%s\n" \
+            "$(color red)" "$(color reset)" "$(color yellow)" "$elapsed_ms" "$(color reset)"
         echo "$out" | tail -5 | sed 's/^/    /'
         return 1
     fi
+    local elapsed_ms=$(( ( $(date +%s%N) - start_time ) / 1000000 ))
     pass=$(echo "$out" | grep -E "^Pass:" | head -1 | awk '{print $2}')
     fail=$(echo "$out" | grep -E "^Fail:" | head -1 | awk '{print $2}')
     skip=$(echo "$out" | grep -E "^Skip:" | head -1 | awk '{print $2}')
@@ -49,7 +53,7 @@ run_check() {
     if [[ -n "${skip:-}" && "$skip" != "0" ]]; then
         printf " %sskip=%s%s" "$(color yellow)" "$skip" "$(color reset)"
     fi
-    printf "\n"
+    printf " %s(%dms)%s\n" "$(color yellow)" "$elapsed_ms" "$(color reset)"
     [[ "${fail:-1}" == "0" ]]
 }
 
