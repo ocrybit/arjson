@@ -1,4 +1,4 @@
-import { writeFileSync, readFileSync } from "fs"
+import { writeFileSync, readFileSync, existsSync } from "fs"
 import { resolve } from "path"
 
 const packageJson = resolve(import.meta.dirname, "package.json")
@@ -17,3 +17,15 @@ const json2 = {
   type: "module",
 }
 writeFileSync(packageJsonDist2, JSON.stringify(json2, undefined, 2))
+
+// The bin scripts in `bin/` import from `../src/` for dev-mode
+// invocation (running `node sdk/bin/wpkt-json.js` directly). After
+// `cp bin -rf dist/`, they live at dist/bin/ where `../src/` no
+// longer exists. Rewrite the import path to point at dist/esm/
+// (which the build creates as the published-package source root).
+const wpktJson = resolve(import.meta.dirname, "dist/bin/wpkt-json.js")
+if (existsSync(wpktJson)) {
+  let body = readFileSync(wpktJson, "utf8")
+  body = body.replace(/from "\.\.\/src\//g, 'from "../esm/')
+  writeFileSync(wpktJson, body)
+}
