@@ -79,9 +79,33 @@ when:
 
 A re-anchor in the chain restarts the conceptual chain from that
 point. Subsequent deltas refer to the re-anchored state, not the
-pre-re-anchor state. The history is preserved (the chain is still
-append-only), but the recovery algorithm starts from the most-recent
-re-anchor.
+pre-re-anchor state. The recovery algorithm starts from the
+most-recent re-anchor.
+
+**Encoder buffer policy on re-anchor.** Two strategies are
+conforming:
+
+1. **Discard prior payloads.** The encoder replaces its in-memory
+   chain with a single fresh anchor payload. `toBuffer()` after
+   re-anchor returns just those bytes. Used by the JS reference.
+   Matches the "give me bytes that decode to current state"
+   consumer model. Durable history requires external snapshotting
+   between updates.
+
+2. **Preserve prior payloads.** The encoder appends the fresh
+   anchor without dropping prior payloads. `toBuffer()` returns
+   the full history-including buffer; receivers detect the
+   re-anchor and reset their ARTable mid-chain. Useful for
+   permanent ledgers where every emitted byte must remain
+   recoverable from the live encoder.
+
+A receiver MUST handle both strategies correctly: when a payload
+is structurally a fresh anchor (encodes a complete state from
+scratch), the receiver replaces its current ARTable with the new
+one, regardless of how many prior payloads it has already
+processed. The wire format is the same in both cases — the
+difference is only in what the encoder chose to keep in its
+buffer.
 
 Detection of re-anchors: any payload whose first bit is `1`
 (single-payload mode) is a re-anchor in the structural sense — it
