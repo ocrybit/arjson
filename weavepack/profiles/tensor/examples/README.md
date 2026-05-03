@@ -76,6 +76,24 @@ Comparison:
   Saving:                                  18× smaller
 ```
 
+## brotli-stacking.js
+
+Honest comparison of weavepack vs `safetensors-bundled + brotli`
+across two workloads (sparse-update vs dense-update). Demonstrates
+where weavepack's structural compression wins, and where brotli on
+a concatenated-blob baseline already extracts most of the win.
+
+```bash
+node weavepack/profiles/tensor/examples/brotli-stacking.js
+```
+
+The example exists to be honest about a real tradeoff: in a
+**bundled** comparison (concat all snapshots, then compress the
+whole blob), brotli often beats weavepack alone. weavepack's win
+is **per-payload addressability** — each chain payload is
+independently retrievable, which a single brotli'd blob is not.
+Critical for Arweave / IPFS / per-payload-billing scenarios.
+
 ## Summary of measured wins
 
 | Scenario | Workload | Saving vs safetensors |
@@ -83,6 +101,8 @@ Comparison:
 | Periodic checkpoints | 100 training steps, 2% sparsity | **30×** smaller |
 | Variant collection | 10 variants × 5% sparsity | **7.3×** smaller |
 | Time-series sensor stream | 60 timesteps, 2.8% per-step changes | **18×** smaller |
+| Bundled + brotli (sparse) | 100 steps, 2% sparsity | brotli alone wins (47× vs 30×); weavepack wins on per-payload addressability, not bundled size |
+| Bundled + brotli (dense) | 100 steps, every-element noise | both ~1× (no compression to extract); weavepack wins on partial-decode |
 
 These numbers are hardware-independent (byte counts, not timings)
 and reproducible: any consumer running these scripts will get the
