@@ -1,17 +1,20 @@
 # weavepack Python implementation
 
+[![weavepack-json L3 (single-payload)](../../weavepack/badges/json/L3.svg)](../../weavepack/governance/04-conformance-certification.md)
+[![weavepack-tensor L3](../../weavepack/badges/tensor/L3.svg)](../../weavepack/governance/04-conformance-certification.md)
+
 Pure-Python proof-of-concept implementation of weavepack profiles.
 No external dependencies; targets Python 3.10+.
 
 ## Status
 
-- **weavepack-json**: encoder + decoder for **single-payload mode**.
-  36/93 corpus vectors pass byte-exact (encode + decode, Level 3
-  conformance for the supported subset). Structured-mode (containers,
-  deltas, strmap dedup) deferred — see V0.2-PLANNING.md item D.2.
-- **weavepack-tensor**: full encoder + decoder + delta application.
-  55/55 corpus vectors pass (Level 3 for schemaless + schemaful;
-  decoder supports tensor_replace, tensor_add, tensor_remove,
+- **weavepack-json**: encoder + decoder for **single-payload mode** at
+  Level 3 (byte-exact). 36/93 corpus vectors pass. Structured-mode
+  (containers, deltas, strmap dedup) deferred — see V0.2-PLANNING.md
+  item D.2.
+- **weavepack-tensor**: full encoder + decoder + delta application at
+  Level 3 (byte-exact). 55/55 corpus vectors pass. Schemaless +
+  schemaful + 5 delta ops (tensor_replace, tensor_add, tensor_remove,
   element_set, region_replace).
 
 ## Why this exists
