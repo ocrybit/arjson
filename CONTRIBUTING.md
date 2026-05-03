@@ -87,13 +87,14 @@ cargo run -p weavepack-json   --bin conformance   # 93/93 JSON vectors
 ### Python PoC
 
 ```bash
-python3 impl/python/conformance.py   # 36/36 single-payload vectors
+python3 impl/python/conformance.py   # 37/37 single-payload vectors
 ```
 
 ### Cross-language conformance
 
 ```bash
-node weavepack/tools/verify-test-vectors.js   # 132 JSON+tensor vectors
+bash weavepack/tools/cross-language-check.sh   # 397 vectors agreeing across JS/Rust/Python
+bash weavepack/tools/run-examples.sh           # smoke-run all 7 worked examples
 ```
 
 ## Common contributions
