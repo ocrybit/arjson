@@ -468,6 +468,13 @@ profiles. The honest commitment is to that gate.
     - [ ] 6.2d: strdiff (string fast-diff) format
   - [ ] Phase 6.3: weavepack-core Rust crate (shared primitives extracted)
   - [ ] Phase 6.4: bindings (PyO3 Python, optional WASM)
-- [ ] Phase 7: Ecosystem and governance
+- [~] Phase 7: Ecosystem and governance
+  - [x] Governance prose: 7 docs
+    (00-overview, 01-rfc-process, 02-profile-registry, 03-versioning,
+    04-conformance-certification, 05-implementation-registry,
+    06-spec-interpretation)
+  - [ ] Bootstrap the registry maintainer role + first RFC
+  - [ ] Set up badge endpoint (after ≥ 2 certified impls)
+  - [ ] Independent third-party impl recruited
 
 Next action: Phase 6.2 — weavepack-json Rust crate (or Phase 6.3 — core crate first).
