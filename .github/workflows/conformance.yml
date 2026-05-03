@@ -1,0 +1,89 @@
+name: cross-language conformance
+
+on:
+  push:
+    branches: [master, weavepack]
+  pull_request:
+    branches: [master, weavepack]
+
+jobs:
+  js:
+    name: JS reference (sdk + verify-test-vectors)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: sdk/package-lock.json
+      - name: Install
+        working-directory: sdk
+        run: npm install
+      - name: SDK tests
+        working-directory: sdk
+        run: npm test
+      - name: Property tests
+        working-directory: sdk
+        run: npm run properties
+      - name: Conformance vectors
+        run: node weavepack/tools/verify-test-vectors.js
+
+  rust:
+    name: Rust reference (cargo test + conformance binaries)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: impl/rust
+      - name: Build
+        working-directory: impl/rust
+        run: cargo build --workspace
+      - name: Tests
+        working-directory: impl/rust
+        run: cargo test --workspace
+      - name: Tensor conformance
+        working-directory: impl/rust
+        run: cargo run -p weavepack-tensor --bin conformance
+      - name: JSON conformance
+        working-directory: impl/rust
+        run: cargo run -p weavepack-json --bin conformance
+
+  python:
+    name: Python PoC (pure-Python conformance)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: JSON conformance
+        run: python3 impl/python/conformance.py
+      - name: Tensor conformance
+        run: python3 impl/python/conformance_tensor.py
+
+  cross-language:
+    name: All implementations agree (300+ vectors)
+    needs: [js, rust, python]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: sdk/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: impl/rust
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install JS deps
+        working-directory: sdk
+        run: npm install
+      - name: Run cross-language check
+        run: bash weavepack/tools/cross-language-check.sh
