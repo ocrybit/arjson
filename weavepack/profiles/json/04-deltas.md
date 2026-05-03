@@ -213,11 +213,28 @@ Re-anchors are emitted when:
 4. An empty-object → non-empty-object transition that would otherwise
    require synthesizing kref slots.
 
-After a re-anchor, the chain effectively restarts: the new ARTable
-is the new "initial state" against which subsequent deltas apply.
-The chain history is preserved (all prior deltas remain in the
-buffer) but conceptually represents a sequence of "super-deltas"
-where most are incremental and some are full re-anchors.
+After a re-anchor, the chain restarts: the new fresh-anchor
+payload becomes the entire `deltas` buffer. Prior payloads in
+the in-memory chain are **discarded**, and `toBuffer()` after
+re-anchor returns just the fresh single-payload bytes.
+
+This is a deliberate trade-off. The alternative — preserving
+prior payloads in the buffer for full history retention — would
+require receivers to detect re-anchor payloads and reset their
+ARTable mid-chain, plus carry the bytes of states that are no
+longer reachable from the current head. Discarding is simpler
+and matches the more common consumer model: "give me the bytes
+that decode to the current state".
+
+Consumers that need *durable* version history across re-anchor
+boundaries should snapshot `arj.toBuffer()` at known-good points
+before triggering re-anchor (e.g. after each `update()` whose
+return value is `[fresh-anchor]`). The chain framing is then a
+sequence of independent chain blobs, each restartable.
+
+Verified by sdk regression tests and the property test
+"any chain prefix is a valid parseable chain" in
+`weavepack/properties/delta-correctness.test.js`.
 
 ## Compose / apply / chain laws
 
