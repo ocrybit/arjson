@@ -188,8 +188,20 @@ fn parse_tensor_map(obj: &Value) -> Result<Vec<(String, TensorData)>, String> {
             .iter()
             .map(|v| v.as_u64().ok_or("shape dim not u64"))
             .collect::<Result<_, _>>()?;
-        let data_arr = tv["data"].as_array().ok_or("data missing")?;
-        let data = json_data_to_bytes(dtype, data_arr)?;
+        // Two paths: `data` is JSON values (numbers); `data_raw_bits` is
+        // raw u16 bit patterns (used for fp16/bf16 non-finite values that
+        // can't be expressed as JSON numbers).
+        let data = if let Some(bits_arr) = tv["data_raw_bits"].as_array() {
+            let mut out = Vec::with_capacity(bits_arr.len() * 2);
+            for v in bits_arr {
+                let bits = v.as_u64().ok_or("data_raw_bits element not u64")? as u16;
+                out.extend_from_slice(&bits.to_le_bytes());
+            }
+            out
+        } else {
+            let data_arr = tv["data"].as_array().ok_or("data or data_raw_bits missing")?;
+            json_data_to_bytes(dtype, data_arr)?
+        };
         tensors.push((name.clone(), TensorData { dtype, shape, data }));
     }
     Ok(tensors)
