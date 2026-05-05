@@ -118,6 +118,7 @@ function jsonToTyped(dtype, arr) {
     case DTYPE.FP8E5M2: return new Float32Array(arr)  // fp8 — encoder converts
     case DTYPE.CFLOAT32: return new Float32Array(arr) // interleaved real,imag as f32
     case DTYPE.CFLOAT64: return new Float64Array(arr) // interleaved real,imag as f64
+    case DTYPE.QINT8: return new Float32Array(arr) // qint8 input is f32; encoder quantizes
     default: throw new Error(`unsupported dtype ${dtype} in jsonToTyped`)
   }
 }
@@ -193,7 +194,9 @@ for (const path of walk(TENSOR_ROOT)) {
         // Round-trip: decode schemaful.
         const registry = new Map([[v.schema_hash_hex, v.schema]])
         const decoded  = decodeDocumentSchemaful(bytes, registry)
-        if (!tensorDocsEqual(decoded, doc)) {
+        // Use expected_decoded if present (e.g. when quantization is lossy/clamping).
+        const expectedDoc = v.expected_decoded ? parseTensorDoc(v.expected_decoded) : doc
+        if (!tensorDocsEqual(decoded, expectedDoc)) {
           record(prefix, v.name, "schemaful round-trip mismatch"); continue
         }
         pass++

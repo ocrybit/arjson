@@ -265,7 +265,22 @@ export function encodeDocumentSchemaful(doc, schema) {
     if (!shapesEqual(t.shape, sDef.shape)) {
       throw new Error(`tensor "${name}": schema shape [${sDef.shape}] != document shape [${t.shape}]`)
     }
-    emitDataBlock(u, t)
+    if (t.dtype === DTYPE.QINT8 && sDef.scale !== undefined) {
+      // Quantize Float32Array input → Int8Array using schema scale + zero_point.
+      // q = clamp(round(f32 / scale + zero_point), -128, 127)
+      const scale = sDef.scale, zp = sDef.zero_point || 0
+      let total = 1
+      for (const d of t.shape) total *= d
+      const q = new Int8Array(total)
+      const f32 = t.data instanceof Float32Array ? t.data : new Float32Array(Array.from(t.data))
+      for (let i = 0; i < total; i++) {
+        const qval = Math.round(f32[i] / scale + zp)
+        q[i] = Math.max(-128, Math.min(127, qval))
+      }
+      emitDataBlock(u, { dtype: DTYPE.QINT8, shape: t.shape, data: q })
+    } else {
+      emitDataBlock(u, t)
+    }
   }
 
   return finalize(u)
@@ -386,7 +401,15 @@ export function decodeDocumentSchemaful(bytes, registry) {
     for (let i = 0; i < byteCount; i++) dataU8[i] = readBits(8)
     let total = 1
     for (const d of sDef.shape) total *= d
-    tensors[name] = { dtype: sDef.dtype, shape: sDef.shape, data: materializeData(sDef.dtype, dataU8, total) }
+    let data = materializeData(sDef.dtype, dataU8, total)
+    if (sDef.dtype === DTYPE.QINT8 && sDef.scale !== undefined) {
+      // Dequantize Int8Array → Float32Array: f32 = (q - zero_point) * scale
+      const scale = sDef.scale, zp = sDef.zero_point || 0
+      const f32 = new Float32Array(total)
+      for (let i = 0; i < total; i++) f32[i] = (data[i] - zp) * scale
+      data = f32
+    }
+    tensors[name] = { dtype: sDef.dtype, shape: sDef.shape, data }
   }
 
   return { tensors }
@@ -869,7 +892,8 @@ function materializeData(dtype, dataU8, total) {
   switch (dtype) {
     case DTYPE.FP32:   return new Float32Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.FP64:   return new Float64Array(dataU8.buffer, dataU8.byteOffset, total)
-    case DTYPE.INT8:   return new Int8Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.INT8:
+    case DTYPE.QINT8:  return new Int8Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.UINT8:  return dataU8
     case DTYPE.INT16:  return new Int16Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.UINT16: return new Uint16Array(dataU8.buffer, dataU8.byteOffset, total)

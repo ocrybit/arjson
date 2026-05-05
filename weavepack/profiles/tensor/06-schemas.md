@@ -82,6 +82,68 @@ Where:
 
 (Dtype code 15 = `FP32` per `01-types.md`.)
 
+### Quantized tensor schema fields
+
+For quantized dtypes (`qint4` tag 28, `qint8` tag 29, `qfp8` tag 30),
+the tensor descriptor MUST include two additional fields:
+
+```json
+{
+  "<tensor-name>": {
+    "dtype": <qint-code>,
+    "shape": [<dim>, ...],
+    "scale": <float32>,
+    "zero_point": <integer>
+  }
+}
+```
+
+- `scale` — positive IEEE 754 binary32 number. The semantic unit
+  of one LSB in the quantized representation. MUST be finite and > 0.
+- `zero_point` — integer offset. For `qint8` the range is -128..127;
+  for `qint4` the range is -8..7; for `qfp8` this field is 0 (the
+  zero-point concept does not apply to fp8 quantization and MUST be
+  omitted or set to 0).
+
+**Encoding (f32 → quantized):**
+
+```
+q = clamp(round(f32_value / scale + zero_point), dtype_min, dtype_max)
+```
+
+**Decoding (quantized → f32):**
+
+```
+f32_value = (q - zero_point) * scale
+```
+
+For per-channel quantization (different scale/zero_point per output
+channel), `scale` and `zero_point` MUST be JSON arrays of length
+`shape[channel_axis]`, and the schema MUST include a `"channel_axis"`
+integer field identifying which dimension is the channel axis.
+Per-channel qint is deferred to a future spec revision.
+
+**Example:**
+
+```json
+{
+  "quantized_weights": {
+    "dtype": 29,
+    "shape": [64, 64],
+    "scale": 0.0078125,
+    "zero_point": 0
+  }
+}
+```
+
+(Dtype code 29 = `qint8`; scale 0.0078125 = 2⁻⁷; zero_point 0
+= symmetric quantization centred on 0.)
+
+A schemaless document MUST NOT contain `qint` dtype tensors.
+The `scale` and `zero_point` fields are NOT written to the data block;
+they live only in the schema sidecar. Decoders MUST reject a schemaless
+document that carries a quantized dtype tag.
+
 ### Constraints
 
 - Tensor names MUST be non-empty UTF-8 strings.
@@ -91,6 +153,8 @@ Where:
 - `shape` MUST be a non-empty array (rank ≥ 1).
 - Shape dims MUST be non-negative integers.
 - A tensor with any zero-length dim is a valid empty tensor (0 elements).
+- For quantized dtypes, `scale` MUST be present and > 0; `zero_point`
+  MUST be present and within the dtype's integer range.
 
 ### Schema version
 
@@ -293,9 +357,10 @@ the new 2-bit discriminant (`00` prefix).
    the registry). A future version may add a "schema frame" type to
    the chain serialization.
 
-2. **Quantized tensor schemas**: QINT4 / QINT8 / QFP8 tensors have a
-   scale + zero_point per tensor. The schema language does not yet
-   declare these; schemaful mode for quantized tensors is deferred.
+2. **Quantized tensor schemas**: `qint8` per-tensor scale + zero_point
+   is now specified (see "Quantized tensor schema fields" above) and
+   implemented in the JS reference. `qint4` and `qfp8` follow the
+   same pattern; per-channel quantization is deferred.
 
 3. **Schema evolution and re-anchoring**: when a schema changes (new
    tensors added, shapes changed), the chain must re-anchor. The

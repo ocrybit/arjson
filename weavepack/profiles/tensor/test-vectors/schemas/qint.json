@@ -1,0 +1,79 @@
+[
+  {
+    "name": "qint8 simple 1D",
+    "description": "1D qint8 tensor; scale=2^-7=0.0078125, zero_point=0. Values [-0.5, 0.0, 0.5] map exactly to q=[-64, 0, 64]; dequant is lossless.",
+    "schema": {
+      "w": { "dtype": 29, "shape": [3], "scale": 0.0078125, "zero_point": 0 }
+    },
+    "schema_hash_hex": "45013ae026106709c6a32da185749af8dae5052cb274a1b2607a8faeaa0a0e92",
+    "input": {
+      "tensors": {
+        "w": { "dtype": 29, "shape": [3], "data": [-0.5, 0.0, 0.5] }
+      }
+    },
+    "expected_bytes_hex": "51404eb8098419c271a8cb68615d26be36b9414b2c9d286c981ea3ebaa8283a4b0001000"
+  },
+  {
+    "name": "qint8 2D matrix",
+    "description": "2×2 qint8 matrix; scale=0.0078125, zero_point=0. All values are exact multiples of scale.",
+    "schema": {
+      "mat": { "dtype": 29, "shape": [2, 2], "scale": 0.0078125, "zero_point": 0 }
+    },
+    "schema_hash_hex": "1b828e8657554d355c91761e31dcc18237a2b47c6a2c08d49c825ba12e7cc82e",
+    "input": {
+      "tensors": {
+        "mat": { "dtype": 29, "shape": [2, 2], "data": [-0.5, 0.0, 0.0, 0.5] }
+      }
+    },
+    "expected_bytes_hex": "46e0a3a195d5534d57245d878c7730608de8ad1f1a8b0235272096e84b9f320bb000001000"
+  },
+  {
+    "name": "qint8 nonzero zero_point",
+    "description": "1D qint8 tensor with zero_point=-64; effectively shifts the quantization range. Lossless for [-0.5, 0.0].",
+    "schema": {
+      "v": { "dtype": 29, "shape": [2], "scale": 0.0078125, "zero_point": -64 }
+    },
+    "schema_hash_hex": "21782e440a6017230738ac3a511afbba5b11de01b5fd96177fb4041748f63610",
+    "input": {
+      "tensors": {
+        "v": { "dtype": 29, "shape": [2], "data": [-0.5, 0.0] }
+      }
+    },
+    "expected_bytes_hex": "485e0b91029805c8c1ce2b0e9446beee96c477806d7f6585dfed0105d23d8d84203000"
+  },
+  {
+    "name": "qint8 mixed with fp32",
+    "description": "Schemaful doc with a qint8 tensor 'a' and an fp32 tensor 'b'. Tensors emitted in sorted name order (a, b).",
+    "schema": {
+      "a": { "dtype": 29, "shape": [2], "scale": 0.0078125, "zero_point": 0 },
+      "b": { "dtype": 15, "shape": [2] }
+    },
+    "schema_hash_hex": "b943a1e5a1557996863e8ef25bcbf1ec6b78c33230776d9b496e5e2afe6d200b",
+    "input": {
+      "tensors": {
+        "a": { "dtype": 29, "shape": [2], "data": [0.0, 0.5] },
+        "b": { "dtype": 15, "shape": [2], "data": [1.0, -1.0] }
+      }
+    },
+    "expected_bytes_hex": "6e50e87968555e65a18fa3bc96f2fc7b1ade30cc8c1ddb66d25b978abf9b4802c0100000200fc000202fc0"
+  },
+  {
+    "name": "qint8 clamping overflow",
+    "description": "Values 1.5 and -1.5 exceed the qint8 range at scale=0.0078125; encoder clamps to [127, -128]. Decoded values are [0.9921875, -1.0].",
+    "schema": {
+      "c": { "dtype": 29, "shape": [2], "scale": 0.0078125, "zero_point": 0 }
+    },
+    "schema_hash_hex": "c7f5d472c796cb2f561d6b60bd138a81e29265d7de5f5004753555b591dea226",
+    "input": {
+      "tensors": {
+        "c": { "dtype": 29, "shape": [2], "data": [1.5, -1.5] }
+      }
+    },
+    "expected_bytes_hex": "71fd751cb1e5b2cbd5875ad82f44e2a078a49975f797d4011d4d556d6477a8899fe000",
+    "expected_decoded": {
+      "tensors": {
+        "c": { "dtype": 29, "shape": [2], "data": [0.9921875, -1.0] }
+      }
+    }
+  }
+]
