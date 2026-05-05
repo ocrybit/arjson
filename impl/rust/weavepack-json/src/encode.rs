@@ -1,18 +1,30 @@
-// weavepack-json — single-payload encoder.
-//
-// Implements the wire format defined in 01-types.md (Single-payload mode).
-// Structured-mode (containers, deltas) is deferred.
+// weavepack-json — snapshot encoder (single-payload + structured mode).
 
 use crate::bits::BitWriter;
+use crate::struct_encode::encode_structured;
 use crate::types::{
     base64url_index, get_precision, is_base64url, single_tag, strmap_index, Value,
 };
 use serde_json::Value as Json;
 
-/// Encode a JSON value. Currently supports only single-payload eligible
-/// values: null, bool, finite numbers, strings, empty array `[]`, empty
-/// object `{}`. Returns Err for non-empty containers (structured mode).
+/// Encode a JSON value.  Single-payload mode for primitives and empty
+/// containers; structured mode for non-empty arrays/objects.
 pub fn encode(v: &Value) -> Result<Vec<u8>, String> {
+    // NaN coercion: mirrors JS `if (typeof v === "number" && v - v !== 0) v = null`.
+    let coerced;
+    let v = if let Json::Number(n) = v {
+        if n.as_f64().map(|f| !f.is_finite()).unwrap_or(false) {
+            coerced = Json::Null;
+            &coerced
+        } else { v }
+    } else { v };
+
+    match v {
+        Json::Array(arr) if !arr.is_empty()   => return encode_structured(v),
+        Json::Object(obj) if !obj.is_empty()  => return encode_structured(v),
+        _ => {}
+    }
+
     let mut w = BitWriter::new();
     encode_into(&mut w, v)?;
     Ok(w.finish())

@@ -6,6 +6,7 @@
 pub mod bits;
 pub mod decode;
 pub mod encode;
+pub mod struct_encode;
 pub mod types;
 
 pub use decode::decode_snapshot;

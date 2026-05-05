@@ -39,7 +39,8 @@ impl BitWriter {
                 return;
             }
             let shift = remaining - free;
-            let part = (val >> shift) as u8 & ((1u8 << free) - 1);
+            // When free==8, (1u8<<8) would overflow; mask is 0xFF = redundant.
+            let part = (val >> shift) as u8 & (if free == 8 { 0xFF } else { (1u8 << free) - 1 });
             self.cur |= part;
             self.bytes.push(self.cur);
             self.cur = 0;
