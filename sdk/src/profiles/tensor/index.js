@@ -68,6 +68,42 @@ function finalize(u) {
   return u.dump()
 }
 
+// ── nibble (int4 / uint4) packing ────────────────────────────────────────
+//
+// Wire format: 2 elements per byte; high nibble = lower-indexed element,
+// low nibble = higher-indexed element. Odd count: last byte has value in
+// high nibble, low nibble = 0.
+//
+// int4: two's-complement in 4 bits, range -8..7.  value & 0xF = wire nibble.
+// uint4: unsigned, range 0..15.
+
+function packNibbles(arr, count) {
+  const out = new Uint8Array(Math.ceil(count / 2))
+  for (let i = 0; i < count; i++) {
+    const nibble = arr[i] & 0xF
+    if (i % 2 === 0) out[i >> 1]  = nibble << 4
+    else             out[i >> 1] |= nibble
+  }
+  return out
+}
+
+function unpackInt4(bytes, count) {
+  const out = new Int8Array(count)
+  for (let i = 0; i < count; i++) {
+    const nibble = (i % 2 === 0) ? (bytes[i >> 1] >> 4) & 0xF : bytes[i >> 1] & 0xF
+    out[i] = nibble >= 8 ? nibble - 16 : nibble
+  }
+  return out
+}
+
+function unpackUint4(bytes, count) {
+  const out = new Uint8Array(count)
+  for (let i = 0; i < count; i++) {
+    out[i] = (i % 2 === 0) ? (bytes[i >> 1] >> 4) & 0xF : bytes[i >> 1] & 0xF
+  }
+  return out
+}
+
 // ── bool packing ─────────────────────────────────────────────────────────
 
 function packBools(arr) {
@@ -122,6 +158,10 @@ function emitDataBlock(u, t) {
   let dataView
   if (t.dtype === DTYPE.BOOL) {
     dataView = packBoolFromTensor(t)
+  } else if (t.dtype === DTYPE.INT4 || t.dtype === DTYPE.UINT4) {
+    let total = 1
+    for (const d of t.shape) total *= d
+    dataView = packNibbles(t.data, total)
   } else if (t.dtype === DTYPE.FP16 || t.dtype === DTYPE.BF16) {
     // Accept either Float32Array (convert) or Uint16Array (raw bits).
     if (t.data instanceof Uint16Array) {
@@ -365,6 +405,17 @@ function shapesEqual(a, b) {
   return true
 }
 
+// Returns the wire-format packed byte view of tensor data (for diff comparison).
+function packedWireBytes(t) {
+  if (t.dtype === DTYPE.BOOL) return packBoolFromTensor(t)
+  if (t.dtype === DTYPE.INT4 || t.dtype === DTYPE.UINT4) {
+    let n = 1
+    for (const d of t.shape) n *= d
+    return packNibbles(t.data, n)
+  }
+  return toBytes(t)
+}
+
 function bytesEqual(a, b) {
   if (a.length !== b.length) return false
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
@@ -415,8 +466,8 @@ function computeDelta(baseDoc, newDoc) {
       ops.push({ op: OP.TENSOR_ADD, name, ...newT })
       continue
     }
-    const baseBytes = baseT.dtype === DTYPE.BOOL ? packBoolFromTensor(baseT) : toBytes(baseT)
-    const newBytes  = newT.dtype  === DTYPE.BOOL ? packBoolFromTensor(newT)  : toBytes(newT)
+    const baseBytes = packedWireBytes(baseT)
+    const newBytes  = packedWireBytes(newT)
     const expected = dataBytes(baseT.dtype, baseT.shape)
     if (bytesEqual(baseBytes.subarray(0, expected), newBytes.subarray(0, expected))) continue
 
@@ -576,11 +627,14 @@ export function encodeDelta(baseDoc, newDoc) {
       }
       // Region data block. Element count = product(end-start) for each dim.
       const regionElements = bboxElementCount(op.bbox)
-      const vb = bytesPerElem(op.dtype)
-      const regionBytes = vb * regionElements
-      // op.regionData is a typed array; serialize as little-endian bytes.
-      const dataView = new Uint8Array(op.regionData.buffer, op.regionData.byteOffset, regionBytes)
-      for (let i = 0; i < regionBytes; i++) u.add_dc(dataView[i], 8)
+      let regionU8
+      if (op.dtype === DTYPE.INT4 || op.dtype === DTYPE.UINT4) {
+        regionU8 = packNibbles(op.regionData, regionElements)
+      } else {
+        const vb = bytesPerElem(op.dtype)
+        regionU8 = new Uint8Array(op.regionData.buffer, op.regionData.byteOffset, vb * regionElements)
+      }
+      for (let i = 0; i < regionU8.length; i++) u.add_dc(regionU8[i], 8)
     } else {
       throw new Error(`unsupported op code ${op.op} (quant_change not in v0.1)`)
     }
@@ -703,8 +757,7 @@ export function applyDelta(baseDoc, deltaBytes) {
       }
       let regionElements = 1
       for (const [s, e] of bbox) regionElements *= (e - s)
-      const vb = bytesPerElem(dtype)
-      const regionBytes = vb * regionElements
+      const regionBytes = Math.ceil(regionElements * (DTYPE_BITS_PER_ELEM[dtype] || 8) / 8)
       const regionU8 = new Uint8Array(regionBytes)
       for (let j = 0; j < regionBytes; j++) regionU8[j] = readBits(8)
 
@@ -750,6 +803,9 @@ function encodeSingleElement(dtype, value) {
   const buf = new ArrayBuffer(bytesPerElem(dtype))
   const view = new DataView(buf)
   switch (dtype) {
+    // Sub-byte types: value stored in low nibble of a single byte.
+    case DTYPE.INT4:
+    case DTYPE.UINT4:  view.setUint8(0, value & 0xF); break
     case DTYPE.FP32:   view.setFloat32(0, value, true); break
     case DTYPE.FP64:   view.setFloat64(0, value, true); break
     case DTYPE.INT8:   view.setInt8(0, value); break
@@ -768,6 +824,11 @@ function encodeSingleElement(dtype, value) {
 function decodeSingleElement(dtype, bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   switch (dtype) {
+    case DTYPE.INT4: {
+      const nibble = view.getUint8(0) & 0xF
+      return nibble >= 8 ? nibble - 16 : nibble
+    }
+    case DTYPE.UINT4:  return view.getUint8(0) & 0xF
     case DTYPE.FP32:   return view.getFloat32(0, true)
     case DTYPE.FP64:   return view.getFloat64(0, true)
     case DTYPE.INT8:   return view.getInt8(0)
@@ -794,6 +855,8 @@ function materializeData(dtype, dataU8, total) {
     case DTYPE.UINT32: return new Uint32Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.INT64:  return new BigInt64Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.UINT64: return new BigUint64Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.INT4:   return unpackInt4(dataU8, total)
+    case DTYPE.UINT4:  return unpackUint4(dataU8, total)
     case DTYPE.BOOL:   return unpackBools(dataU8, total)
     case DTYPE.FP16:
     case DTYPE.BF16: {

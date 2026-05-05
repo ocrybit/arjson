@@ -109,6 +109,8 @@ function jsonToTyped(dtype, arr) {
     case DTYPE.UINT32:return new Uint32Array(arr)
     case DTYPE.INT64: return new BigInt64Array(arr.map(v => BigInt(v)))
     case DTYPE.UINT64:return new BigUint64Array(arr.map(v => BigInt(v)))
+    case DTYPE.INT4:  return new Int8Array(arr)
+    case DTYPE.UINT4: return new Uint8Array(arr)
     case DTYPE.BOOL:  return arr
     case 13:          return new Float32Array(arr)  // FP16 — encoder converts
     case 14:          return new Float32Array(arr)  // BF16 — encoder converts

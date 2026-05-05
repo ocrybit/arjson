@@ -214,6 +214,75 @@ describe("weavepack-tensor v0.1 (fp32, schemaless, no deltas)", () => {
       }
     })
 
+    it("round-trips int4 boundary values", () => {
+      // Range boundaries: -8, -1, 0, 7. 2 elements per byte (nibble packing).
+      const data = new Int8Array([-8, -1, 0, 7])
+      const doc = { tensors: { x: { dtype: DTYPE.INT4, shape: [4], data } } }
+      const decoded = decodeDocument(encodeDocument(doc))
+      assert.equal(decoded.tensors.x.dtype, DTYPE.INT4)
+      assert.ok(decoded.tensors.x.data instanceof Int8Array)
+      for (let i = 0; i < data.length; i++) {
+        assert.equal(decoded.tensors.x.data[i], data[i], `int4 index ${i} mismatch`)
+      }
+    })
+
+    it("round-trips uint4 boundary values", () => {
+      const data = new Uint8Array([0, 1, 7, 8, 15])
+      const doc = { tensors: { x: { dtype: DTYPE.UINT4, shape: [5], data } } }
+      const decoded = decodeDocument(encodeDocument(doc))
+      assert.equal(decoded.tensors.x.dtype, DTYPE.UINT4)
+      assert.ok(decoded.tensors.x.data instanceof Uint8Array)
+      for (let i = 0; i < data.length; i++) {
+        assert.equal(decoded.tensors.x.data[i], data[i], `uint4 index ${i} mismatch`)
+      }
+    })
+
+    it("int4 odd element count pads final nibble to zero", () => {
+      const data = new Int8Array([3, -4, 7])
+      const doc = { tensors: { w: { dtype: DTYPE.INT4, shape: [3], data } } }
+      const decoded = decodeDocument(encodeDocument(doc))
+      for (let i = 0; i < 3; i++) assert.equal(decoded.tensors.w.data[i], data[i])
+    })
+
+    it("int4 element_set sparse update", () => {
+      const base = { tensors: { x: { dtype: DTYPE.INT4, shape: [4], data: new Int8Array([-8, -1, 0, 7]) } } }
+      const updated = { tensors: { x: { dtype: DTYPE.INT4, shape: [4], data: new Int8Array([-8, -1, 3, 7]) } } }
+      const delta = encodeDelta(base, updated)
+      assert.ok(delta !== null)
+      const result = applyDelta(base, delta)
+      const expected = [-8, -1, 3, 7]
+      for (let i = 0; i < 4; i++) assert.equal(result.tensors.x.data[i], expected[i])
+    })
+
+    it("uint4 element_set sparse update", () => {
+      const base = { tensors: { x: { dtype: DTYPE.UINT4, shape: [4], data: new Uint8Array([0, 3, 6, 9]) } } }
+      const updated = { tensors: { x: { dtype: DTYPE.UINT4, shape: [4], data: new Uint8Array([0, 3, 15, 9]) } } }
+      const delta = encodeDelta(base, updated)
+      assert.ok(delta !== null)
+      const result = applyDelta(base, delta)
+      assert.equal(result.tensors.x.data[2], 15)
+    })
+
+    it("int4 region_replace dense update", () => {
+      const base = { tensors: { x: { dtype: DTYPE.INT4, shape: [2, 3], data: new Int8Array([1, 2, 3, 4, 5, 6]) } } }
+      const updated = { tensors: { x: { dtype: DTYPE.INT4, shape: [2, 3], data: new Int8Array([1, 2, 3, -1, -2, -3]) } } }
+      const delta = encodeDelta(base, updated)
+      assert.ok(delta !== null)
+      const result = applyDelta(base, delta)
+      const expected = [1, 2, 3, -1, -2, -3]
+      for (let i = 0; i < 6; i++) assert.equal(result.tensors.x.data[i], expected[i])
+    })
+
+    it("int4 tensor_replace round-trips all nibble values", () => {
+      // Verify all 16 nibble values in a single tensor
+      const values = new Int8Array([-8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7])
+      const doc = { tensors: { x: { dtype: DTYPE.INT4, shape: [16], data: values } } }
+      const decoded = decodeDocument(encodeDocument(doc))
+      for (let i = 0; i < 16; i++) {
+        assert.equal(decoded.tensors.x.data[i], values[i], `nibble ${i} mismatch`)
+      }
+    })
+
     it("round-trips mixed-dtype document", () => {
       const doc = {
         tensors: {

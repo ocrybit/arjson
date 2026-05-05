@@ -242,5 +242,61 @@
       }
     },
     "expected_bytes_hex": "0045e1420600000000000000000200000000000001fffffffffffffffe00"
+  },
+  {
+    "name": "int4 1D tensor boundary values",
+    "description": "four-element int4 tensor: -8, -1, 0, 7 (range boundaries). 2 elements per byte; high nibble = lower index.",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 1,
+          "shape": [4],
+          "data": [-8, -1, 0, 7]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e022091e0e00"
+  },
+  {
+    "name": "uint4 1D tensor boundary values",
+    "description": "five-element uint4 tensor: 0, 1, 7, 8, 15 (range boundaries + odd count).",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 2,
+          "shape": [5],
+          "data": [0, 1, 7, 8, 15]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045e0420a02f1e000"
+  },
+  {
+    "name": "int4 odd element count",
+    "description": "three-element int4 tensor: odd count means last byte has value in high nibble, low nibble = 0.",
+    "input": {
+      "tensors": {
+        "w": {
+          "dtype": 1,
+          "shape": [3],
+          "data": [3, -4, 7]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045dc220678e000"
+  },
+  {
+    "name": "uint4 2D matrix",
+    "description": "2×3 uint4 matrix [1..6]. Shape rank 2, 6 elements packed into 3 bytes.",
+    "input": {
+      "tensors": {
+        "m": {
+          "dtype": 2,
+          "shape": [2, 3],
+          "data": [1, 2, 3, 4, 5, 6]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045b44404062468ac00"
   }
 ]
