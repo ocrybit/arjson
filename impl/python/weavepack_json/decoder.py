@@ -7,9 +7,8 @@ within each byte (matches the JS reference and Rust impl).
 Scope:
   - Single-payload mode (mode bit = 1): all 64 tags
   - Structured mode (mode bit = 0): snapshot decode (containers +
-    strmap-dedup).  Delta payloads are decoded structurally but
-    delta application (the chain step) is not performed; callers
-    that need the post-delta value should use the JS or Rust impl.
+    strmap-dedup).  Delta chain application fully implemented via
+    decode_chain(); parse_chain() exposes the LEB128 framing parser.
 """
 
 from __future__ import annotations
@@ -53,10 +52,14 @@ class _BitReader:
     def read_bits(self, n: int) -> int:
         val = 0
         data = self.data
+        data_len = len(data)
         pos = self.bit_pos
         for _ in range(n):
             byte_idx = pos >> 3
-            bit = (data[byte_idx] >> (7 - (pos & 7))) & 1
+            if byte_idx < data_len:
+                bit = (data[byte_idx] >> (7 - (pos & 7))) & 1
+            else:
+                bit = 0  # zero-extend past end (matches JS decoder behaviour)
             val = (val << 1) | bit
             pos += 1
         self.bit_pos = pos
@@ -320,8 +323,15 @@ def _read_vtypes(r: _BitReader, count: int) -> list:
     return vtypes
 
 
+def _vt_is_bool(vt) -> bool:
+    if vt == _VT_BOOL: return True
+    if isinstance(vt, tuple) and vt[0] == "splice_rep" and vt[3] == _VT_BOOL:
+        return True
+    return False
+
+
 def _read_bools(r: _BitReader, vtypes: list) -> list[bool]:
-    count = sum(1 for v in vtypes if v == _VT_BOOL)
+    count = sum(1 for v in vtypes if _vt_is_bool(v))
     if count == 0: return []
     mode = r.read_bits(2)
     if mode == 0: return [False] * count
@@ -334,6 +344,9 @@ def _vt_num_tag(vt) -> int:
     if vt == _VT_INT_POS: return 4
     if vt == _VT_INT_NEG: return 5
     if vt == _VT_FLOAT:   return 6
+    if isinstance(vt, tuple) and vt[0] == "splice_rep":
+        inner = vt[3]
+        if inner in (4, 5, 6): return inner
     return 0
 
 
@@ -420,7 +433,9 @@ def _read_nums(r: _BitReader, vtypes: list) -> list:
 def _vt_str_type(vt) -> int:
     if vt == _VT_STR_B64: return 2
     if vt == _VT_STR_FALL: return 7
-    if isinstance(vt, tuple) and vt[0] == "splice_rep": return vt[3]
+    if isinstance(vt, tuple) and vt[0] == "splice_rep":
+        inner = vt[3]
+        if inner in (2, 7): return inner
     return 0
 
 
@@ -751,3 +766,418 @@ def decode(data: bytes) -> Any:
     if r.read_bits(1) == 1:
         return _decode_single(r)
     return _decode_structured(r)
+
+
+# ── delta chain helpers ────────────────────────────────────────────────
+
+def _bits(n: int) -> int:
+    return 1 if n == 0 else n.bit_length()
+
+
+def parse_chain(data: bytes) -> list:
+    """Parse LEB128-framed payloads from a chain buffer."""
+    payloads: list[bytes] = []
+    offset = 0
+    while offset < len(data):
+        length = 0; shift = 0
+        while True:
+            b = data[offset]; offset += 1
+            length |= (b & 0x7F) << shift
+            if not (b & 0x80): break
+            shift += 7
+        payloads.append(data[offset:offset + length])
+        offset += length
+    return payloads
+
+
+def _read_vrefs_cbits(r: _BitReader, vflags: list, initial_cbits: int):
+    """Like _read_vrefs but starts cbits=initial_cbits."""
+    vrefs: list[int] = []; key_len = 0; prev = 0; cbits = initial_cbits; i = 0
+    while i < len(vflags):
+        diff = vflags[i] == 1
+        if diff:
+            raw = r.read_bits(3)
+            if raw == 0:
+                run = r.short(); rv = r.read_bits(3); run_start = i
+                for j in range(run):
+                    v, prev = _apply_link(vflags[run_start + j] == 1, rv, prev)
+                    vrefs.append(v)
+                    if v > key_len: key_len = v
+                    i += 1
+            else:
+                v, prev = _apply_link(True, raw, prev)
+                vrefs.append(v); key_len = max(key_len, v); i += 1
+        else:
+            raw = 0
+            while True:
+                raw = r.read_bits(cbits)
+                if raw != 0: break
+                cbits += 1
+            v, prev = _apply_link(False, raw, prev)
+            vrefs.append(v); key_len = max(key_len, v); i += 1
+    return vrefs, key_len
+
+
+def _read_krefs_cbits(r: _BitReader, kflags: list, initial_cbits: int):
+    """Like _read_krefs but starts cbits=initial_cbits."""
+    krefs: list[int] = []; prev = 0; cbits = initial_cbits; i = 0
+    while i < len(kflags):
+        diff = kflags[i] == 1
+        if diff:
+            raw = r.read_bits(3)
+            if raw == 0:
+                run = r.short(); rv = r.read_bits(3); run_start = i
+                for j in range(run):
+                    v, prev = _apply_link(kflags[run_start + j] == 1, rv, prev)
+                    krefs.append(v); i += 1
+            else:
+                v, prev = _apply_link(True, raw, prev)
+                krefs.append(v); i += 1
+        else:
+            raw = 0
+            while True:
+                raw = r.read_bits(cbits)
+                if raw != 0: break
+                cbits += 1
+            v, prev = _apply_link(False, raw, prev)
+            krefs.append(v); i += 1
+    return krefs
+
+
+def _read_strdiff_payload(r: _BitReader) -> bytes:
+    """Read a strdiff payload from the MSB-first bit stream.
+
+    Includes the LEB128 total_bits prefix followed by the data bytes.
+    """
+    start_bit = r.bit_pos
+    total_bits = r.leb128()
+    leb_bytes = (r.bit_pos - start_bit) // 8
+    data_bytes = (total_bits + 7) // 8
+    r.bit_pos = start_bit
+    result = bytearray()
+    for _ in range(leb_bytes + data_bytes):
+        result.append(r.read_bits(8))
+    return bytes(result)
+
+
+def _apply_strdiff(original: str, data: bytes, strmap: dict) -> str:
+    """Apply strdiff operations to original; data includes LEB128 prefix."""
+    if not data:
+        return original
+    offset = 0
+    while data[offset] & 0x80:
+        offset += 1
+    offset += 1  # skip last LEB128 byte
+    op_count = data[offset]; offset += 1
+
+    def _varint() -> int:
+        nonlocal offset
+        val = 0; shift = 0
+        while True:
+            b = data[offset]; offset += 1
+            val |= (b & 0x7F) << shift
+            if not (b & 0x80): break
+            shift += 7
+        return val
+
+    ops = []
+    for _ in range(op_count):
+        flags = data[offset]; offset += 1
+        op_type = (flags >> 7) & 1
+        has_ref = (flags >> 6) & 1
+        pos = _varint()
+        if op_type == 0:
+            ops.append({'op': 0, 'pos': pos, 'len': _varint()})
+        elif has_ref:
+            ops.append({'op': 1, 'pos': pos, 'str': strmap.get(_varint(), "")})
+        else:
+            length = _varint()
+            s = data[offset:offset + length].decode('latin-1')
+            offset += length
+            ops.append({'op': 1, 'pos': pos, 'str': s})
+
+    ops.sort(key=lambda o: o['pos'])
+    result: list[str] = []; orig_pos = 0
+    for op in ops:
+        if op['pos'] > orig_pos:
+            result.extend(original[orig_pos:op['pos']])
+        if op['op'] == 0:
+            orig_pos = op['pos'] + op['len']
+        else:
+            result.extend(op['str'])
+            orig_pos = op['pos']
+    result.extend(original[orig_pos:])
+    return "".join(result)
+
+
+def _build_strmap_for_delta(vrefs, combined_krefs, combined_keys, vtypes, strs, base_strmap):
+    """Build strmap for a delta: base strings + new literal strings from delta."""
+    strmap: dict[int, str] = dict(base_strmap)
+    str_rev: dict[str, int] = {v: k for k, v in strmap.items()}
+    next_idx = len(strmap)
+
+    def _add(s: str) -> None:
+        nonlocal next_idx
+        if s not in str_rev:
+            str_rev[s] = next_idx
+            strmap[next_idx] = s
+            next_idx += 1
+
+    sc = 0
+    for vi, vt in enumerate(vtypes):
+        if _vt_str_type(vt) in (2, 7):
+            if sc < len(strs) and strs[sc][0] == 'lit':
+                _add(strs[sc][1])
+            sc += 1
+    return strmap
+
+
+def _decode_payload(data: bytes, is_delta: bool = False,
+                    base_krefs: "list | None" = None,
+                    base_keys: "list | None" = None,
+                    base_strmap: "dict | None" = None) -> dict:
+    """Decode a weavepack-json payload, returning the full artable.
+
+    For snapshots (is_delta=False): 'json' is the decoded value.
+    For deltas (is_delta=True):     'json' is None; caller applies ops.
+    """
+    base_krefs = base_krefs or []
+    base_keys  = base_keys  or []
+    base_strmap = base_strmap or {}
+
+    r = _BitReader(data)
+    if r.read_bits(1) == 1:
+        val = _decode_single(r)
+        return {'json': val, 'vrefs': [], 'krefs': [], 'keys': [], 'ktypes': [],
+                'vtypes': [], 'bools': [], 'nums': [], 'strs': [], 'strdiffs': [],
+                'strmap': {}, 'combined_krefs': [], 'combined_keys': []}
+
+    rcount = r.short()
+    base_krefs_len = len(base_krefs)
+    initial_cbits = _bits(base_krefs_len + 2) if (is_delta and base_krefs_len > 0) else 1
+
+    vflags = _read_flag_col(r, rcount)
+    if initial_cbits == 1:
+        vrefs, klen = _read_vrefs(r, vflags)
+    else:
+        vrefs, klen = _read_vrefs_cbits(r, vflags, initial_cbits)
+
+    kflag_n = max(0, klen - 1 - base_krefs_len) if is_delta else max(0, klen - 1)
+    kflags = _read_flag_col(r, kflag_n)
+    if initial_cbits == 1:
+        new_krefs = _read_krefs(r, kflags)
+    else:
+        new_krefs = _read_krefs_cbits(r, kflags, initial_cbits)
+
+    ktype_n = len(new_krefs) if is_delta else (
+        0 if (not new_krefs and rcount == 0) else len(new_krefs) + 1)
+    ktypes_raw = _read_ktypes(r, ktype_n)
+    new_keys   = _read_keys(r, ktypes_raw)
+
+    vtype_n = max(1, len(vrefs))
+    vtypes  = _read_vtypes(r, vtype_n)
+    bools   = _read_bools(r, vtypes)
+    nums    = _read_nums(r, vtypes)
+    strs    = _read_strs(r, vtypes)
+
+    strdiffs: list[bytes] = []
+    for s in strs:
+        if s[0] == 'diffref':
+            strdiffs.append(_read_strdiff_payload(r))
+
+    combined_krefs = base_krefs + new_krefs
+    combined_keys  = base_keys  + new_keys
+
+    if is_delta:
+        strmap = _build_strmap_for_delta(vrefs, combined_krefs, combined_keys, vtypes, strs, base_strmap)
+        json_val = None
+    else:
+        strmap   = _build_strmap(vrefs, new_krefs, ktypes_raw, new_keys, vtypes, strs)
+        json_val = _build_tree(vrefs, new_krefs, ktypes_raw, new_keys, vtypes, bools, nums, strs, strmap)
+
+    return {'json': json_val, 'vrefs': vrefs, 'krefs': new_krefs, 'keys': new_keys,
+            'ktypes': ktypes_raw, 'vtypes': vtypes, 'bools': bools, 'nums': nums,
+            'strs': strs, 'strdiffs': strdiffs, 'strmap': strmap,
+            'combined_krefs': combined_krefs, 'combined_keys': combined_keys}
+
+
+def _resolve_path_combined(vref_val: int, combined_krefs: list, combined_keys: list,
+                            strmap: dict) -> list:
+    """Walk kref chain using combined base+delta tables; return step list."""
+    chain: list[int] = []
+    cur = vref_val
+    while True:
+        chain.append(cur)
+        if cur > 1:
+            ci = cur - 2
+            if 0 <= ci < len(combined_krefs):
+                p = combined_krefs[ci]
+                if p > 0:
+                    cur = p; continue
+        break
+
+    steps = []
+    for ci_val in reversed(chain):
+        key_idx = ci_val - 1
+        k = combined_keys[key_idx] if 0 <= key_idx < len(combined_keys) else None
+        if k is None:          steps.append(('root',))
+        elif k[0] == 'arr':   steps.append(('arr', ci_val))
+        elif k[0] == 'obj':   steps.append(('obj', ci_val))
+        elif k[0] == 'str':   steps.append(('key', ci_val, k[1]))
+        elif k[0] == 'smref': steps.append(('key', ci_val, strmap.get(k[1], "")))
+    return steps
+
+
+def _nav_parent(json_root: Any, steps: list):
+    """Navigate to the parent container of the last step."""
+    if not steps:
+        return json_root, None
+    cur = json_root
+    for step in steps[:-1]:
+        if step[0] in ('obj', 'arr', 'root'):
+            pass
+        elif step[0] == 'key':
+            k = step[2]
+            if isinstance(cur, dict) and k in cur:
+                cur = cur[k]
+    return cur, steps[-1]
+
+
+def _json_get(json_root: Any, steps: list) -> Any:
+    parent, last = _nav_parent(json_root, steps)
+    if last is None or last[0] in ('root', 'obj', 'arr'):
+        return parent
+    if last[0] == 'key':
+        return parent.get(last[2]) if isinstance(parent, dict) else None
+    return None
+
+
+def _json_set(json_root: Any, steps: list, val: Any) -> Any:
+    if not steps:
+        return val
+    parent, last = _nav_parent(json_root, steps)
+    if last is None or last[0] in ('root', 'obj', 'arr'):
+        return val
+    if last[0] == 'key' and isinstance(parent, dict):
+        parent[last[2]] = val
+    return json_root
+
+
+def _json_delete(json_root: Any, steps: list) -> Any:
+    if not steps:
+        return None
+    parent, last = _nav_parent(json_root, steps)
+    if last is None or last[0] in ('root', 'obj', 'arr'):
+        return None
+    if last[0] == 'key' and isinstance(parent, dict):
+        parent.pop(last[2], None)
+    return json_root
+
+
+def _arr_at(json_root: Any, steps: list) -> "list | None":
+    """Navigate to the array referenced by steps."""
+    parent, last = _nav_parent(json_root, steps)
+    if last is None or last[0] in ('arr', 'root', 'obj'):
+        return parent if isinstance(parent, list) else None
+    if last[0] == 'key' and isinstance(parent, dict):
+        arr = parent.get(last[2])
+        return arr if isinstance(arr, list) else None
+    return None
+
+
+def _json_splice_replace(json_root: Any, steps: list, idx: int, rem: int, val: Any) -> Any:
+    arr = _arr_at(json_root, steps)
+    if arr is not None:
+        del arr[idx:idx + rem]
+        arr.insert(idx, val)
+    return json_root
+
+
+def _json_splice_delete(json_root: Any, steps: list, idx: int, rem: int) -> Any:
+    arr = _arr_at(json_root, steps)
+    if arr is not None:
+        del arr[idx:idx + rem]
+    return json_root
+
+
+def _apply_delta_to_json(json_root: Any, combined_krefs: list, combined_keys: list,
+                          delta: dict) -> Any:
+    """Apply delta artable operations to JSON in-place; return new root."""
+    vrefs    = delta['vrefs']
+    vtypes   = delta['vtypes']
+    bools    = delta['bools']
+    nums     = delta['nums']
+    strs     = delta['strs']
+    strdiffs = delta['strdiffs']
+    strmap   = delta['strmap']
+
+    nc = bc = sc = 0
+
+    for vi in range(len(vrefs)):
+        vref = vrefs[vi]
+        vt   = vtypes[vi] if vi < len(vtypes) else _VT_UNDEF
+        steps = _resolve_path_combined(vref, combined_krefs, combined_keys, strmap)
+
+        if isinstance(vt, tuple):
+            kind = vt[0]
+            if kind == 'del':
+                json_root = _json_delete(json_root, steps)
+            elif kind == 'splice_del':
+                json_root = _json_splice_delete(json_root, steps, vt[1], vt[2])
+            elif kind == 'splice_rep':
+                cursors = [nc, bc, sc]
+                val = _get_primitive_by_tag(vt[3], bools, nums, strs, strmap, cursors)
+                nc, bc, sc = cursors
+                json_root = _json_splice_replace(json_root, steps, vt[1], vt[2], val)
+        elif vt == 0:
+            json_root = _json_delete(json_root, steps)
+        elif vt == _VT_NULL:
+            json_root = _json_set(json_root, steps, None)
+        elif vt == _VT_BOOL:
+            json_root = _json_set(json_root, steps, bools[bc]); bc += 1
+        elif vt in (_VT_INT_POS, _VT_INT_NEG, _VT_FLOAT):
+            json_root = _json_set(json_root, steps, nums[nc]); nc += 1
+        elif vt in (_VT_STR_B64, _VT_STR_FALL):
+            entry = strs[sc]; sc += 1
+            if entry[0] == 'diffref':
+                dc = entry[1]
+                old = _json_get(json_root, steps)
+                if isinstance(old, str) and 0 <= dc < len(strdiffs):
+                    json_root = _json_set(json_root, steps,
+                                          _apply_strdiff(old, strdiffs[dc], strmap))
+            else:
+                json_root = _json_set(json_root, steps, _resolve_str(entry, strmap))
+
+    return json_root
+
+
+def decode_chain(data: bytes) -> Any:
+    """Decode a weavepack-json delta chain to the final JSON value.
+
+    Parses LEB128-framed payloads. First payload is the initial snapshot
+    (or reanchor). Subsequent payloads are incremental deltas.
+    """
+    payloads = parse_chain(data)
+    if not payloads:
+        return None
+
+    first = _decode_payload(payloads[0], is_delta=False)
+    json_root   = first['json']
+    base_krefs  = first['krefs']
+    base_keys   = first['keys']
+    base_strmap = first['strmap']
+
+    for payload in payloads[1:]:
+        delta = _decode_payload(payload, is_delta=True,
+                                base_krefs=base_krefs,
+                                base_keys=base_keys,
+                                base_strmap=base_strmap)
+        json_root = _apply_delta_to_json(json_root,
+                                          delta['combined_krefs'],
+                                          delta['combined_keys'],
+                                          delta)
+        base_krefs  = delta['combined_krefs']
+        base_keys   = delta['combined_keys']
+        base_strmap = delta['strmap']
+
+    return json_root

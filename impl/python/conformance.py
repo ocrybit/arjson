@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from weavepack_json import decode, encode
+from weavepack_json import decode, encode, decode_chain
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VECTORS = REPO_ROOT / "weavepack" / "profiles" / "json" / "test-vectors"
@@ -52,18 +52,39 @@ for vec_file in walk(VECTORS):
 
     for v in vectors:
         name = v.get("name", "(unnamed)")
+        chain_hex = v.get("expected_chain_bytes_hex", "")
         hex_str = v.get("expected_bytes_hex", "")
+
+        if chain_hex:
+            # Delta chain vector: decode the chain and compare to expected_final.
+            try:
+                chain_data = bytes.fromhex(chain_hex)
+                decoded = decode_chain(chain_data)
+            except Exception as e:
+                fails += 1
+                failures.append(f"{rel_str} :: {name}: chain decode exception: {e}")
+                continue
+
+            target = v.get("expected_final")
+            if not values_equal(decoded, target):
+                fails += 1
+                failures.append(
+                    f"{rel_str} :: {name}: chain decode mismatch\n"
+                    f"    expected: {target!r}\n"
+                    f"    actual:   {decoded!r}"
+                )
+                continue
+            passes += 1
+            continue
+
         if not hex_str:
-            # Vector has no single-payload byte form (e.g. delta-only
-            # vectors carry expected_chain_bytes_hex instead).
             skips += 1
             continue
+
         try:
             data = bytes.fromhex(hex_str)
             decoded = decode(data)
         except NotImplementedError:
-            # Decoder explicitly bails on this construct (e.g. structured
-            # mode). Honest skip — count it.
             skips += 1
             continue
         except Exception as e:
@@ -98,7 +119,6 @@ for vec_file in walk(VECTORS):
                 continue
             encode_passes += 1
         except NotImplementedError:
-            # Encoder doesn't yet support this case (e.g. NaN/Infinity).
             encode_skips += 1
         except Exception as e:
             fails += 1

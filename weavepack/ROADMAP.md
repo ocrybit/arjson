@@ -508,7 +508,14 @@ V0.2 in-progress (incremental):
   klink diff+RLE, vtypes RLE, nums diff+RLE, vflags/kflags/bools prefix
   scheme, strmap dedup. Also fixed a latent debug-mode overflow in
   weavepack-core::BitWriter (1u8<<8 when free==8).
+- D.2 Python JSON delta chain decoder: ✓ COMPLETE — 93/93 conformance
+  vectors pass (was 68/93; 25 chain vectors now tested and passing).
+  New: parse_chain(), decode_chain(), context-aware _decode_payload()
+  (snapshot + delta modes), _apply_delta_to_json() (set/del/splice/
+  strdiff ops directly on the JSON tree). Also fixed _BitReader
+  zero-extend-past-end and splice_rep column dispatch in
+  _vt_num_tag / _vt_str_type / _vt_is_bool. See V0.2-PLANNING.md D.2.
 
-Cross-language total: 428 vectors agree across JS / Rust / Python.
-  (397 + 31 new: non-empty container snapshot vectors now byte-exact
-  in Rust encoder; 58 tensor + 68 JSON = 126 Rust vectors total)
+Cross-language total: 444 vectors agree across JS / Rust / Python.
+  (428 + 16 new delta-chain vectors now covered by Python decoder;
+  full breakdown: 58 tensor + 93 JSON = 151 Python vectors; 126 Rust)
