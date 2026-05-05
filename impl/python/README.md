@@ -8,10 +8,11 @@ No external dependencies; targets Python 3.10+.
 
 ## Status
 
-- **weavepack-json**: encoder + decoder for **single-payload mode** at
-  Level 3 (byte-exact). 37/93 corpus vectors pass. Structured-mode
-  (containers, deltas, strmap dedup) deferred — see V0.2-PLANNING.md
-  item D.2.
+- **weavepack-json**: decoder for single-payload + structured-mode
+  snapshots at Level 3 (byte-exact). 68/93 corpus vectors pass.
+  Encoder covers single-payload only (37 vectors byte-exact).
+  25 delta vectors (chain application) remain skipped — see
+  V0.2-PLANNING.md item D.2.
 - **weavepack-tensor**: full encoder + decoder + delta application at
   Level 3 (byte-exact). 58/58 corpus vectors pass. Schemaless +
   schemaful + 5 of 6 delta ops (tensor_replace, tensor_add,
@@ -109,7 +110,7 @@ for a worked example.
 ## Conformance
 
 ```bash
-python3 impl/python/conformance.py              # weavepack-json (37 vectors)
+python3 impl/python/conformance.py              # weavepack-json (68 vectors)
 python3 impl/python/conformance_tensor.py       # weavepack-tensor (58 vectors)
 python3 -m unittest impl.python.test_chain      # chain framing (9 tests)
 python3 impl/python/test_delta_from_prior.py    # delta-from-prior (8 tests)
@@ -127,9 +128,10 @@ Python chain framing).
 
 ## What's NOT implemented
 
-- weavepack-json structured mode (objects, arrays, nested values,
-  deltas). The 56 currently-skipped vectors all hit this gap. See
-  `V0.2-PLANNING.md` item D.2 for the planning notes.
+- weavepack-json delta chain application. The 25 remaining skipped
+  vectors use `expected_chain_bytes_hex` and require applying ops
+  from a delta payload to a prior snapshot. See `V0.2-PLANNING.md`
+  item D.2 for planning notes.
 - weavepack-tensor `quant_change` op. Spec'd but no language
   implements it yet (depends on full quantized-dtype implementation).
 - weavepack-tensor mode=1 emit from the Python encoder. The Python
