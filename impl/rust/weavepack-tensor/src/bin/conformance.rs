@@ -72,6 +72,35 @@ fn json_data_to_bytes(dtype: u8, arr: &[Value]) -> Result<Vec<u8>, String> {
                 out.push(byte);
             }
         }
+        1 => {
+            // DTYPE_INT4: signed 4-bit, 2 elements per byte, high nibble = lower index.
+            // int4 range -8..7; wire nibble = value & 0x0F.
+            let mut packed = vec![0u8; (arr.len() + 1) / 2];
+            for (i, v) in arr.iter().enumerate() {
+                let n = v.as_i64().ok_or("int4 element not i64")?;
+                let nibble = (n as u8) & 0x0F;
+                if i % 2 == 0 {
+                    packed[i / 2] |= nibble << 4;
+                } else {
+                    packed[i / 2] |= nibble;
+                }
+            }
+            out.extend_from_slice(&packed);
+        }
+        2 => {
+            // DTYPE_UINT4: unsigned 4-bit, 2 elements per byte, high nibble = lower index.
+            let mut packed = vec![0u8; (arr.len() + 1) / 2];
+            for (i, v) in arr.iter().enumerate() {
+                let n = v.as_u64().ok_or("uint4 element not u64")? as u8;
+                let nibble = n & 0x0F;
+                if i % 2 == 0 {
+                    packed[i / 2] |= nibble << 4;
+                } else {
+                    packed[i / 2] |= nibble;
+                }
+            }
+            out.extend_from_slice(&packed);
+        }
         DTYPE_INT8 => {
             for v in arr {
                 let n = v.as_i64().ok_or("int8 element not i64")? as i8;

@@ -104,6 +104,24 @@ def _serialize_data(dtype: int, data: list, total: int) -> bytes:
             if data[i]:
                 out[i >> 3] |= 1 << (7 - (i & 7))
         return bytes(out)
+    if dtype == DTYPE.INT4:
+        out = bytearray((total + 1) // 2)
+        for i in range(total):
+            nibble = int(data[i]) & 0x0F
+            if i % 2 == 0:
+                out[i >> 1] |= nibble << 4
+            else:
+                out[i >> 1] |= nibble
+        return bytes(out)
+    if dtype == DTYPE.UINT4:
+        out = bytearray((total + 1) // 2)
+        for i in range(total):
+            nibble = int(data[i]) & 0x0F
+            if i % 2 == 0:
+                out[i >> 1] |= nibble << 4
+            else:
+                out[i >> 1] |= nibble
+        return bytes(out)
     if dtype in (DTYPE.FP16, DTYPE.BF16):
         # data is a list of raw u16 bit patterns
         return struct.pack(f"<{total}H", *data[:total])

@@ -131,6 +131,17 @@ def _materialize(dtype: int, raw_bytes: bytes, total: int) -> list:
         return list(struct.unpack(fmt_map[dtype], raw_bytes[:struct.calcsize(fmt_map[dtype])]))
     if dtype == DTYPE.BOOL:
         return [(raw_bytes[i >> 3] >> (7 - (i & 7))) & 1 for i in range(total)]
+    if dtype == DTYPE.INT4:
+        out = []
+        for i in range(total):
+            nibble = (raw_bytes[i >> 1] >> 4) & 0xF if i % 2 == 0 else raw_bytes[i >> 1] & 0xF
+            out.append(nibble - 16 if nibble >= 8 else nibble)
+        return out
+    if dtype == DTYPE.UINT4:
+        return [
+            (raw_bytes[i >> 1] >> 4) & 0xF if i % 2 == 0 else raw_bytes[i >> 1] & 0xF
+            for i in range(total)
+        ]
     if dtype == DTYPE.FP16 or dtype == DTYPE.BF16:
         # Return raw u16 bits; caller converts to f32 if desired.
         return list(struct.unpack(f"<{total}H", raw_bytes[:2 * total]))
