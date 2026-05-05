@@ -516,8 +516,14 @@ V0.2 in-progress (incremental):
   zero-extend-past-end and splice_rep column dispatch in
   _vt_num_tag / _vt_str_type / _vt_is_bool. See V0.2-PLANNING.md D.2.
 
-Cross-language total: 465 vectors agree across JS / Rust / Python.
-  (JS baseline: 172 tensor + 93 JSON = 265; Rust: 62 tensor + 93 JSON = 155;
-  Python: 62 tensor + 93 JSON = 155. New: 12 fp8e4m3/fp8e5m2 JS-only vectors
-  in types/fp8.json; 5 cfloat32/cfloat64 JS-only vectors in types/dtypes.json;
-  Rust + Python fp8/cfloat support deferred.)
+- A.1 fp8/cfloat Rust + Python: ✓ COMPLETE — 79/79 conformance.
+  New Rust module fp8_dtype.rs (port of JS fp8.js: RNE rounding, subnormals,
+  NaN/Inf, both e4m3 and e5m2 formats). Rust + Python conformance binaries
+  now handle all 79 tensor corpus vectors including fp8e4m3, fp8e5m2,
+  cfloat32, cfloat64. Also fixed data_raw_bits decoder in Rust conformance
+  binary (was hardcoded 2 bytes/element; fp8 needs 1 byte/element).
+
+Cross-language total: 499 vectors agree across JS / Rust / Python.
+  (JS baseline: 172 tensor + 93 JSON = 265; Rust: 79 tensor + 93 JSON = 172;
+  Python: 79 tensor + 93 JSON = 172. fp8/cfloat now complete in all three
+  implementations.)
