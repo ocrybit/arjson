@@ -24,6 +24,10 @@ import {
   f32ArrayToFp16Bits, fp16BitsToF32Array,
   f32ArrayToBf16Bits, bf16BitsToF32Array,
 } from "./half.js"
+import {
+  fp8e4m3ToF32, f32ToFp8e4m3, f32ArrayToFp8e4m3Bits,
+  fp8e5m2ToF32, f32ToFp8e5m2, f32ArrayToFp8e5m2Bits,
+} from "./fp8.js"
 
 export { DTYPE, DTYPE_BITS, OP, dataBytes, PROFILE_ID, PROFILE_VERSION }
 export { schemaHash, schemaHashHex, canonicalizeSchema }
@@ -31,6 +35,10 @@ export {
   fp16BitsToF32, f32ToFp16Bits, bf16BitsToF32, f32ToBf16Bits,
   f32ArrayToFp16Bits, fp16BitsToF32Array,
   f32ArrayToBf16Bits, bf16BitsToF32Array,
+}
+export {
+  fp8e4m3ToF32, f32ToFp8e4m3, f32ArrayToFp8e4m3Bits,
+  fp8e5m2ToF32, f32ToFp8e5m2, f32ArrayToFp8e5m2Bits,
 }
 
 // ── bit-stream helpers ────────────────────────────────────────────────────
@@ -171,6 +179,17 @@ function emitDataBlock(u, t) {
         ? f32ArrayToFp16Bits(t.data)
         : f32ArrayToBf16Bits(t.data)
       dataView = new Uint8Array(u16.buffer, u16.byteOffset, u16.byteLength)
+    } else {
+      dataView = toBytes(t)
+    }
+  } else if (t.dtype === DTYPE.FP8E4M3 || t.dtype === DTYPE.FP8E5M2) {
+    // Accept either Float32Array (convert) or Uint8Array (raw fp8 bits).
+    if (t.data instanceof Uint8Array) {
+      dataView = t.data
+    } else if (t.data instanceof Float32Array) {
+      dataView = t.dtype === DTYPE.FP8E4M3
+        ? f32ArrayToFp8e4m3Bits(t.data)
+        : f32ArrayToFp8e5m2Bits(t.data)
     } else {
       dataView = toBytes(t)
     }
@@ -871,6 +890,13 @@ function materializeData(dtype, dataU8, total) {
       // not aligned for Uint16Array.
       const copy = new Uint8Array(dataU8.buffer.slice(dataU8.byteOffset, dataU8.byteOffset + total * 2))
       return new Uint16Array(copy.buffer, 0, total)
+    }
+    case DTYPE.FP8E4M3:
+    case DTYPE.FP8E5M2: {
+      // Return raw Uint8Array of fp8 bits; 1 byte per element.
+      // Callers wanting f32 values use fp8e4m3ToF32 / fp8e5m2ToF32.
+      const copy = new Uint8Array(dataU8.buffer.slice(dataU8.byteOffset, dataU8.byteOffset + total))
+      return copy
     }
     case DTYPE.CFLOAT32: {
       // Each complex element is (real f32, imag f32) = 8 bytes.

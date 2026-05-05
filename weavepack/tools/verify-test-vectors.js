@@ -114,6 +114,8 @@ function jsonToTyped(dtype, arr) {
     case DTYPE.BOOL:  return arr
     case 13:           return new Float32Array(arr)  // FP16 — encoder converts
     case 14:           return new Float32Array(arr)  // BF16 — encoder converts
+    case DTYPE.FP8E4M3: return new Float32Array(arr)  // fp8 — encoder converts
+    case DTYPE.FP8E5M2: return new Float32Array(arr)  // fp8 — encoder converts
     case DTYPE.CFLOAT32: return new Float32Array(arr) // interleaved real,imag as f32
     case DTYPE.CFLOAT64: return new Float64Array(arr) // interleaved real,imag as f64
     default: throw new Error(`unsupported dtype ${dtype} in jsonToTyped`)
@@ -131,6 +133,8 @@ function parseTensorDoc(jsonDoc) {
     let data
     if (t.data_raw_bits !== undefined && (t.dtype === DTYPE.FP16 || t.dtype === DTYPE.BF16)) {
       data = new Uint16Array(t.data_raw_bits)
+    } else if (t.data_raw_bits !== undefined && (t.dtype === DTYPE.FP8E4M3 || t.dtype === DTYPE.FP8E5M2)) {
+      data = new Uint8Array(t.data_raw_bits)
     } else {
       data = jsonToTyped(t.dtype, t.data)
     }
@@ -248,15 +252,14 @@ for (const path of walk(TENSOR_ROOT)) {
           record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
         }
         const decoded = tensorDec(bytes)
-        // Special case: fp16/bf16 vectors store input as f32 numbers but
-        // the decoded data is Uint16Array of raw bits. Compare against
-        // expected_bits (set by the half-vector generator) instead of
-        // doc-level equality.
+        // Vectors for fp8/fp16/bf16 dtypes use expected_bits (raw byte/word patterns)
+        // instead of doc-level equality because the decoded data is a typed-array
+        // of raw bits rather than f32 values. Compare against expected_bits.
         if (v.expected_bits) {
           const tname = Object.keys(decoded.tensors)[0]
           const decodedBits = Array.from(decoded.tensors[tname].data)
           if (!equals(decodedBits, v.expected_bits)) {
-            record(prefix, v.name, "fp16/bf16 bits mismatch", v.expected_bits, decodedBits); continue
+            record(prefix, v.name, "raw bits mismatch", v.expected_bits, decodedBits); continue
           }
         } else if (!tensorDocsEqual(decoded, doc)) {
           record(prefix, v.name, "decode mismatch"); continue
