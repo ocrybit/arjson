@@ -15,6 +15,7 @@ import {
   TensorPack,
   DTYPE,
   OP,
+  dataBytes,
   schemaHash,
   schemaHashHex,
   canonicalizeSchema,
@@ -898,5 +899,76 @@ describe("weavepack-tensor schema sidecar (Phase 5.5)", () => {
       }
       assert.deepEqual(extractedHash, expectedHash)
     })
+  })
+})
+
+describe("weavepack-tensor cfloat32 / cfloat64 round-trip", () => {
+  function f32eq(a, b) {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+    return true
+  }
+
+  it("cfloat32 1D: (1+2j, 3+4j) round-trips bit-exactly", () => {
+    const data = new Float32Array([1.0, 2.0, 3.0, 4.0])
+    const doc = { tensors: { a: { dtype: DTYPE.CFLOAT32, shape: [2], data } } }
+    const decoded = decodeDocument(encodeDocument(doc))
+    assert.equal(decoded.tensors.a.dtype, DTYPE.CFLOAT32)
+    assert.deepEqual(decoded.tensors.a.shape, [2])
+    assert.ok(f32eq(decoded.tensors.a.data, data),
+      `expected ${Array.from(data)}, got ${Array.from(decoded.tensors.a.data)}`)
+  })
+
+  it("cfloat32: zero and negative components", () => {
+    const data = new Float32Array([0.0, 0.0, -1.0, 0.5])
+    const doc = { tensors: { c: { dtype: DTYPE.CFLOAT32, shape: [2], data } } }
+    const decoded = decodeDocument(encodeDocument(doc))
+    assert.ok(f32eq(decoded.tensors.c.data, data))
+  })
+
+  it("cfloat32 2D [2,2] matrix round-trips", () => {
+    const data = new Float32Array([1.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, -1.0])
+    const doc = { tensors: { I: { dtype: DTYPE.CFLOAT32, shape: [2, 2], data } } }
+    const decoded = decodeDocument(encodeDocument(doc))
+    assert.deepEqual(decoded.tensors.I.shape, [2, 2])
+    assert.ok(f32eq(decoded.tensors.I.data, data))
+  })
+
+  it("cfloat32: dataBytes gives 8 bytes per element", () => {
+    assert.equal(dataBytes(DTYPE.CFLOAT32, [3]), 24)    // 3 × 8 = 24
+    assert.equal(dataBytes(DTYPE.CFLOAT32, [2, 2]), 32) // 4 × 8 = 32
+  })
+
+  it("cfloat64 1D: (1+2j, 3+4j) round-trips bit-exactly", () => {
+    const data = new Float64Array([1.0, 2.0, 3.0, 4.0])
+    const doc = { tensors: { z: { dtype: DTYPE.CFLOAT64, shape: [2], data } } }
+    const decoded = decodeDocument(encodeDocument(doc))
+    assert.equal(decoded.tensors.z.dtype, DTYPE.CFLOAT64)
+    assert.deepEqual(decoded.tensors.z.shape, [2])
+    const got = decoded.tensors.z.data
+    assert.ok(got instanceof Float64Array, "decoded data should be Float64Array")
+    assert.ok(Array.from(got).every((v, i) => v === data[i]))
+  })
+
+  it("cfloat64 scalar: π + ej round-trips with f64 precision", () => {
+    const data = new Float64Array([3.14159265358979, 2.71828182845905])
+    const doc = { tensors: { pi_e: { dtype: DTYPE.CFLOAT64, shape: [1], data } } }
+    const decoded = decodeDocument(encodeDocument(doc))
+    assert.deepEqual(Array.from(decoded.tensors.pi_e.data), Array.from(data))
+  })
+
+  it("cfloat64: dataBytes gives 16 bytes per element", () => {
+    assert.equal(dataBytes(DTYPE.CFLOAT64, [3]), 48)    // 3 × 16 = 48
+    assert.equal(dataBytes(DTYPE.CFLOAT64, [1, 4]), 64) // 4 × 16 = 64
+  })
+
+  it("cfloat32 delta: changed tensor falls back to tensor_replace", () => {
+    const doc1 = { tensors: { q: { dtype: DTYPE.CFLOAT32, shape: [2], data: new Float32Array([1, 0, 0, 1]) } } }
+    const doc2 = { tensors: { q: { dtype: DTYPE.CFLOAT32, shape: [2], data: new Float32Array([2, 3, 4, 5]) } } }
+    const pack = new TensorPack({ json: doc1 })
+    pack.update(doc2)
+    const restored = new TensorPack({ arj: pack.toBuffer() })
+    assert.ok(f32eq(restored.json.tensors.q.data, doc2.tensors.q.data),
+      "cfloat32 delta round-trip mismatch")
   })
 })

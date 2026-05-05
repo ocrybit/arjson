@@ -516,7 +516,7 @@ V0.2 in-progress (incremental):
   zero-extend-past-end and splice_rep column dispatch in
   _vt_num_tag / _vt_str_type / _vt_is_bool. See V0.2-PLANNING.md D.2.
 
-Cross-language total: 448 vectors agree across JS / Rust / Python.
-  (444 + 4 int4/uint4 nibble-pack vectors now covered by Python + Rust;
-  full breakdown: 62 tensor + 93 JSON = 155 Python vectors; 62 tensor +
-  93 JSON = 155 Rust vectors; JS baseline 155 tensor + 93 JSON = 248)
+Cross-language total: 453 vectors agree across JS / Rust / Python.
+  (JS baseline: 160 tensor + 93 JSON = 253; Rust: 62 tensor + 93 JSON = 155;
+  Python: 62 tensor + 93 JSON = 155. New: 5 cfloat32/cfloat64 JS-only vectors
+  in types/dtypes.json; Rust + Python cfloat support deferred.)

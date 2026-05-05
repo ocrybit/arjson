@@ -112,8 +112,10 @@ function jsonToTyped(dtype, arr) {
     case DTYPE.INT4:  return new Int8Array(arr)
     case DTYPE.UINT4: return new Uint8Array(arr)
     case DTYPE.BOOL:  return arr
-    case 13:          return new Float32Array(arr)  // FP16 — encoder converts
-    case 14:          return new Float32Array(arr)  // BF16 — encoder converts
+    case 13:           return new Float32Array(arr)  // FP16 — encoder converts
+    case 14:           return new Float32Array(arr)  // BF16 — encoder converts
+    case DTYPE.CFLOAT32: return new Float32Array(arr) // interleaved real,imag as f32
+    case DTYPE.CFLOAT64: return new Float64Array(arr) // interleaved real,imag as f64
     default: throw new Error(`unsupported dtype ${dtype} in jsonToTyped`)
   }
 }

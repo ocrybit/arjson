@@ -298,5 +298,75 @@
       }
     },
     "expected_bytes_hex": "0045b44404062468ac00"
+  },
+  {
+    "name": "cfloat32 1D tensor",
+    "description": "Two complex float32 elements (1+2j, 3+4j). Data is interleaved Float32Array [real0, imag0, real1, imag1]. 8 bytes per element = 16-byte data block.",
+    "input": {
+      "tensors": {
+        "a": {
+          "dtype": 17,
+          "shape": [2],
+          "data": [1.0, 2.0, 3.0, 4.0]
+        }
+      }
+    },
+    "expected_bytes_hex": "00458622040001007e00000080000080800001008000"
+  },
+  {
+    "name": "cfloat32 with zero and negative",
+    "description": "Two complex float32 elements (0+0j, -1+0.5j). Tests zero imaginary part and negative real part.",
+    "input": {
+      "tensors": {
+        "c": {
+          "dtype": 17,
+          "shape": [2],
+          "data": [0.0, 0.0, -1.0, 0.5]
+        }
+      }
+    },
+    "expected_bytes_hex": "00458e220400000000000000000001017e0000007e00"
+  },
+  {
+    "name": "cfloat32 2D matrix",
+    "description": "2×2 cfloat32 matrix. Shape [2,2] holds 4 complex elements = 32-byte data block.",
+    "input": {
+      "tensors": {
+        "I": {
+          "dtype": 17,
+          "shape": [2, 2],
+          "data": [1.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, -1.0]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045262404040001007e00000000000000000001007e0001017e00000000000000000001017e00"
+  },
+  {
+    "name": "cfloat64 1D tensor",
+    "description": "Two complex float64 elements (1+2j, 3+4j). 16 bytes per element = 32-byte data block.",
+    "input": {
+      "tensors": {
+        "z": {
+          "dtype": 18,
+          "shape": [2],
+          "data": [1.0, 2.0, 3.0, 4.0]
+        }
+      }
+    },
+    "expected_bytes_hex": "0045ea4204000000000001e07e00000000000000800000000000001080000000000000208000"
+  },
+  {
+    "name": "cfloat64 scalar",
+    "description": "Single complex float64 element (π + ej). Shape [1], 16-byte data block.",
+    "input": {
+      "tensors": {
+        "pi_e": {
+          "dtype": 18,
+          "shape": [1],
+          "data": [3.14159265358979, 2.71828182845905]
+        }
+      }
+    },
+    "expected_bytes_hex": "0058e0d2becb2101112d4454fb2109407457148b0abf054000"
   }
 ]

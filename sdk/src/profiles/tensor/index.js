@@ -433,7 +433,10 @@ function flatToIndex(flat, shape) {
 }
 
 function findChangedElements(baseT, newT) {
+  // Dtypes whose data arrays are not indexed by element count (bool, complex)
+  // fall back to full tensor_replace in the delta path.
   if (baseT.dtype === DTYPE.BOOL) return null
+  if (baseT.dtype === DTYPE.CFLOAT32 || baseT.dtype === DTYPE.CFLOAT64) return null
   let total = 1
   for (const d of baseT.shape) total *= d
   const changed = []
@@ -868,6 +871,18 @@ function materializeData(dtype, dataU8, total) {
       // not aligned for Uint16Array.
       const copy = new Uint8Array(dataU8.buffer.slice(dataU8.byteOffset, dataU8.byteOffset + total * 2))
       return new Uint16Array(copy.buffer, 0, total)
+    }
+    case DTYPE.CFLOAT32: {
+      // Each complex element is (real f32, imag f32) = 8 bytes.
+      // Represent as Float32Array of length 2*total (interleaved real, imag).
+      const copy = new Uint8Array(dataU8.buffer.slice(dataU8.byteOffset, dataU8.byteOffset + total * 8))
+      return new Float32Array(copy.buffer, 0, total * 2)
+    }
+    case DTYPE.CFLOAT64: {
+      // Each complex element is (real f64, imag f64) = 16 bytes.
+      // Represent as Float64Array of length 2*total (interleaved real, imag).
+      const copy = new Uint8Array(dataU8.buffer.slice(dataU8.byteOffset, dataU8.byteOffset + total * 16))
+      return new Float64Array(copy.buffer, 0, total * 2)
     }
     default:           return dataU8
   }
