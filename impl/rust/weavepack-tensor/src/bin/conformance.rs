@@ -20,6 +20,7 @@ use weavepack_tensor::{
     decode::{decode_document, decode_document_schemaful},
     delta::{apply_delta, encode_delta},
     encode::{encode_document, encode_document_schemaful},
+    fp8_dtype::{f32_to_fp8e4m3, f32_to_fp8e5m2},
     half_dtype::{f32_to_bf16_bits, f32_to_fp16_bits},
     schema::schema_hash_hex,
     types::{
@@ -199,8 +200,37 @@ fn json_data_to_bytes(dtype: u8, arr: &[Value]) -> Result<Vec<u8>, String> {
                 out.extend_from_slice(&bits.to_le_bytes());
             }
         }
+        11 => {
+            // fp8e4m3: data contains f32 values; convert to 1-byte fp8 bits.
+            for v in arr {
+                let f = v.as_f64().ok_or("fp8e4m3 element not f64")? as f32;
+                out.push(f32_to_fp8e4m3(f));
+            }
+        }
+        12 => {
+            // fp8e5m2: data contains f32 values; convert to 1-byte fp8 bits.
+            for v in arr {
+                let f = v.as_f64().ok_or("fp8e5m2 element not f64")? as f32;
+                out.push(f32_to_fp8e5m2(f));
+            }
+        }
+        17 => {
+            // cfloat32: interleaved (real, imag) f32 pairs per complex element.
+            // data array length = 2 × element_count; each entry is an f32.
+            for v in arr {
+                let f = v.as_f64().ok_or("cfloat32 element not f64")? as f32;
+                out.extend_from_slice(&f.to_le_bytes());
+            }
+        }
+        18 => {
+            // cfloat64: interleaved (real, imag) f64 pairs per complex element.
+            for v in arr {
+                let f = v.as_f64().ok_or("cfloat64 element not f64")?;
+                out.extend_from_slice(&f.to_le_bytes());
+            }
+        }
         d => {
-            // For fp8 and others, elements are stored as raw integer bit patterns.
+            // Unknown dtypes: try to read as raw integer bit patterns.
             let bpe = weavepack_tensor::types::dtype_bits_per_elem(d)
                 .ok_or_else(|| format!("unknown dtype {d}"))?;
             let bytes_each = ((bpe + 7) / 8) as usize;
@@ -229,13 +259,20 @@ fn parse_tensor_map(obj: &Value) -> Result<Vec<(String, TensorData)>, String> {
             .map(|v| v.as_u64().ok_or("shape dim not u64"))
             .collect::<Result<_, _>>()?;
         // Two paths: `data` is JSON values (numbers); `data_raw_bits` is
-        // raw u16 bit patterns (used for fp16/bf16 non-finite values that
-        // can't be expressed as JSON numbers).
+        // raw integer bit patterns used for non-finite values (NaN, ±Inf)
+        // that cannot be expressed as JSON numbers.
+        // fp16/bf16: u16 per element (2 bytes); fp8: u8 per element (1 byte).
         let data = if let Some(bits_arr) = tv["data_raw_bits"].as_array() {
-            let mut out = Vec::with_capacity(bits_arr.len() * 2);
+            let bytes_per = match dtype {
+                11 | 12 => 1usize, // fp8e4m3 / fp8e5m2
+                _       => 2usize, // fp16 / bf16 (default)
+            };
+            let mut out = Vec::with_capacity(bits_arr.len() * bytes_per);
             for v in bits_arr {
-                let bits = v.as_u64().ok_or("data_raw_bits element not u64")? as u16;
-                out.extend_from_slice(&bits.to_le_bytes());
+                let n = v.as_u64().ok_or("data_raw_bits element not u64")?;
+                for i in 0..bytes_per {
+                    out.push(((n >> (i * 8)) & 0xff) as u8);
+                }
             }
             out
         } else {

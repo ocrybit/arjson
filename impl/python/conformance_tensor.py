@@ -193,15 +193,16 @@ for vec_file in walk(VECTORS):
                     raise AssertionError(f"dtype {td['dtype']} != {t_input['dtype']}")
                 if td["shape"] != t_input["shape"]:
                     raise AssertionError(f"shape {td['shape']} != {t_input['shape']}")
-                # Data comparison: for fp16/bf16, expected_bits in the
-                # vector overrides the input data.
-                if "expected_bits" in v and t_input["dtype"] in (DTYPE.FP16, DTYPE.BF16):
+                # Data comparison: for fp16/bf16/fp8, expected_bits in the
+                # vector overrides the input data (raw bit patterns).
+                raw_bit_dtypes = (DTYPE.FP16, DTYPE.BF16, DTYPE.FP8E4M3, DTYPE.FP8E5M2)
+                if "expected_bits" in v and t_input["dtype"] in raw_bit_dtypes:
                     if list(td["data"]) != list(v["expected_bits"]):
-                        raise AssertionError(f"fp16/bf16 bits mismatch")
+                        raise AssertionError(f"raw-bits mismatch for dtype {t_input['dtype']}")
                 else:
                     # int64/uint64 stored as decimal strings in the JSON
                     # corpus; normalize for comparison.
-                    expected = t_input["data"]
+                    expected = t_input.get("data", t_input.get("data_raw_bits", []))
                     if t_input["dtype"] in (DTYPE.INT64, DTYPE.UINT64):
                         expected = [int(s) for s in expected]
                     if not values_close(td["data"], expected, t_input["dtype"]):
@@ -209,14 +210,15 @@ for vec_file in walk(VECTORS):
                             f"data mismatch: got {td['data'][:5]}... expected {expected[:5]}..."
                         )
             # Encoder check: re-encode the input and compare bytes.
-            # For fp16/bf16, the input data is f32 numbers; the encoder
-            # needs raw bits. Skip the encoder check for those (the
-            # decoder check above already validates bit-exactness).
-            has_half = any(
-                t["dtype"] in (DTYPE.FP16, DTYPE.BF16)
+            # For fp16/bf16/fp8, the input data is f32 numbers (not raw bits);
+            # the encoder expects raw bits. Skip the encoder check for those
+            # (the decoder check above already validates bit-exactness).
+            skip_enc_dtypes = (DTYPE.FP16, DTYPE.BF16, DTYPE.FP8E4M3, DTYPE.FP8E5M2)
+            has_raw_bit_dtype = any(
+                t["dtype"] in skip_enc_dtypes
                 for t in v["input"]["tensors"].values()
             )
-            if not has_half:
+            if not has_raw_bit_dtype:
                 input_doc = parse_input(v["input"])
                 encoded = encode_document(input_doc)
                 if encoded.hex() != hex_str:

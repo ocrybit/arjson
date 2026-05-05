@@ -125,6 +125,15 @@ def _serialize_data(dtype: int, data: list, total: int) -> bytes:
     if dtype in (DTYPE.FP16, DTYPE.BF16):
         # data is a list of raw u16 bit patterns
         return struct.pack(f"<{total}H", *data[:total])
+    if dtype in (DTYPE.FP8E4M3, DTYPE.FP8E5M2):
+        # data is a list of raw u8 bit patterns
+        return struct.pack(f"<{total}B", *data[:total])
+    if dtype == DTYPE.CFLOAT32:
+        # Interleaved (real, imag) f32 pairs; 2*total float values.
+        return struct.pack(f"<{2 * total}f", *data[:2 * total])
+    if dtype == DTYPE.CFLOAT64:
+        # Interleaved (real, imag) f64 pairs; 2*total double values.
+        return struct.pack(f"<{2 * total}d", *data[:2 * total])
     raise ValueError(f"unsupported dtype {dtype} in encoder")
 
 

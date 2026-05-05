@@ -145,6 +145,15 @@ def _materialize(dtype: int, raw_bytes: bytes, total: int) -> list:
     if dtype == DTYPE.FP16 or dtype == DTYPE.BF16:
         # Return raw u16 bits; caller converts to f32 if desired.
         return list(struct.unpack(f"<{total}H", raw_bytes[:2 * total]))
+    if dtype in (DTYPE.FP8E4M3, DTYPE.FP8E5M2):
+        # Return raw u8 bit patterns; caller converts to f32 if desired.
+        return list(struct.unpack(f"<{total}B", raw_bytes[:total]))
+    if dtype == DTYPE.CFLOAT32:
+        # Interleaved (real, imag) f32 pairs; 2*total float values.
+        return list(struct.unpack(f"<{2 * total}f", raw_bytes[:8 * total]))
+    if dtype == DTYPE.CFLOAT64:
+        # Interleaved (real, imag) f64 pairs; 2*total double values.
+        return list(struct.unpack(f"<{2 * total}d", raw_bytes[:16 * total]))
     raise ValueError(f"unsupported dtype {dtype}; pure-Python decoder is partial")
 
 
