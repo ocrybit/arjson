@@ -503,7 +503,12 @@ V0.2 in-progress (incremental):
   weavepack+brotli is 1.6× smaller than safetensors+brotli on
   the dense Adam-style training scenario (was ~1.0× before the
   heuristic). See V0.2-PLANNING.md A.3 table for the full sweep.
-- D.1 Rust JSON encoder: ✓ single-payload subset (37/68 vectors).
-  Non-empty container encoding still pending.
+- D.1 Rust JSON encoder: ✓ COMPLETE — 68/68 vectors byte-exact.
+  Full structured-mode encoder (struct_encode.rs): column buffers, vlink/
+  klink diff+RLE, vtypes RLE, nums diff+RLE, vflags/kflags/bools prefix
+  scheme, strmap dedup. Also fixed a latent debug-mode overflow in
+  weavepack-core::BitWriter (1u8<<8 when free==8).
 
-Cross-language total: 397 vectors agree across JS / Rust / Python.
+Cross-language total: 428 vectors agree across JS / Rust / Python.
+  (397 + 31 new: non-empty container snapshot vectors now byte-exact
+  in Rust encoder; 58 tensor + 68 JSON = 126 Rust vectors total)
