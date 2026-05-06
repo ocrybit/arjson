@@ -106,6 +106,53 @@ def float_to_fp8e4m3_bits(f: float) -> int:
     return (sign << 7) | (exp_biased << 3) | mantissa
 
 
+def float_to_fp8e5m2_bits(f: float) -> int:
+    """Encode a float as fp8 e5m2 (bias=15, ±Inf, NaN=0x7f). Matches JS/Rust reference."""
+    if math.isnan(f):
+        return 0x7f  # canonical qNaN
+    bits = _f32_bits(f)
+    sign = (bits >> 31) & 1
+    sign_bit = sign << 7
+    exp32 = (bits >> 23) & 0xff
+    mant32 = bits & 0x7fffff
+    if exp32 == 0 and mant32 == 0:
+        return sign_bit
+    if exp32 == 0xff and mant32 == 0:
+        return sign_bit | 0x7c  # ±Inf
+    e = exp32 - 127
+    if e > 15:
+        return sign_bit | 0x7c  # overflow → ±Inf
+    if e >= -14:
+        exp8 = e + 15
+        m = mant32 >> 21
+        lost = mant32 & 0x1fffff
+        if lost > 0x100000 or (lost == 0x100000 and (m & 1)):
+            m += 1
+        if m >= 4:
+            new_exp8 = exp8 + 1
+            if new_exp8 >= 31:
+                return sign_bit | 0x7c
+            return sign_bit | (new_exp8 << 2)
+        return sign_bit | (exp8 << 2) | m
+    if e >= -17:
+        mant24 = mant32 | 0x800000
+        shift = 7 - e
+        if shift >= 24:
+            m = 0
+            lost = mant24
+            halfway = 0x800000
+        else:
+            m = mant24 >> shift
+            lost = mant24 & ((1 << shift) - 1)
+            halfway = 1 << (shift - 1)
+        if lost > halfway or (lost == halfway and (m & 1)):
+            m += 1
+        if m >= 4:
+            return sign_bit | (1 << 2)
+        return sign_bit | m
+    return sign_bit
+
+
 def quantize_to_bytes(dtype: int, data: list, scale: float, zero_point: int) -> bytes:
     """Convert float data to quantized bytes for qint4/qint8/qfp8 tensors."""
     if dtype == DTYPE_QINT8:
@@ -141,10 +188,35 @@ def json_data_to_bytes(dtype: int, data: list) -> bytes:
     """Convert a JSON data array to raw little-endian element bytes."""
     if dtype == DTYPE_BOOL:
         return pack_bools_msb_first(data)
+    elif dtype in (DTYPE_INT4, DTYPE_QINT4):
+        # Nibble-packed signed 4-bit: high nibble = even index, low nibble = odd index.
+        total = len(data)
+        out = bytearray(math.ceil(total / 2))
+        for i, v in enumerate(data):
+            nib = int(v) & 0xF
+            if i % 2 == 0:
+                out[i // 2] = nib << 4
+            else:
+                out[i // 2] |= nib
+        return bytes(out)
+    elif dtype == DTYPE_UINT4:
+        total = len(data)
+        out = bytearray(math.ceil(total / 2))
+        for i, v in enumerate(data):
+            nib = int(v) & 0xF
+            if i % 2 == 0:
+                out[i // 2] = nib << 4
+            else:
+                out[i // 2] |= nib
+        return bytes(out)
     elif dtype == DTYPE_INT8:
         return struct.pack(f"<{len(data)}b", *[int(v) for v in data])
-    elif dtype == DTYPE_UINT8:
+    elif dtype in (DTYPE_UINT8, DTYPE_QFP8):
+        # QFP8 stores raw fp8 byte patterns as uint8 values.
         return struct.pack(f"<{len(data)}B", *[int(v) for v in data])
+    elif dtype == DTYPE_QINT8:
+        # Pre-quantized int8 values.
+        return struct.pack(f"<{len(data)}b", *[int(v) for v in data])
     elif dtype == DTYPE_INT16:
         return struct.pack(f"<{len(data)}h", *[int(v) for v in data])
     elif dtype == DTYPE_UINT16:
@@ -158,6 +230,10 @@ def json_data_to_bytes(dtype: int, data: list) -> bytes:
         return struct.pack(f"<{len(data)}q", *[int(v) for v in data])
     elif dtype == DTYPE_UINT64:
         return struct.pack(f"<{len(data)}Q", *[int(v) for v in data])
+    elif dtype == DTYPE_FP8E4M3:
+        return bytes([float_to_fp8e4m3_bits(float(v)) for v in data])
+    elif dtype == DTYPE_FP8E5M2:
+        return bytes([float_to_fp8e5m2_bits(float(v)) for v in data])
     elif dtype == DTYPE_FP16:
         out = bytearray()
         for v in data:
@@ -172,15 +248,35 @@ def json_data_to_bytes(dtype: int, data: list) -> bytes:
         return struct.pack(f"<{len(data)}f", *[float(v) for v in data])
     elif dtype == DTYPE_FP64:
         return struct.pack(f"<{len(data)}d", *[float(v) for v in data])
+    elif dtype == DTYPE_CFLOAT32:
+        # Interleaved (re, im) f32 pairs.
+        return struct.pack(f"<{len(data)}f", *[float(v) for v in data])
+    elif dtype == DTYPE_CFLOAT64:
+        # Interleaved (re, im) f64 pairs.
+        return struct.pack(f"<{len(data)}d", *[float(v) for v in data])
     else:
         raise NotImplementedError(f"dtype {dtype} not handled in test helper")
+
+def raw_bits_to_bytes(dtype: int, bits: list) -> bytes:
+    """Pack raw integer bit patterns to bytes for dtypes that can't be JSON floats."""
+    if dtype in (DTYPE_FP16, DTYPE_BF16):
+        return struct.pack(f"<{len(bits)}H", *[int(b) for b in bits])
+    elif dtype in (DTYPE_FP8E4M3, DTYPE_FP8E5M2):
+        return bytes([int(b) & 0xFF for b in bits])
+    else:
+        raise NotImplementedError(f"data_raw_bits not supported for dtype {dtype}")
+
 
 def parse_tensor_doc(json_doc: dict) -> list:
     """Convert a JSON tensor document to the list-of-(name, dict) form."""
     result = []
     for name, t in json_doc["tensors"].items():
-        raw = json_data_to_bytes(t["dtype"], t["data"])
-        result.append((name, {"dtype": t["dtype"], "shape": t["shape"], "data": raw}))
+        dtype = t["dtype"]
+        if "data_raw_bits" in t:
+            raw = raw_bits_to_bytes(dtype, t["data_raw_bits"])
+        else:
+            raw = json_data_to_bytes(dtype, t["data"])
+        result.append((name, {"dtype": dtype, "shape": t["shape"], "data": raw}))
     return result
 
 # ── chain wire format ─────────────────────────────────────────────────────────
@@ -300,15 +396,40 @@ for path in sorted(walk_json(TENSOR_ROOT)):
                 passed += 1
 
             elif is_delta:
-                # Delta vectors: build chain, compare chain hex, verify apply_delta.
                 initial_tensors = parse_tensor_doc(v["initial"])
-                update_tensors = parse_tensor_doc(v["update"])
 
+                if "update" not in v:
+                    # Pre-encoded delta (delta_from_prior, quant_change, etc.):
+                    # delta bytes are given directly; verify apply_delta only.
+                    delta_bytes = bytes.fromhex(v["delta_bytes_hex"])
+                    result = wt.apply_delta(initial_tensors, delta_bytes)
+                    final_tensors = parse_tensor_doc(v["expected_final"])
+                    result_map = {n: t for n, t in result}
+                    final_map = {n: t for n, t in final_tensors}
+                    if set(result_map) != set(final_map):
+                        record_fail(rel, name, "apply_delta key mismatch",
+                                    sorted(final_map), sorted(result_map))
+                        continue
+                    mismatch = False
+                    for tname in final_map:
+                        ra = result_map[tname]
+                        ex = final_map[tname]
+                        if (ra["dtype"] != ex["dtype"] or ra["shape"] != ex["shape"]
+                                or bytes(ra["data"]) != bytes(ex["data"])):
+                            record_fail(rel, name, f"apply_delta tensor mismatch for '{tname}'")
+                            mismatch = True
+                            break
+                    if mismatch:
+                        continue
+                    passed += 1
+                    continue
+
+                # Standard delta vectors: build chain, compare chain hex, verify apply_delta.
+                update_tensors = parse_tensor_doc(v["update"])
                 init_enc = wt.encode(initial_tensors)
                 delta_enc = wt.encode_delta(initial_tensors, update_tensors)
 
                 if delta_enc is None:
-                    # Identity delta: chain is just the initial snapshot.
                     chain = chain_serialize([bytes(init_enc)])
                 else:
                     chain = chain_serialize([bytes(init_enc), bytes(delta_enc)])
@@ -319,7 +440,6 @@ for path in sorted(walk_json(TENSOR_ROOT)):
                                 v["expected_chain_bytes_hex"], chain_hex)
                     continue
 
-                # Verify apply_delta round-trip (skip for identity).
                 if delta_enc is not None:
                     result = wt.apply_delta(initial_tensors, bytes(delta_enc))
                     final_tensors = parse_tensor_doc(v["expected_final"])

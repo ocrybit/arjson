@@ -540,6 +540,13 @@ nested-object mutations. Not a v0.1 regression; the existing bail-to-replace
 behavior is correct.
 
 - PyO3 schemaful encode/decode bindings: ✓ DONE (see below).
+- PyO3 full conformance: ✓ COMPLETE — 97/97 vectors (was 61/93).
+  test_conformance.py gains: float_to_fp8e5m2_bits (port of JS f32ToFp8e5m2);
+  json_data_to_bytes coverage for int4/uint4 (nibble pack), fp8e4m3/fp8e5m2,
+  cfloat32/cfloat64 (interleaved f32/f64), qint4/qint8/qfp8 (pre-quantized raw);
+  raw_bits_to_bytes helper + parse_tensor_doc data_raw_bits support (fp16/bf16 uint16
+  LE, fp8 uint8 raw); delta branch split for delta_bytes_hex-only vectors
+  (delta_from_prior, quant_change) — apply_delta verified without re-encoding.
 
 V0.2 in-progress (incremental):
 - A.2 quant_change Rust + Python decoders: ✓ COMPLETE — 97/97 Rust + Python
