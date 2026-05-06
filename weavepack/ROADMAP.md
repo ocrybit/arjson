@@ -496,6 +496,16 @@ Next action: Accept RFC 0001 fp16/bf16 (2-week discussion period ends 2026-05-17
 all three impls pass 20/20 vectors; no blocking issues). After acceptance: update
 RFC status to Accepted and mark A.1 fp16/bf16 complete in V0.2-PLANNING.md.
 
+B.2 (array-of-objects per-element diff) architectural finding (2026-05-06):
+The ARTable delta encoder does not support add/remove of keys on objects that
+are nested inside arrays. Only replacements at already-existing leaf paths
+within array-element objects work. Recursive diff from diffArray would silently
+corrupt output for add/remove ops at paths like list[0].newKey. Full analysis
+and required architecture changes documented in V0.2-PLANNING.md B.2 section.
+B.2 implementation deferred until an RFC redesigns the delta encoder to support
+nested-object mutations. Not a v0.1 regression; the existing bail-to-replace
+behavior is correct.
+
 - PyO3 schemaful encode/decode bindings: ✓ DONE (see below).
 
 V0.2 in-progress (incremental):
