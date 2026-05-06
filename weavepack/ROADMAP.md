@@ -501,6 +501,14 @@ profiles. The honest commitment is to that gate.
   including QINT8/QINT4/QFP8 dequantization). 11 unit tests in
   tensor-skip-load.test.js. SDK: 2268 tests pass (was 2257).
 
+- A.5 streaming iterator: ✓ COMPLETE — JS only (no wire format change).
+  New generator `iterateTensorsSchemaful(bytes, registry)` yields
+  `{ name, dtype, shape, data }` in canonical order with a single advancing
+  cursor — no per-tensor offset arithmetic or seeking. Lazy: early break
+  does not decode remaining tensors. Values are byte-exact vs full-decode
+  and vs A.4 skip-load cross-check. 9 unit tests in tensor-stream.test.js.
+  SDK: 2277 tests pass (was 2268).
+
 - A.1 fp16/bf16: ✓ RFC 0001 Accepted (2026-05-06). JS + Rust + Python pass
   20/20 vectors byte-exact. Open questions resolved: any-NaN, emit-per-IEEE
   subnormals, silent f32→fp16/bf16 conversion. All Tier 1 v0.2 items now

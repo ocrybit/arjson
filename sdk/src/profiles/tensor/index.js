@@ -568,6 +568,63 @@ export function decodeTensorSchemaful(bytes, name, registry) {
   return { dtype: sDef.dtype, shape: sDef.shape, data }
 }
 
+// ── schemaful streaming iterator (A.5) ───────────────────────────────────
+//
+// iterateTensorsSchemaful(bytes, registry) → Generator<{ name, dtype, shape, data }>
+//
+// Yields one { name, dtype, shape, data } per tensor in canonical (sorted)
+// order. Advances a single bit-position cursor sequentially — no offset
+// arithmetic per tensor, no seeking backwards, no full-document buffer.
+//
+// Invariant: the yielded data values are identical to those returned by
+// decodeDocumentSchemaful (same materializeData + dequantization logic).
+// Use this when consuming all tensors in order; prefer decodeTensorSchemaful
+// for random access to a specific named tensor.
+
+export function* iterateTensorsSchemaful(bytes, registry) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  let { bitPos, schema, sortedNames } = parseSchemafulHeader(u8, registry)
+
+  function readBits(n) {
+    let val = 0
+    for (let i = 0; i < n; i++) {
+      val = (val << 1) | ((u8[bitPos >> 3] >> (7 - (bitPos & 7))) & 1)
+      bitPos++
+    }
+    return val
+  }
+
+  for (const name of sortedNames) {
+    const sDef = schema[name]
+    const byteCount = dataBytes(sDef.dtype, sDef.shape)
+    const dataU8 = new Uint8Array(byteCount)
+    for (let i = 0; i < byteCount; i++) dataU8[i] = readBits(8)
+
+    let total = 1
+    for (const d of sDef.shape) total *= d
+    let data = materializeData(sDef.dtype, dataU8, total)
+
+    if (sDef.dtype === DTYPE.QINT8 && sDef.scale !== undefined) {
+      const scale = sDef.scale, zp = sDef.zero_point || 0
+      const f32 = new Float32Array(total)
+      for (let i = 0; i < total; i++) f32[i] = (data[i] - zp) * scale
+      data = f32
+    } else if (sDef.dtype === DTYPE.QINT4 && sDef.scale !== undefined) {
+      const scale = sDef.scale, zp = sDef.zero_point || 0
+      const f32 = new Float32Array(total)
+      for (let i = 0; i < total; i++) f32[i] = (data[i] - zp) * scale
+      data = f32
+    } else if (sDef.dtype === DTYPE.QFP8 && sDef.scale !== undefined) {
+      const scale = sDef.scale
+      const f32 = new Float32Array(total)
+      for (let i = 0; i < total; i++) f32[i] = fp8e4m3ToF32(data[i]) * scale
+      data = f32
+    }
+
+    yield { name, dtype: sDef.dtype, shape: sDef.shape, data }
+  }
+}
+
 // ── delta encoding ────────────────────────────────────────────────────────
 //
 // Wire: [1][leb128-op-count][ops...]
