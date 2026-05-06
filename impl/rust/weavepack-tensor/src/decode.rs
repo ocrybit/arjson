@@ -1,7 +1,7 @@
 // weavepack-tensor decoder (schemaless and schemaful).
 
 use crate::bits::BitReader;
-use crate::types::{data_bytes, DTYPE_BITS};
+use crate::types::{data_bytes, SchemaEntry, DTYPE_BITS};
 use crate::TensorData;
 use std::collections::BTreeMap;
 
@@ -54,7 +54,7 @@ pub fn decode_document(bytes: &[u8]) -> Result<Vec<(String, TensorData)>, String
 /// Returns tensors in schema (alphabetical) order.
 pub fn decode_document_schemaful(
     bytes: &[u8],
-    registry: &BTreeMap<String, BTreeMap<String, (u8, Vec<u64>)>>,
+    registry: &BTreeMap<String, BTreeMap<String, SchemaEntry>>,
 ) -> Result<Vec<(String, TensorData)>, String> {
     let mut r = BitReader::new(bytes);
 
@@ -76,15 +76,15 @@ pub fn decode_document_schemaful(
         .ok_or_else(|| format!("unknown schema-id {hex}; register the schema before decoding"))?;
 
     let mut tensors = Vec::with_capacity(schema.len());
-    for (name, (dtype, shape)) in schema {
-        let byte_count = data_bytes(*dtype, shape) as usize;
+    for (name, entry) in schema {
+        let byte_count = data_bytes(entry.dtype, &entry.shape) as usize;
         let mut data = vec![0u8; byte_count];
         for b in &mut data {
             *b = r.read(8)? as u8;
         }
         tensors.push((
             name.clone(),
-            TensorData { dtype: *dtype, shape: shape.clone(), data },
+            TensorData { dtype: entry.dtype, shape: entry.shape.clone(), data },
         ));
     }
 

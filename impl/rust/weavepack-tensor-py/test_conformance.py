@@ -157,21 +157,15 @@ for path in sorted(walk_json(TENSOR_ROOT)):
         name = v.get("name", "<unnamed>")
         try:
             if is_schema:
-                # Schemaful vectors: verify schema hash + encode snapshot bytes.
-                tensors = parse_tensor_doc(v["input"])
-                schema_dict = {
-                    t_name: (t_info["dtype"], t_info["shape"])
-                    for t_name, t_info in v["schema"].items()
-                }
-                # Verify schema hash
+                # Schemaful vectors: verify schema hash.
+                # Pass the full schema dict (dtype, shape, and optional scale/zero_point).
+                schema_dict = dict(v["schema"])
                 if "schema_hash_hex" in v:
                     got_hash = wt.schema_hash_hex(schema_dict)
                     if got_hash != v["schema_hash_hex"]:
                         record_fail(rel, name, "schema hash mismatch",
                                     v["schema_hash_hex"], got_hash)
                         continue
-                # Verify schemaless encoding for now (schemaful binding not
-                # yet exposed; this validates the hash only).
                 passed += 1
 
             elif is_delta:

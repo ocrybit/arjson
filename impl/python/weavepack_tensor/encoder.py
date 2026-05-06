@@ -61,6 +61,53 @@ class _BitWriter:
         return bytes(self.buf)
 
 
+def _f32_to_fp8e4m3(f: float) -> int:
+    """f32 → fp8e4m3 bit pattern (RNE). Mirrors impl/rust/weavepack-tensor/src/fp8_dtype.rs."""
+    if f != f:  # NaN
+        return 0x7F
+    bits = struct.unpack("<I", struct.pack("<f", float(f)))[0]
+    sign = (bits >> 31) & 1
+    sign_bit = sign << 7
+    exp32 = (bits >> 23) & 0xFF
+    mant32 = bits & 0x7FFFFF
+    if exp32 == 0 and mant32 == 0:
+        return sign_bit  # ±0
+    if exp32 == 0xFF and mant32 == 0:
+        return sign_bit | 0x7E  # ±Inf → max-finite
+    e = exp32 - 127
+    if e > 8:
+        return sign_bit | 0x7E  # overflow
+    if e >= -6:
+        exp8 = e + 7
+        m = mant32 >> 20
+        lost = mant32 & 0xFFFFF
+        if lost > 0x80000 or (lost == 0x80000 and (m & 1) != 0):
+            m += 1
+        if m >= 8:
+            new_exp8 = exp8 + 1
+            if new_exp8 > 15:
+                return sign_bit | 0x7E
+            return sign_bit | (new_exp8 << 3)
+        if exp8 == 15 and m == 7:
+            return sign_bit | 0x7E
+        return sign_bit | (exp8 << 3) | m
+    if e >= -10:
+        mant24 = mant32 | 0x800000
+        shift = 14 - e
+        if shift >= 24:
+            m, lost, halfway = 0, mant24, 0x800000
+        else:
+            m = (mant24 >> shift) & 0xFF
+            lost = mant24 & ((1 << shift) - 1)
+            halfway = 1 << (shift - 1)
+        if lost > halfway or (lost == halfway and (m & 1) != 0):
+            m += 1
+        if m >= 8:
+            return sign_bit | (1 << 3)
+        return sign_bit | m
+    return sign_bit  # underflow → ±0
+
+
 def _leb128(w: _BitWriter, v: int) -> None:
     while v >= 128:
         w.write_byte((v & 0x7F) | 0x80)
@@ -134,6 +181,23 @@ def _serialize_data(dtype: int, data: list, total: int) -> bytes:
     if dtype == DTYPE.CFLOAT64:
         # Interleaved (real, imag) f64 pairs; 2*total double values.
         return struct.pack(f"<{2 * total}d", *data[:2 * total])
+    if dtype == DTYPE.QINT8:
+        if total == 0:
+            return b""
+        return struct.pack(f"<{total}b", *[int(v) for v in data[:total]])
+    if dtype == DTYPE.QINT4:
+        out = bytearray((total + 1) // 2)
+        for i in range(total):
+            nibble = int(data[i]) & 0x0F
+            if i % 2 == 0:
+                out[i >> 1] |= nibble << 4
+            else:
+                out[i >> 1] |= nibble
+        return bytes(out)
+    if dtype == DTYPE.QFP8:
+        if total == 0:
+            return b""
+        return struct.pack(f"<{total}B", *[int(v) & 0xFF for v in data[:total]])
     raise ValueError(f"unsupported dtype {dtype} in encoder")
 
 
@@ -205,6 +269,20 @@ def encode_document_schemaful(doc: dict, schema: dict) -> bytes:
             raise ValueError(f"tensor {name!r}: dtype mismatch")
         if list(t["shape"]) != list(sdef["shape"]):
             raise ValueError(f"tensor {name!r}: shape mismatch")
-        _emit_data_block(w, t)
+        # Quantize qint dtypes using schema scale/zero_point before emission.
+        if t["dtype"] == DTYPE.QINT8 and "scale" in sdef:
+            scale, zp = sdef["scale"], sdef.get("zero_point", 0)
+            q = [max(-128, min(127, round(v / scale + zp))) for v in t["data"]]
+            _emit_data_block(w, {"dtype": DTYPE.QINT8, "shape": t["shape"], "data": q})
+        elif t["dtype"] == DTYPE.QINT4 and "scale" in sdef:
+            scale, zp = sdef["scale"], sdef.get("zero_point", 0)
+            q = [max(-8, min(7, round(v / scale + zp))) for v in t["data"]]
+            _emit_data_block(w, {"dtype": DTYPE.QINT4, "shape": t["shape"], "data": q})
+        elif t["dtype"] == DTYPE.QFP8 and "scale" in sdef:
+            scale = sdef["scale"]
+            q = [_f32_to_fp8e4m3(v / scale) for v in t["data"]]
+            _emit_data_block(w, {"dtype": DTYPE.QFP8, "shape": t["shape"], "data": q})
+        else:
+            _emit_data_block(w, t)
     _emit_structured_trailer(w)
     return w.finish()

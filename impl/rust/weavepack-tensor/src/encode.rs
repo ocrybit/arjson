@@ -3,7 +3,7 @@
 
 use crate::bits::{BitWriter, finalize, write_leb128, write_short};
 use crate::schema::schema_hash;
-use crate::types::{data_bytes, DTYPE_BITS};
+use crate::types::{data_bytes, SchemaEntry, DTYPE_BITS};
 use crate::TensorData;
 use std::collections::BTreeMap;
 
@@ -59,7 +59,7 @@ pub fn encode_document(tensors: &[(String, TensorData)]) -> Vec<u8> {
 /// dtype/shape mismatch between schema and tensor data.
 pub fn encode_document_schemaful(
     tensors: &BTreeMap<String, TensorData>,
-    schema: &BTreeMap<String, (u8, Vec<u64>)>,
+    schema: &BTreeMap<String, SchemaEntry>,
 ) -> Result<Vec<u8>, String> {
     let hash = schema_hash(schema);
 
@@ -74,20 +74,20 @@ pub fn encode_document_schemaful(
     }
 
     // Tensors are written in sorted schema-key order (BTreeMap is already sorted).
-    for (name, (s_dtype, s_shape)) in schema {
+    for (name, entry) in schema {
         let t = tensors.get(name).ok_or_else(|| {
             format!("schema requires tensor \"{name}\" but it is absent")
         })?;
-        if t.dtype != *s_dtype {
+        if t.dtype != entry.dtype {
             return Err(format!(
                 "tensor \"{name}\": schema dtype {} != document dtype {}",
-                s_dtype, t.dtype
+                entry.dtype, t.dtype
             ));
         }
-        if t.shape != *s_shape {
+        if t.shape != entry.shape {
             return Err(format!(
                 "tensor \"{name}\": schema shape {:?} != document shape {:?}",
-                s_shape, t.shape
+                entry.shape, t.shape
             ));
         }
         write_data_block(&mut w, t);

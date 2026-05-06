@@ -53,6 +53,7 @@ _DTYPE_BITS = {
     DTYPE.FP16: 16, DTYPE.BF16: 16,
     DTYPE.FP32: 32, DTYPE.FP64: 64,
     DTYPE.CFLOAT32: 64, DTYPE.CFLOAT64: 128,
+    DTYPE.QINT4: 4, DTYPE.QINT8: 8, DTYPE.QFP8: 8,
 }
 
 
@@ -154,6 +155,19 @@ def _materialize(dtype: int, raw_bytes: bytes, total: int) -> list:
     if dtype == DTYPE.CFLOAT64:
         # Interleaved (real, imag) f64 pairs; 2*total double values.
         return list(struct.unpack(f"<{2 * total}d", raw_bytes[:16 * total]))
+    if dtype == DTYPE.QINT8:
+        # Wire bytes are int8; schemaful decoder dequantizes on top.
+        return list(struct.unpack(f"<{total}b", raw_bytes[:total]))
+    if dtype == DTYPE.QINT4:
+        # Nibble-packed signed 4-bit (same layout as INT4).
+        out = []
+        for i in range(total):
+            nibble = (raw_bytes[i >> 1] >> 4) & 0xF if i % 2 == 0 else raw_bytes[i >> 1] & 0xF
+            out.append(nibble - 16 if nibble >= 8 else nibble)
+        return out
+    if dtype == DTYPE.QFP8:
+        # Raw uint8 fp8e4m3 bit patterns; schemaful decoder dequantizes on top.
+        return list(struct.unpack(f"<{total}B", raw_bytes[:total]))
     raise ValueError(f"unsupported dtype {dtype}; pure-Python decoder is partial")
 
 
@@ -218,14 +232,38 @@ def decode_document(data: bytes) -> dict:
     return {"tensors": tensors}
 
 
+# ── fp8e4m3 helpers (for QFP8 schemaful dequantize) ─────────────────
+
+def _fp8e4m3_to_f32(raw: int) -> float:
+    """fp8e4m3 → f32. Mirrors impl/rust/weavepack-tensor/src/fp8_dtype.rs fp8e4m3_to_f32."""
+    sign = (raw >> 7) & 1
+    exp = (raw >> 3) & 0xF
+    mant = raw & 0x7
+    if exp == 0xF and mant == 0x7:
+        return float("nan")
+    sign_factor = -1.0 if sign else 1.0
+    if exp == 0:
+        if mant == 0:
+            return -0.0 if sign else 0.0
+        return sign_factor * mant * (1.0 / 512.0)
+    return sign_factor * (1.0 + mant / 8.0) * (2.0 ** (exp - 7))
+
+
 # ── schemaful decoder ────────────────────────────────────────────────
+
+def _sorted_object(v: object) -> object:
+    """Recursively sort dict keys (mirrors JS sortedObject in schema.js)."""
+    if isinstance(v, list):
+        return [_sorted_object(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _sorted_object(v[k]) for k in sorted(v.keys())}
+    return v
+
 
 def _canonicalize_schema(schema: dict) -> str:
     """Stable JSON form of a schema (for hashing). Mirrors the JS
     canonicalizeSchema in profiles/tensor/schema.js."""
-    sorted_names = sorted(schema.keys())
-    canonical = {name: schema[name] for name in sorted_names}
-    return json.dumps(canonical, separators=(",", ":"))
+    return json.dumps(_sorted_object(schema), separators=(",", ":"))
 
 
 def schema_hash(schema: dict) -> bytes:
@@ -264,6 +302,16 @@ def decode_document_schemaful(data: bytes, schemas: dict) -> dict:
         for d in shape:
             total *= d
         data_list = _materialize(dtype, raw, total)
+        # Dequantize qint dtypes using schema scale/zero_point.
+        if dtype == DTYPE.QINT8 and "scale" in sdef:
+            scale, zp = sdef["scale"], sdef.get("zero_point", 0)
+            data_list = [(q - zp) * scale for q in data_list]
+        elif dtype == DTYPE.QINT4 and "scale" in sdef:
+            scale, zp = sdef["scale"], sdef.get("zero_point", 0)
+            data_list = [(q - zp) * scale for q in data_list]
+        elif dtype == DTYPE.QFP8 and "scale" in sdef:
+            scale = sdef["scale"]
+            data_list = [_fp8e4m3_to_f32(q) * scale for q in data_list]
         tensors[name] = {"dtype": dtype, "shape": shape, "data": data_list}
     return {"tensors": tensors}
 

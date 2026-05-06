@@ -24,8 +24,9 @@ use weavepack_tensor::{
     half_dtype::{f32_to_bf16_bits, f32_to_fp16_bits},
     schema::schema_hash_hex,
     types::{
-        DTYPE_BOOL, DTYPE_FP32, DTYPE_FP64, DTYPE_INT16, DTYPE_INT32, DTYPE_INT64, DTYPE_INT8,
-        DTYPE_UINT16, DTYPE_UINT32, DTYPE_UINT64, DTYPE_UINT8,
+        SchemaEntry, DTYPE_BOOL, DTYPE_FP32, DTYPE_FP64, DTYPE_INT16, DTYPE_INT32, DTYPE_INT64,
+        DTYPE_INT8, DTYPE_QINT4, DTYPE_QINT8, DTYPE_QFP8, DTYPE_UINT16, DTYPE_UINT32,
+        DTYPE_UINT64, DTYPE_UINT8,
     },
     TensorData,
 };
@@ -289,9 +290,9 @@ fn to_btree(v: &[(String, TensorData)]) -> BTreeMap<String, TensorData> {
     v.iter().cloned().collect()
 }
 
-/// Parse a schema object `{ "name": { "dtype": N, "shape": […] }, … }`.
+/// Parse a schema object `{ "name": { "dtype": N, "shape": […], "scale"?: F, "zero_point"?: Z } }`.
 /// Returns a BTreeMap so keys are in alphabetical order (as required by the spec).
-fn parse_schema(obj: &Value) -> Result<BTreeMap<String, (u8, Vec<u64>)>, String> {
+fn parse_schema(obj: &Value) -> Result<BTreeMap<String, SchemaEntry>, String> {
     let map = obj.as_object().ok_or("schema is not an object")?;
     let mut schema = BTreeMap::new();
     for (name, tv) in map {
@@ -302,9 +303,45 @@ fn parse_schema(obj: &Value) -> Result<BTreeMap<String, (u8, Vec<u64>)>, String>
             .iter()
             .map(|v| v.as_u64().ok_or("schema shape dim not u64"))
             .collect::<Result<_, _>>()?;
-        schema.insert(name.clone(), (dtype, shape));
+        let scale = tv.get("scale").and_then(|v| v.as_f64());
+        let zero_point = tv.get("zero_point").and_then(|v| v.as_i64());
+        schema.insert(name.clone(), SchemaEntry { dtype, shape, scale, zero_point });
     }
     Ok(schema)
+}
+
+/// Quantize f32 values (read from a TensorData with fp32-encoded data) to
+/// qint wire bytes using schema scale and zero_point.  Returns raw wire bytes.
+fn quantize_f32_to_qint(
+    dtype: u8,
+    data_f32: &[f32],
+    scale: f64,
+    zero_point: i64,
+) -> Vec<u8> {
+    let scale = scale as f32;
+    let zp = zero_point as i32;
+    match dtype {
+        DTYPE_QINT8 => {
+            data_f32.iter().map(|&f| {
+                let q = (f / scale + zp as f32).round() as i32;
+                q.clamp(-128, 127) as i8 as u8
+            }).collect()
+        }
+        DTYPE_QINT4 => {
+            let total = data_f32.len();
+            let mut out = vec![0u8; (total + 1) / 2];
+            for (i, &f) in data_f32.iter().enumerate() {
+                let q = (f / scale + zp as f32).round() as i32;
+                let nibble = (q.clamp(-8, 7) as i8 as u8) & 0x0F;
+                if i % 2 == 0 { out[i / 2] |= nibble << 4; } else { out[i / 2] |= nibble; }
+            }
+            out
+        }
+        DTYPE_QFP8 => {
+            data_f32.iter().map(|&f| f32_to_fp8e4m3(f / scale)).collect()
+        }
+        _ => unreachable!("quantize_f32_to_qint called with non-qint dtype"),
+    }
 }
 
 /// Structural tensor equality (order-independent BTreeMap comparison).
@@ -390,10 +427,7 @@ impl Runner {
         let name = v["name"].as_str().unwrap_or("?");
         let full = format!("{label} :: {name}");
 
-        let doc = match parse_tensor_map(&v["input"]["tensors"]) {
-            Ok(d) => d,
-            Err(e) => return self.err(&full, &format!("parse tensor error: {e}")),
-        };
+        // Parse schema first so we can use scale/zero_point for qint tensors.
         let schema = match parse_schema(&v["schema"]) {
             Ok(s) => s,
             Err(e) => return self.err(&full, &format!("parse schema error: {e}")),
@@ -418,8 +452,53 @@ impl Runner {
             );
         }
 
+        // Build doc_map: for qint tensors, pre-quantize f32 input → wire bytes
+        // using schema scale/zero_point. For non-qint tensors, use parse_tensor_map.
+        let input_tensors = match v["input"]["tensors"].as_object() {
+            Some(o) => o,
+            None => return self.err(&full, "input.tensors is not an object"),
+        };
+        let mut doc_map: BTreeMap<String, TensorData> = BTreeMap::new();
+        for (tname, tv) in input_tensors {
+            let entry = match schema.get(tname) {
+                Some(e) => e,
+                None => return self.err(&full, &format!("tensor {tname:?} not in schema")),
+            };
+            let shape: Vec<u64> = match tv["shape"].as_array() {
+                Some(a) => match a.iter().map(|x| x.as_u64().ok_or("dim")).collect::<Result<_,_>>() {
+                    Ok(s) => s,
+                    Err(_) => return self.err(&full, "shape dim not u64"),
+                },
+                None => return self.err(&full, "tensor shape missing"),
+            };
+            let data_arr = match tv["data"].as_array() {
+                Some(a) => a,
+                None => return self.err(&full, "tensor data missing"),
+            };
+            let dtype = entry.dtype;
+            // Qint dtypes: input is f32 values that need quantization.
+            let wire_bytes = if (dtype == DTYPE_QINT8 || dtype == DTYPE_QINT4 || dtype == DTYPE_QFP8)
+                && entry.scale.is_some()
+            {
+                let scale = entry.scale.unwrap();
+                let zp = entry.zero_point.unwrap_or(0);
+                let f32s: Vec<f32> = match data_arr.iter()
+                    .map(|x| x.as_f64().ok_or("qint element not f64").map(|f| f as f32))
+                    .collect::<Result<_, _>>() {
+                    Ok(v) => v,
+                    Err(e) => return self.err(&full, &format!("qint data parse: {e}")),
+                };
+                quantize_f32_to_qint(dtype, &f32s, scale, zp)
+            } else {
+                match json_data_to_bytes(dtype, data_arr) {
+                    Ok(b) => b,
+                    Err(e) => return self.err(&full, &format!("parse tensor error: {e}")),
+                }
+            };
+            doc_map.insert(tname.clone(), TensorData { dtype, shape, data: wire_bytes });
+        }
+
         // Encode schemaful (schema keys are sorted by BTreeMap) and compare.
-        let doc_map = to_btree(&doc);
         let encoded = match encode_document_schemaful(&doc_map, &schema) {
             Ok(b) => b,
             Err(e) => return self.err(&full, &format!("encode error: {e}")),
@@ -432,7 +511,7 @@ impl Runner {
             );
         }
 
-        // Round-trip: decode schemaful.
+        // Round-trip: decode schemaful and compare raw wire bytes.
         let mut registry = BTreeMap::new();
         registry.insert(computed_hash, schema.clone());
         match decode_document_schemaful(&encoded, &registry) {

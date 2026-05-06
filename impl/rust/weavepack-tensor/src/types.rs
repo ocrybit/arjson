@@ -63,6 +63,20 @@ pub fn dtype_bits_per_elem(dtype: u8) -> Option<u32> {
     }
 }
 
+/// Schema entry for one tensor in a schemaful document.
+///
+/// dtype and shape are always present.  scale and zero_point are present only
+/// for quantized dtypes (QINT8, QINT4, QFP8) and determine the quantization
+/// parameters.  The canonical hash form includes them when present, in
+/// alphabetical key order (dtype < scale < shape < zero_point).
+#[derive(Debug, Clone)]
+pub struct SchemaEntry {
+    pub dtype: u8,
+    pub shape: Vec<u64>,
+    pub scale: Option<f64>,
+    pub zero_point: Option<i64>,
+}
+
 /// Data block size in bytes for a tensor with given dtype and shape.
 pub fn data_bytes(dtype: u8, shape: &[u64]) -> u64 {
     let bpe = dtype_bits_per_elem(dtype).unwrap_or(0) as u64;

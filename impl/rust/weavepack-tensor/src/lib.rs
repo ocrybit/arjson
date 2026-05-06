@@ -18,6 +18,8 @@ pub mod types;
 /// a separate dependency on the core crate.
 pub use weavepack_core::chain;
 
+pub use types::SchemaEntry;
+
 /// A single tensor entry: dtype code, shape, and raw little-endian data bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TensorData {

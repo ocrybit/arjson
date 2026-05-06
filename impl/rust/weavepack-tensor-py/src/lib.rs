@@ -12,7 +12,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
 use std::collections::BTreeMap;
-use weavepack_tensor::TensorData;
+use weavepack_tensor::{SchemaEntry, TensorData};
 
 // ── conversion helpers ────────────────────────────────────────────────────────
 
@@ -59,16 +59,30 @@ fn tensors_to_py<'py>(
     Ok(list)
 }
 
-fn py_to_schema(obj: &Bound<'_, PyDict>) -> PyResult<BTreeMap<String, (u8, Vec<u64>)>> {
+fn py_to_schema(obj: &Bound<'_, PyDict>) -> PyResult<BTreeMap<String, SchemaEntry>> {
     let mut map = BTreeMap::new();
     for (k, v) in obj.iter() {
         let name: String = k.extract()?;
-        let tuple: &Bound<'_, PyTuple> = v.cast().map_err(|_| {
-            PyValueError::new_err("schema values must be (dtype: int, shape: list[int]) tuples")
+        let entry_dict: &Bound<'_, PyDict> = v.downcast().map_err(|_| {
+            PyValueError::new_err("schema values must be dicts with 'dtype' and 'shape' keys")
         })?;
-        let dtype: u8 = tuple.get_item(0)?.extract()?;
-        let shape: Vec<u64> = tuple.get_item(1)?.extract()?;
-        map.insert(name, (dtype, shape));
+        let dtype: u8 = entry_dict
+            .get_item("dtype")?
+            .ok_or_else(|| PyValueError::new_err("schema entry missing 'dtype'"))?
+            .extract()?;
+        let shape: Vec<u64> = entry_dict
+            .get_item("shape")?
+            .ok_or_else(|| PyValueError::new_err("schema entry missing 'shape'"))?
+            .extract()?;
+        let scale: Option<f64> = entry_dict
+            .get_item("scale")?
+            .map(|v| v.extract::<f64>())
+            .transpose()?;
+        let zero_point: Option<i64> = entry_dict
+            .get_item("zero_point")?
+            .map(|v| v.extract::<i64>())
+            .transpose()?;
+        map.insert(name, SchemaEntry { dtype, shape, scale, zero_point });
     }
     Ok(map)
 }
@@ -132,7 +146,7 @@ fn apply_delta<'py>(
 
 /// Compute the 32-byte SHA-256 schema hash.
 ///
-/// schema: dict mapping name: str -> (dtype: int, shape: list[int])
+/// schema: dict mapping name: str -> {dtype: int, shape: list[int], scale?: float, zero_point?: int}
 /// Returns bytes (32 bytes).
 #[pyfunction]
 fn schema_hash<'py>(py: Python<'py>, schema: &Bound<'py, PyDict>) -> PyResult<Bound<'py, PyBytes>> {
@@ -143,7 +157,7 @@ fn schema_hash<'py>(py: Python<'py>, schema: &Bound<'py, PyDict>) -> PyResult<Bo
 
 /// Compute the hex-encoded SHA-256 schema hash.
 ///
-/// schema: dict mapping name: str -> (dtype: int, shape: list[int])
+/// schema: dict mapping name: str -> {dtype: int, shape: list[int], scale?: float, zero_point?: int}
 /// Returns str (64 hex chars).
 #[pyfunction]
 fn schema_hash_hex(schema: &Bound<'_, PyDict>) -> PyResult<String> {
