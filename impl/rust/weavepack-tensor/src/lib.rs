@@ -19,6 +19,7 @@ pub mod types;
 pub use weavepack_core::chain;
 
 pub use types::SchemaEntry;
+pub use decode::{iterate_tensors_schemaful, SchemafulIter};
 
 /// A single tensor entry: dtype code, shape, and raw little-endian data bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]

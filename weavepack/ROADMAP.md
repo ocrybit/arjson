@@ -503,13 +503,17 @@ profiles. The honest commitment is to that gate.
   7 inline unit tests (sorted-names, first/middle/last tensor, unknown-name
   error, single-tensor doc, mixed dtypes). 25/25 Rust unit tests pass.
 
-- A.5 streaming iterator: ✓ COMPLETE — JS only (no wire format change).
-  New generator `iterateTensorsSchemaful(bytes, registry)` yields
+- A.5 streaming iterator: ✓ COMPLETE — JS + Rust (no wire format change).
+  JS: generator `iterateTensorsSchemaful(bytes, registry)` yields
   `{ name, dtype, shape, data }` in canonical order with a single advancing
   cursor — no per-tensor offset arithmetic or seeking. Lazy: early break
-  does not decode remaining tensors. Values are byte-exact vs full-decode
-  and vs A.4 skip-load cross-check. 9 unit tests in tensor-stream.test.js.
-  SDK: 2277 tests pass (was 2268).
+  does not decode remaining tensors. 9 unit tests in tensor-stream.test.js.
+  Rust: `SchemafulIter<'bytes, 'reg>` struct implementing `Iterator` with
+  `iterate_tensors_schemaful(bytes, registry)` constructor; exported from
+  lib.rs. 7 unit tests (canonical order, full-decode parity, single-tensor
+  doc, mixed dtypes, early stop, A.4 cross-check, schemaless-rejection).
+  32/32 Rust tensor unit tests pass; 2277/2277 JS SDK tests pass;
+  190/190 conformance vectors pass.
 
 - A.1 fp16/bf16: ✓ RFC 0001 Accepted (2026-05-06). JS + Rust + Python pass
   20/20 vectors byte-exact. Open questions resolved: any-NaN, emit-per-IEEE
