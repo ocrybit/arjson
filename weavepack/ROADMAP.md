@@ -492,18 +492,20 @@ profiles. The honest commitment is to that gate.
     claims, registration process, checklist; repo has issues disabled so
     outreach is via the guide doc itself and external channels)
 
-- A.4 sub-tensor random access (skip-load): ✓ COMPLETE — JS + Rust (no wire
-  format change). The schema gives each tensor's exact `dataBytes(dtype, shape)`,
-  so the decoder computes bit-offsets arithmetically and seeks to tensor N
-  without parsing tensors 0..N-1. JS exports: `listTensorsSchemaful` (names
-  only) and `decodeTensorSchemaful` (single-tensor random access, including
-  QINT8/QINT4/QFP8 dequantization). 11 JS unit tests in tensor-skip-load.test.js.
-  Rust: `list_tensors_schemaful` and `decode_tensor_schemaful` in decode.rs;
-  shared `parse_schemaful_header` helper refactors decode_document_schemaful;
-  7 inline unit tests (sorted-names, first/middle/last tensor, unknown-name
-  error, single-tensor doc, mixed dtypes). 25/25 Rust unit tests pass.
+- A.4 sub-tensor random access (skip-load): ✓ COMPLETE — JS + Rust + Python
+  (no wire format change). The schema gives each tensor's exact
+  `dataBytes(dtype, shape)`, so the decoder computes bit-offsets arithmetically
+  and seeks to tensor N without parsing tensors 0..N-1.
+  JS: `listTensorsSchemaful` + `decodeTensorSchemaful`; 11 unit tests.
+  Rust: `list_tensors_schemaful` + `decode_tensor_schemaful` in decode.rs;
+  shared `parse_schemaful_header` helper; 7 inline unit tests.
+  Python: `list_tensors_schemaful` + `decode_tensor_schemaful` in
+  impl/python/weavepack_tensor/decoder.py; `_parse_schemaful_header` helper;
+  11 unit tests in impl/python/test_skip_load.py (first/middle/last tensor,
+  parity with full decode, unknown name error, qint8 dequantization,
+  byte-offset cross-check, 5-tensor doc, schemaless error, unknown schema error).
 
-- A.5 streaming iterator: ✓ COMPLETE — JS + Rust (no wire format change).
+- A.5 streaming iterator: ✓ COMPLETE — JS + Rust + Python (no wire format change).
   JS: generator `iterateTensorsSchemaful(bytes, registry)` yields
   `{ name, dtype, shape, data }` in canonical order with a single advancing
   cursor — no per-tensor offset arithmetic or seeking. Lazy: early break
@@ -512,7 +514,13 @@ profiles. The honest commitment is to that gate.
   `iterate_tensors_schemaful(bytes, registry)` constructor; exported from
   lib.rs. 7 unit tests (canonical order, full-decode parity, single-tensor
   doc, mixed dtypes, early stop, A.4 cross-check, schemaless-rejection).
-  32/32 Rust tensor unit tests pass; 2277/2277 JS SDK tests pass;
+  Python: `iterate_tensors_schemaful` generator in
+  impl/python/weavepack_tensor/decoder.py; shares `_parse_schemaful_header`
+  and `_dequantize` helpers with A.4; single advancing `_BitReader` cursor;
+  9 unit tests in impl/python/test_skip_load.py (canonical order, full-decode
+  parity, single-tensor doc, mixed dtypes, early stop, A.4 cross-check,
+  qint8 dequantization, schemaless-rejection). 20/20 Python unit tests pass;
+  97/97 Python conformance vectors pass; 2277/2277 JS SDK tests pass;
   190/190 conformance vectors pass.
 
 - A.1 fp16/bf16: ✓ RFC 0001 Accepted (2026-05-06). JS + Rust + Python pass

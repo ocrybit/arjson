@@ -14,6 +14,11 @@ fp16/bf16 round-trip as raw u16 bits with helpers
 `fp16_bits_to_f32` / `bf16_bits_to_f32` for consumer-side
 conversion (no numpy/ml_dtypes dependency).
 
+A.4 skip-load: `list_tensors_schemaful`, `decode_tensor_schemaful` — seek
+directly to a named tensor without decoding preceding tensors.
+A.5 streaming: `iterate_tensors_schemaful` — generator yielding
+``{name, dtype, shape, data}`` in canonical order with a single cursor.
+
 Conformance: 97/97 tensor corpus vectors pass byte-exact against
 the JS reference.
 """
@@ -21,6 +26,9 @@ the JS reference.
 from .decoder import (
     decode_document,
     decode_document_schemaful,
+    list_tensors_schemaful,
+    decode_tensor_schemaful,
+    iterate_tensors_schemaful,
     apply_delta,
     schema_hash,
     schema_hash_hex,
@@ -42,6 +50,9 @@ from .chain import (
 __all__ = [
     "decode_document",
     "decode_document_schemaful",
+    "list_tensors_schemaful",
+    "decode_tensor_schemaful",
+    "iterate_tensors_schemaful",
     "encode_document",
     "encode_document_schemaful",
     "apply_delta",

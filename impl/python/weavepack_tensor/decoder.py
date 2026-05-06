@@ -275,8 +275,8 @@ def schema_hash_hex(schema: dict) -> str:
     return schema_hash(schema).hex()
 
 
-def decode_document_schemaful(data: bytes, schemas: dict) -> dict:
-    """Decode a schemaful payload using a hex-keyed schema registry."""
+def _parse_schemaful_header(data: bytes, schemas: dict):
+    """Parse discriminant + 32-byte hash. Returns (sorted_names, schema, bit_pos)."""
     r = _BitReader(data)
     type_bit = r.read_bits(1)
     if type_bit != 0:
@@ -284,13 +284,33 @@ def decode_document_schemaful(data: bytes, schemas: dict) -> dict:
     has_schema = r.read_bits(1)
     if has_schema != 1:
         raise ValueError("payload is schemaless; use decode_document()")
-    # 32 bytes hash.
     hash_bytes = bytes(r.read_byte() for _ in range(32))
     hash_hex = hash_bytes.hex()
     if hash_hex not in schemas:
         raise KeyError(f"schema {hash_hex} not in registry")
     schema = schemas[hash_hex]
-    sorted_names = sorted(schema.keys())
+    return sorted(schema.keys()), schema, r.bit_pos
+
+
+def _dequantize(dtype: int, sdef: dict, data_list: list) -> list:
+    """Apply schema-defined dequantization (qint8/qint4/qfp8 only)."""
+    if dtype == DTYPE.QINT8 and "scale" in sdef:
+        scale, zp = sdef["scale"], sdef.get("zero_point", 0)
+        return [(q - zp) * scale for q in data_list]
+    if dtype == DTYPE.QINT4 and "scale" in sdef:
+        scale, zp = sdef["scale"], sdef.get("zero_point", 0)
+        return [(q - zp) * scale for q in data_list]
+    if dtype == DTYPE.QFP8 and "scale" in sdef:
+        scale = sdef["scale"]
+        return [_fp8e4m3_to_f32(q) * scale for q in data_list]
+    return data_list
+
+
+def decode_document_schemaful(data: bytes, schemas: dict) -> dict:
+    """Decode a schemaful payload using a hex-keyed schema registry."""
+    sorted_names, schema, header_bit_pos = _parse_schemaful_header(data, schemas)
+    r = _BitReader(data)
+    r.bit_pos = header_bit_pos
     tensors = {}
     for name in sorted_names:
         sdef = schema[name]
@@ -301,19 +321,70 @@ def decode_document_schemaful(data: bytes, schemas: dict) -> dict:
         total = 1
         for d in shape:
             total *= d
-        data_list = _materialize(dtype, raw, total)
-        # Dequantize qint dtypes using schema scale/zero_point.
-        if dtype == DTYPE.QINT8 and "scale" in sdef:
-            scale, zp = sdef["scale"], sdef.get("zero_point", 0)
-            data_list = [(q - zp) * scale for q in data_list]
-        elif dtype == DTYPE.QINT4 and "scale" in sdef:
-            scale, zp = sdef["scale"], sdef.get("zero_point", 0)
-            data_list = [(q - zp) * scale for q in data_list]
-        elif dtype == DTYPE.QFP8 and "scale" in sdef:
-            scale = sdef["scale"]
-            data_list = [_fp8e4m3_to_f32(q) * scale for q in data_list]
+        data_list = _dequantize(dtype, sdef, _materialize(dtype, raw, total))
         tensors[name] = {"dtype": dtype, "shape": shape, "data": data_list}
     return {"tensors": tensors}
+
+
+def list_tensors_schemaful(data: bytes, schemas: dict) -> list:
+    """Return tensor names in canonical (sorted) order without decoding data."""
+    sorted_names, _, _ = _parse_schemaful_header(data, schemas)
+    return sorted_names
+
+
+def decode_tensor_schemaful(data: bytes, name: str, schemas: dict) -> dict:
+    """Decode a single named tensor from a schemaful payload (skip-load).
+
+    Computes the bit-offset to the target tensor arithmetically from the
+    schema, then reads only that tensor's data block without decoding the
+    preceding tensors. O(n) offset arithmetic, O(1) data reads.
+    """
+    sorted_names, schema, header_bit_pos = _parse_schemaful_header(data, schemas)
+    if name not in schema:
+        raise KeyError(f"tensor {name!r} not in schema")
+    skip_bits = 0
+    for n in sorted_names:
+        if n == name:
+            break
+        sdef = schema[n]
+        skip_bits += _data_bytes(sdef["dtype"], sdef["shape"]) * 8
+    r = _BitReader(data)
+    r.bit_pos = header_bit_pos + skip_bits
+    sdef = schema[name]
+    dtype = sdef["dtype"]
+    shape = sdef["shape"]
+    nbytes = _data_bytes(dtype, shape)
+    raw = bytes(r.read_byte() for _ in range(nbytes))
+    total = 1
+    for d in shape:
+        total *= d
+    data_list = _dequantize(dtype, sdef, _materialize(dtype, raw, total))
+    return {"dtype": dtype, "shape": shape, "data": data_list}
+
+
+def iterate_tensors_schemaful(data: bytes, schemas: dict):
+    """Yield tensors one at a time in canonical (sorted) name order.
+
+    Maintains a single advancing cursor — no per-tensor seek or offset
+    arithmetic. Each yielded item is
+    ``{'name': str, 'dtype': int, 'shape': list, 'data': list}``.
+    Breaking out of the loop early does not raise and does not read
+    remaining tensors.
+    """
+    sorted_names, schema, header_bit_pos = _parse_schemaful_header(data, schemas)
+    r = _BitReader(data)
+    r.bit_pos = header_bit_pos
+    for name in sorted_names:
+        sdef = schema[name]
+        dtype = sdef["dtype"]
+        shape = sdef["shape"]
+        nbytes = _data_bytes(dtype, shape)
+        raw = bytes(r.read_byte() for _ in range(nbytes))
+        total = 1
+        for d in shape:
+            total *= d
+        data_list = _dequantize(dtype, sdef, _materialize(dtype, raw, total))
+        yield {"name": name, "dtype": dtype, "shape": shape, "data": data_list}
 
 
 # ── fp16/bf16 helpers (no numpy required) ───────────────────────────
