@@ -496,6 +496,15 @@ Next action: Accept RFC 0001 fp16/bf16 (2-week discussion period ends 2026-05-17
 all three impls pass 20/20 vectors; no blocking issues). After acceptance: update
 RFC status to Accepted and mark A.1 fp16/bf16 complete in V0.2-PLANNING.md.
 
+- D.3 Python JSON structured-mode encoder: ✓ COMPLETE — 68/68 encoder vectors
+  byte-exact (was 37/68; 31 structured-mode vectors now tested and passing).
+  Full ARTable encoder ported to Python (impl/python/weavepack_json/encoder.py):
+  _StructEnc class with column buffers (_ColBuf), vlink/klink diff+RLE,
+  vtypes RLE, nums diff+RLE, flag-column prefix scheme (all-zero/all-one/mixed),
+  strmap dedup for keys and values. encode() now routes non-empty arrays/objects
+  to _encode_structured() instead of raising NotImplementedError. Python JSON
+  conformance: 93/93 decode + 68/68 encode (full Level 3 parity with Rust impl).
+
 B.2 (array-of-objects per-element diff) architectural finding (2026-05-06):
 The ARTable delta encoder does not support add/remove of keys on objects that
 are nested inside arrays. Only replacements at already-existing leaf paths
