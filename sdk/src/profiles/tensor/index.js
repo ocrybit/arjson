@@ -459,6 +459,115 @@ export function decodeDocumentSchemaful(bytes, registry) {
   return { tensors }
 }
 
+// ── schemaful sub-tensor random access (A.4) ──────────────────────────────
+//
+// The schema gives us each tensor's exact byte count (dataBytes(dtype, shape)),
+// so we can compute bit-offsets arithmetically and skip directly to tensor N
+// without parsing tensors 0..N-1.
+//
+// Wire layout for schemaful documents (bit positions):
+//   0       : doc flag (0)
+//   1       : schema present (1)
+//   2–257   : 256-bit schema hash
+//   258+    : tensor data blocks in canonical name order, each
+//             dataBytes(dtype, shape) * 8 bits with no padding between tensors.
+//
+// Since dataBytes always returns whole bytes, each data block consumes
+// a whole number of bits; bit position stays consistent across tensors.
+
+// Shared: reads the 2-bit doc discriminant + 256-bit schema hash,
+// resolves the schema from the registry, returns state for callers.
+function parseSchemafulHeader(u8, registry) {
+  let bitPos = 0
+  function readBits(n) {
+    let val = 0
+    for (let i = 0; i < n; i++) {
+      val = (val << 1) | ((u8[bitPos >> 3] >> (7 - (bitPos & 7))) & 1)
+      bitPos++
+    }
+    return val
+  }
+  const type = readBits(1)
+  if (type !== 0) throw new Error("expected document (bit 0 = 0), got delta")
+  const hasSchema = readBits(1)
+  if (hasSchema !== 1) throw new Error("payload is schemaless; use decodeDocument() instead")
+  const hashBytes = new Uint8Array(32)
+  for (let i = 0; i < 32; i++) hashBytes[i] = readBits(8)
+  const hex = Array.from(hashBytes, b => b.toString(16).padStart(2, "0")).join("")
+  const schema = registry.get(hex)
+  if (!schema) throw new Error(`unknown schema-id ${hex}; register the schema before decoding`)
+  const actualHex = schemaHashHex(schema)
+  if (actualHex !== hex) throw new Error(`schema registry entry for ${hex} hashes to ${actualHex}; registry is corrupt`)
+  return { bitPos, schema, sortedNames: Object.keys(schema).sort() }
+}
+
+// listTensorsSchemaful(bytes, registry) → string[]
+// Returns tensor names in canonical (sorted) order without decoding any data.
+export function listTensorsSchemaful(bytes, registry) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  const { sortedNames } = parseSchemafulHeader(u8, registry)
+  return sortedNames
+}
+
+// decodeTensorSchemaful(bytes, name, registry) → { dtype, shape, data }
+// Decodes exactly one named tensor from a schemaful document.
+// Seeks past preceding tensors using the schema's byte-count arithmetic;
+// no tensor data before the target is read from the buffer.
+export function decodeTensorSchemaful(bytes, name, registry) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  const { bitPos: headerEnd, schema, sortedNames } = parseSchemafulHeader(u8, registry)
+
+  const targetIdx = sortedNames.indexOf(name)
+  if (targetIdx < 0) {
+    throw new Error(`tensor "${name}" not found in schema; available: ${sortedNames.join(", ")}`)
+  }
+
+  // Compute bit position of the target tensor's data block.
+  let bitPos = headerEnd
+  for (let i = 0; i < targetIdx; i++) {
+    const sDef = schema[sortedNames[i]]
+    bitPos += dataBytes(sDef.dtype, sDef.shape) * 8
+  }
+
+  // Read target tensor data block.
+  function readBits(n) {
+    let val = 0
+    for (let i = 0; i < n; i++) {
+      val = (val << 1) | ((u8[bitPos >> 3] >> (7 - (bitPos & 7))) & 1)
+      bitPos++
+    }
+    return val
+  }
+
+  const sDef = schema[name]
+  const byteCount = dataBytes(sDef.dtype, sDef.shape)
+  const dataU8 = new Uint8Array(byteCount)
+  for (let i = 0; i < byteCount; i++) dataU8[i] = readBits(8)
+
+  let total = 1
+  for (const d of sDef.shape) total *= d
+  let data = materializeData(sDef.dtype, dataU8, total)
+
+  if (sDef.dtype === DTYPE.QINT8 && sDef.scale !== undefined) {
+    const scale = sDef.scale, zp = sDef.zero_point || 0
+    const f32 = new Float32Array(total)
+    for (let i = 0; i < total; i++) f32[i] = (data[i] - zp) * scale
+    data = f32
+  } else if (sDef.dtype === DTYPE.QINT4 && sDef.scale !== undefined) {
+    const scale = sDef.scale, zp = sDef.zero_point || 0
+    const f32 = new Float32Array(total)
+    for (let i = 0; i < total; i++) f32[i] = (data[i] - zp) * scale
+    data = f32
+  } else if (sDef.dtype === DTYPE.QFP8 && sDef.scale !== undefined) {
+    const scale = sDef.scale
+    const f32 = new Float32Array(total)
+    for (let i = 0; i < total; i++) f32[i] = fp8e4m3ToF32(data[i]) * scale
+    data = f32
+  }
+
+  return { dtype: sDef.dtype, shape: sDef.shape, data }
+}
+
 // ── delta encoding ────────────────────────────────────────────────────────
 //
 // Wire: [1][leb128-op-count][ops...]

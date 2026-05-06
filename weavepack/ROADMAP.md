@@ -492,6 +492,15 @@ profiles. The honest commitment is to that gate.
     claims, registration process, checklist; repo has issues disabled so
     outreach is via the guide doc itself and external channels)
 
+- A.4 sub-tensor random access (skip-load): ✓ COMPLETE — JS only (no wire
+  format change). The schema gives each tensor's exact `dataBytes(dtype, shape)`,
+  so the decoder computes bit-offsets arithmetically and seeks to tensor N
+  without parsing tensors 0..N-1. Two new exports in index.js:
+  `listTensorsSchemaful(bytes, registry)` (names only, no data decode) and
+  `decodeTensorSchemaful(bytes, name, registry)` (single-tensor random access,
+  including QINT8/QINT4/QFP8 dequantization). 11 unit tests in
+  tensor-skip-load.test.js. SDK: 2268 tests pass (was 2257).
+
 Next action: Accept RFC 0001 fp16/bf16 (2-week discussion period ends 2026-05-17;
 all three impls pass 20/20 vectors; no blocking issues). After acceptance: update
 RFC status to Accepted and mark A.1 fp16/bf16 complete in V0.2-PLANNING.md.
