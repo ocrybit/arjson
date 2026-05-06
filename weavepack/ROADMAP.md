@@ -493,8 +493,8 @@ profiles. The honest commitment is to that gate.
     outreach is via the guide doc itself and external channels)
 
 Next action: Advance RFC 0001 fp16/bf16 toward Accepted (2-week discussion period
-ends 2026-05-17); port qint4/qfp8 to Rust + Python; consider quant_change
-delta op.
+ends 2026-05-17); consider quant_change delta op; JP PyO3 schemaful
+encode/decode bindings (currently hash-only).
 
 V0.2 in-progress (incremental):
 - A.3 delta-from-prior: ✓ DONE. Decoder in JS, Rust, Python
@@ -523,15 +523,15 @@ V0.2 in-progress (incremental):
   cfloat32, cfloat64. Also fixed data_raw_bits decoder in Rust conformance
   binary (was hardcoded 2 bytes/element; fp8 needs 1 byte/element).
 
-- A.1 qint8/qint4/qfp8: ✓ COMPLETE (JS). Schemaful encode+decode for all
-  three quantized dtypes. qint8: q = clamp(round(f32/scale + zp), -128, 127).
-  qint4: q = clamp(round(f32/scale + zp), -8, 7); nibble-packed (same as int4).
-  qfp8: uses fp8e4m3 sub-format; f32/scale → fp8e4m3 encode → wire bits;
-  decode: fp8e4m3_decode(bits) * scale. 14 corpus vectors total in
-  schemas/qint.json (5 qint8 + 5 qint4 + 4 qfp8). 186/186 conformance.
-  Rust + Python unimplemented.
+- A.1 qint8/qint4/qfp8: ✓ COMPLETE (JS + Rust + Python). Schemaful
+  encode+decode for all three quantized dtypes in all three impls.
+  qint8: q = clamp(round(f32/scale + zp), -128, 127). qint4: nibble-packed.
+  qfp8: fp8e4m3 sub-format with scale factor. 14 corpus vectors in
+  schemas/qint.json (5 qint8 + 5 qint4 + 4 qfp8). 93/93 conformance in
+  Rust and Python (was 79/93). Schema hash fix: recursive key sort in Python
+  canonicalize_schema and Rust format_f64_json to match JS JSON.stringify.
 
-Cross-language total: 499 vectors agree across JS / Rust / Python;
-  JS baseline now 177 tensor (+ 14 quant) + 93 JSON = 284.
-  (Rust: 79 tensor + 93 JSON = 172; Python: 79 tensor + 93 JSON = 172.
-  qint8/qint4/qfp8 are JS-only until Rust/Python implementations are ported.)
+Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 93 tensor
+  + 93 JSON = 186; Python 93 tensor + 93 JSON = 186. All qint vectors
+  now pass in Rust + Python (was 79 each; 14 new). Schema hash fix (recursive
+  key sort) and SchemaEntry type extension unlock full qint conformance.
