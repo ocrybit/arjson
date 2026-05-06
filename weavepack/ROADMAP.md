@@ -493,8 +493,7 @@ profiles. The honest commitment is to that gate.
     outreach is via the guide doc itself and external channels)
 
 Next action: Advance RFC 0001 fp16/bf16 toward Accepted (2-week discussion period
-ends 2026-05-17); implement quant_change delta op (spec'd in 04-deltas.md,
-code 5, last unimplemented tensor delta op).
+ends 2026-05-17); RFC acceptance will unblock fp16/bf16 encode+decode implementation.
 
 - PyO3 schemaful encode/decode bindings: ✓ DONE (see below).
 

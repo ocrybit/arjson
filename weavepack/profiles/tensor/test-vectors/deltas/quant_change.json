@@ -1,0 +1,62 @@
+[
+  {
+    "name": "quant_change qint8 scale only",
+    "description": "qint8 [4] re-quantized: scale 0.1→1.0, zero_point unchanged (0). Decoder reads new scale + zp + data block; replaces tensor.",
+    "initial": {
+      "tensors": {
+        "w": { "dtype": 29, "shape": [4], "data": [10, 20, 30, 40] }
+      }
+    },
+    "delta_bytes_hex": "80d1770000803f00050a0f1400",
+    "expected_final": {
+      "tensors": {
+        "w": { "dtype": 29, "shape": [4], "data": [5, 10, 15, 20] }
+      }
+    }
+  },
+  {
+    "name": "quant_change qint8 scale and zero_point",
+    "description": "qint8 [3] re-quantized: scale 0.5→0.25, zero_point 0→5. Negative data [-20,0,20] stays int8 range.",
+    "initial": {
+      "tensors": {
+        "z": { "dtype": 29, "shape": [3], "data": [-10, 0, 10] }
+      }
+    },
+    "delta_bytes_hex": "80d17a0000803e05ec001400",
+    "expected_final": {
+      "tensors": {
+        "z": { "dtype": 29, "shape": [3], "data": [-20, 0, 20] }
+      }
+    }
+  },
+  {
+    "name": "quant_change qfp8 scale (no zero_point field)",
+    "description": "qfp8 [4] re-quantized: scale 0.1→0.5. Wire carries no zero_point for qfp8; decoder must not read a zp byte.",
+    "initial": {
+      "tensors": {
+        "f": { "dtype": 30, "shape": [4], "data": [60, 64, 68, 72] }
+      }
+    },
+    "delta_bytes_hex": "80d1660000003f3c41454900",
+    "expected_final": {
+      "tensors": {
+        "f": { "dtype": 30, "shape": [4], "data": [60, 65, 69, 73] }
+      }
+    }
+  },
+  {
+    "name": "quant_change qint4 scale and negative zero_point",
+    "description": "qint4 [4] re-quantized: scale 0.1→0.2, zero_point 0→-1 (signed nibble on wire).",
+    "initial": {
+      "tensors": {
+        "q4": { "dtype": 28, "shape": [4], "data": [2, -3, 5, -7] }
+      }
+    },
+    "delta_bytes_hex": "80d27134cdcc4c3e0f1e3a00",
+    "expected_final": {
+      "tensors": {
+        "q4": { "dtype": 28, "shape": [4], "data": [1, -2, 3, -6] }
+      }
+    }
+  }
+]

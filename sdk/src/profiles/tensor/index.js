@@ -555,6 +555,18 @@ function computeDelta(baseDoc, newDoc) {
       ops.push({ op: OP.TENSOR_ADD, name, ...newT })
       continue
     }
+    // quant_change: same dtype/shape, quantized dtype, different scale or zero_point.
+    if (baseT.dtype === DTYPE.QINT8 || baseT.dtype === DTYPE.QINT4 || baseT.dtype === DTYPE.QFP8) {
+      const scaleChanged = (baseT.scale || 0) !== (newT.scale || 0)
+      const zpChanged    = (baseT.zero_point || 0) !== (newT.zero_point || 0)
+      if (scaleChanged || zpChanged) {
+        ops.push({
+          op: OP.QUANT_CHANGE, name, dtype: newT.dtype, shape: newT.shape, data: newT.data,
+          scale: newT.scale || 0, zero_point: newT.zero_point || 0,
+        })
+        continue
+      }
+    }
     const baseBytes = packedWireBytes(baseT)
     const newBytes  = packedWireBytes(newT)
     const expected = dataBytes(baseT.dtype, baseT.shape)
@@ -724,8 +736,23 @@ export function encodeDelta(baseDoc, newDoc) {
         regionU8 = new Uint8Array(op.regionData.buffer, op.regionData.byteOffset, vb * regionElements)
       }
       for (let i = 0; i < regionU8.length; i++) u.add_dc(regionU8[i], 8)
+    } else if (op.op === OP.QUANT_CHANGE) {
+      emitName(u, op.name)
+      // new scale: fp32 little-endian (4 bytes).
+      const scaleBuf = new ArrayBuffer(4)
+      new DataView(scaleBuf).setFloat32(0, op.scale, true)
+      const scaleU8 = new Uint8Array(scaleBuf)
+      for (let i = 0; i < 4; i++) u.add_dc(scaleU8[i], 8)
+      // new zero_point: dtype-dependent.
+      if (op.dtype === DTYPE.QINT8) {
+        u.add_dc(op.zero_point & 0xFF, 8)  // signed int8 stored as unsigned byte
+      } else if (op.dtype === DTYPE.QINT4) {
+        u.add_dc(op.zero_point & 0xF, 8)   // signed int4 in low nibble of one byte
+      }
+      // QFP8: no zero_point field.
+      emitDataBlock(u, op)
     } else {
-      throw new Error(`unsupported op code ${op.op} (quant_change not in v0.1)`)
+      throw new Error(`unsupported op code ${op.op}`)
     }
   }
 
@@ -874,8 +901,41 @@ export function applyDelta(baseDoc, deltaBytes) {
       recur(0)
       tensors[name] = { dtype, shape, data: newData }
 
+    } else if (opCode === OP.QUANT_CHANGE) {
+      const nameLen = readShort()
+      const nb = new Uint8Array(nameLen)
+      for (let j = 0; j < nameLen; j++) nb[j] = readBits(8)
+      const name = new TextDecoder().decode(nb)
+      if (!(name in tensors)) throw new Error(`quant_change on unknown tensor '${name}'`)
+      const baseT = tensors[name]
+      // Read new scale (fp32 LE, 4 bytes).
+      const scaleBytes = new Uint8Array(4)
+      for (let i = 0; i < 4; i++) scaleBytes[i] = readBits(8)
+      const newScale = new DataView(scaleBytes.buffer).getFloat32(0, true)
+      // Read new zero_point (dtype-dependent).
+      let newZeroPoint = 0
+      if (baseT.dtype === DTYPE.QINT8) {
+        const zpByte = readBits(8)
+        newZeroPoint = zpByte >= 128 ? zpByte - 256 : zpByte  // sign-extend int8
+      } else if (baseT.dtype === DTYPE.QINT4) {
+        const zpNibble = readBits(8) & 0xF
+        newZeroPoint = zpNibble >= 8 ? zpNibble - 16 : zpNibble  // sign-extend int4
+      }
+      // QFP8: zero_point is always 0 (no field on wire).
+      // Read new data block.
+      const bc = dataBytes(baseT.dtype, baseT.shape)
+      const dataU8 = new Uint8Array(bc)
+      for (let j = 0; j < bc; j++) dataU8[j] = readBits(8)
+      let total = 1
+      for (const d of baseT.shape) total *= d
+      tensors[name] = {
+        dtype: baseT.dtype, shape: baseT.shape,
+        data: materializeData(baseT.dtype, dataU8, total),
+        scale: newScale, zero_point: newZeroPoint,
+      }
+
     } else {
-      throw new Error(`unsupported op code ${opCode} (quant_change not in v0.1)`)
+      throw new Error(`unsupported op code ${opCode}`)
     }
   }
 

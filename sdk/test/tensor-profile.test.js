@@ -972,3 +972,91 @@ describe("weavepack-tensor cfloat32 / cfloat64 round-trip", () => {
       "cfloat32 delta round-trip mismatch")
   })
 })
+
+// ── quant_change delta op (V0.2 A.2) ─────────────────────────────────────
+
+describe("weavepack-tensor quant_change delta op", () => {
+  function toHex(bytes) {
+    return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("")
+  }
+
+  it("qint8: scale change emits quant_change op", () => {
+    const base = { tensors: { w: { dtype: DTYPE.QINT8, shape: [4], data: new Int8Array([10, 20, 30, 40]), scale: 0.1, zero_point: 0 } } }
+    const upd  = { tensors: { w: { dtype: DTYPE.QINT8, shape: [4], data: new Int8Array([5, 10, 15, 20]),  scale: 1.0, zero_point: 0 } } }
+    const delta = encodeDelta(base, upd)
+    assert.ok(delta !== null, "encodeDelta should produce a delta")
+    // Verify the op code embedded in the delta: bit 0 = 1 (delta), then leb128(1) op count,
+    // then 3-bit op code = 5 (QUANT_CHANGE = 0b101).
+    // byte 0: 1_0000000 → bit0=1 (delta flag)
+    assert.equal(delta[0] >> 7, 1, "bit 0 of first byte must be 1 (delta flag)")
+    // Round-trip via applyDelta.
+    const result = applyDelta(base, delta)
+    assert.deepEqual(Array.from(result.tensors.w.data), [5, 10, 15, 20])
+    assert.ok(Math.abs(result.tensors.w.scale - 1.0) < 1e-6)
+    assert.equal(result.tensors.w.zero_point, 0)
+  })
+
+  it("qint8: scale + zero_point change round-trips", () => {
+    const base = { tensors: { z: { dtype: DTYPE.QINT8, shape: [3], data: new Int8Array([-10, 0, 10]), scale: 0.5, zero_point: 0 } } }
+    const upd  = { tensors: { z: { dtype: DTYPE.QINT8, shape: [3], data: new Int8Array([-20, 0, 20]), scale: 0.25, zero_point: 5 } } }
+    const delta = encodeDelta(base, upd)
+    assert.ok(delta !== null)
+    const result = applyDelta(base, delta)
+    assert.deepEqual(Array.from(result.tensors.z.data), [-20, 0, 20])
+    assert.ok(Math.abs(result.tensors.z.scale - 0.25) < 1e-6)
+    assert.equal(result.tensors.z.zero_point, 5)
+  })
+
+  it("qint8: negative zero_point round-trips via int8 sign extension", () => {
+    const base = { tensors: { n: { dtype: DTYPE.QINT8, shape: [2], data: new Int8Array([100, -50]), scale: 0.01, zero_point: 0 } } }
+    const upd  = { tensors: { n: { dtype: DTYPE.QINT8, shape: [2], data: new Int8Array([50, -25]),  scale: 0.02, zero_point: -10 } } }
+    const delta = encodeDelta(base, upd)
+    assert.ok(delta !== null)
+    const result = applyDelta(base, delta)
+    assert.deepEqual(Array.from(result.tensors.n.data), [50, -25])
+    assert.equal(result.tensors.n.zero_point, -10)
+  })
+
+  it("qfp8: scale change emits quant_change without zero_point byte", () => {
+    const base = { tensors: { f: { dtype: DTYPE.QFP8, shape: [4], data: new Uint8Array([0x3C, 0x40, 0x44, 0x48]), scale: 0.1 } } }
+    const upd  = { tensors: { f: { dtype: DTYPE.QFP8, shape: [4], data: new Uint8Array([0x3C, 0x41, 0x45, 0x49]), scale: 0.5 } } }
+    const delta = encodeDelta(base, upd)
+    assert.ok(delta !== null)
+    const result = applyDelta(base, delta)
+    assert.deepEqual(Array.from(result.tensors.f.data), [0x3C, 0x41, 0x45, 0x49])
+    assert.ok(Math.abs(result.tensors.f.scale - 0.5) < 1e-6)
+    assert.equal(result.tensors.f.zero_point, 0, "qfp8 zero_point is always 0")
+  })
+
+  it("qint4: scale + negative zero_point round-trips via nibble sign extension", () => {
+    const base = { tensors: { q: { dtype: DTYPE.QINT4, shape: [4], data: new Int8Array([2, -3, 5, -7]), scale: 0.1, zero_point: 0 } } }
+    const upd  = { tensors: { q: { dtype: DTYPE.QINT4, shape: [4], data: new Int8Array([1, -2, 3, -6]), scale: 0.2, zero_point: -1 } } }
+    const delta = encodeDelta(base, upd)
+    assert.ok(delta !== null)
+    const result = applyDelta(base, delta)
+    assert.deepEqual(Array.from(result.tensors.q.data), [1, -2, 3, -6])
+    assert.equal(result.tensors.q.zero_point, -1)
+  })
+
+  it("qint8: no delta emitted when scale + data both unchanged", () => {
+    const doc = { tensors: { w: { dtype: DTYPE.QINT8, shape: [2], data: new Int8Array([10, 20]), scale: 0.1, zero_point: 0 } } }
+    const delta = encodeDelta(doc, doc)
+    assert.equal(delta, null, "identical docs produce null delta")
+  })
+
+  it("qint8: quant_change byte-matches known hex vector", () => {
+    const base = { tensors: { w: { dtype: DTYPE.QINT8, shape: [4], data: new Int8Array([10, 20, 30, 40]), scale: 0.1, zero_point: 0 } } }
+    const upd  = { tensors: { w: { dtype: DTYPE.QINT8, shape: [4], data: new Int8Array([5, 10, 15, 20]),  scale: 1.0, zero_point: 0 } } }
+    const delta = encodeDelta(base, upd)
+    assert.equal(toHex(delta), "80d1770000803f00050a0f1400",
+      "quant_change delta bytes must match corpus vector")
+  })
+
+  it("qfp8: quant_change byte-matches known hex vector", () => {
+    const base = { tensors: { f: { dtype: DTYPE.QFP8, shape: [4], data: new Uint8Array([0x3C, 0x40, 0x44, 0x48]), scale: 0.1 } } }
+    const upd  = { tensors: { f: { dtype: DTYPE.QFP8, shape: [4], data: new Uint8Array([0x3C, 0x41, 0x45, 0x49]), scale: 0.5 } } }
+    const delta = encodeDelta(base, upd)
+    assert.equal(toHex(delta), "80d1660000003f3c41454900",
+      "quant_change qfp8 delta bytes must match corpus vector")
+  })
+})
