@@ -118,7 +118,9 @@ function jsonToTyped(dtype, arr) {
     case DTYPE.FP8E5M2: return new Float32Array(arr)  // fp8 — encoder converts
     case DTYPE.CFLOAT32: return new Float32Array(arr) // interleaved real,imag as f32
     case DTYPE.CFLOAT64: return new Float64Array(arr) // interleaved real,imag as f64
-    case DTYPE.QINT8: return new Float32Array(arr) // qint8 input is f32; encoder quantizes
+    case DTYPE.QINT8:  return new Float32Array(arr) // qint8 input is f32; encoder quantizes
+    case DTYPE.QINT4:  return new Float32Array(arr) // qint4 input is f32; encoder quantizes
+    case DTYPE.QFP8:   return new Float32Array(arr) // qfp8 input is f32; encoder quantizes
     default: throw new Error(`unsupported dtype ${dtype} in jsonToTyped`)
   }
 }

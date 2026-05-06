@@ -3,12 +3,29 @@
     "name": "qint8 simple 1D",
     "description": "1D qint8 tensor; scale=2^-7=0.0078125, zero_point=0. Values [-0.5, 0.0, 0.5] map exactly to q=[-64, 0, 64]; dequant is lossless.",
     "schema": {
-      "w": { "dtype": 29, "shape": [3], "scale": 0.0078125, "zero_point": 0 }
+      "w": {
+        "dtype": 29,
+        "shape": [
+          3
+        ],
+        "scale": 0.0078125,
+        "zero_point": 0
+      }
     },
     "schema_hash_hex": "45013ae026106709c6a32da185749af8dae5052cb274a1b2607a8faeaa0a0e92",
     "input": {
       "tensors": {
-        "w": { "dtype": 29, "shape": [3], "data": [-0.5, 0.0, 0.5] }
+        "w": {
+          "dtype": 29,
+          "shape": [
+            3
+          ],
+          "data": [
+            -0.5,
+            0,
+            0.5
+          ]
+        }
       }
     },
     "expected_bytes_hex": "51404eb8098419c271a8cb68615d26be36b9414b2c9d286c981ea3ebaa8283a4b0001000"
@@ -17,12 +34,32 @@
     "name": "qint8 2D matrix",
     "description": "2×2 qint8 matrix; scale=0.0078125, zero_point=0. All values are exact multiples of scale.",
     "schema": {
-      "mat": { "dtype": 29, "shape": [2, 2], "scale": 0.0078125, "zero_point": 0 }
+      "mat": {
+        "dtype": 29,
+        "shape": [
+          2,
+          2
+        ],
+        "scale": 0.0078125,
+        "zero_point": 0
+      }
     },
     "schema_hash_hex": "1b828e8657554d355c91761e31dcc18237a2b47c6a2c08d49c825ba12e7cc82e",
     "input": {
       "tensors": {
-        "mat": { "dtype": 29, "shape": [2, 2], "data": [-0.5, 0.0, 0.0, 0.5] }
+        "mat": {
+          "dtype": 29,
+          "shape": [
+            2,
+            2
+          ],
+          "data": [
+            -0.5,
+            0,
+            0,
+            0.5
+          ]
+        }
       }
     },
     "expected_bytes_hex": "46e0a3a195d5534d57245d878c7730608de8ad1f1a8b0235272096e84b9f320bb000001000"
@@ -31,12 +68,28 @@
     "name": "qint8 nonzero zero_point",
     "description": "1D qint8 tensor with zero_point=-64; effectively shifts the quantization range. Lossless for [-0.5, 0.0].",
     "schema": {
-      "v": { "dtype": 29, "shape": [2], "scale": 0.0078125, "zero_point": -64 }
+      "v": {
+        "dtype": 29,
+        "shape": [
+          2
+        ],
+        "scale": 0.0078125,
+        "zero_point": -64
+      }
     },
     "schema_hash_hex": "21782e440a6017230738ac3a511afbba5b11de01b5fd96177fb4041748f63610",
     "input": {
       "tensors": {
-        "v": { "dtype": 29, "shape": [2], "data": [-0.5, 0.0] }
+        "v": {
+          "dtype": 29,
+          "shape": [
+            2
+          ],
+          "data": [
+            -0.5,
+            0
+          ]
+        }
       }
     },
     "expected_bytes_hex": "485e0b91029805c8c1ce2b0e9446beee96c477806d7f6585dfed0105d23d8d84203000"
@@ -45,14 +98,44 @@
     "name": "qint8 mixed with fp32",
     "description": "Schemaful doc with a qint8 tensor 'a' and an fp32 tensor 'b'. Tensors emitted in sorted name order (a, b).",
     "schema": {
-      "a": { "dtype": 29, "shape": [2], "scale": 0.0078125, "zero_point": 0 },
-      "b": { "dtype": 15, "shape": [2] }
+      "a": {
+        "dtype": 29,
+        "shape": [
+          2
+        ],
+        "scale": 0.0078125,
+        "zero_point": 0
+      },
+      "b": {
+        "dtype": 15,
+        "shape": [
+          2
+        ]
+      }
     },
     "schema_hash_hex": "b943a1e5a1557996863e8ef25bcbf1ec6b78c33230776d9b496e5e2afe6d200b",
     "input": {
       "tensors": {
-        "a": { "dtype": 29, "shape": [2], "data": [0.0, 0.5] },
-        "b": { "dtype": 15, "shape": [2], "data": [1.0, -1.0] }
+        "a": {
+          "dtype": 29,
+          "shape": [
+            2
+          ],
+          "data": [
+            0,
+            0.5
+          ]
+        },
+        "b": {
+          "dtype": 15,
+          "shape": [
+            2
+          ],
+          "data": [
+            1,
+            -1
+          ]
+        }
       }
     },
     "expected_bytes_hex": "6e50e87968555e65a18fa3bc96f2fc7b1ade30cc8c1ddb66d25b978abf9b4802c0100000200fc000202fc0"
@@ -61,18 +144,348 @@
     "name": "qint8 clamping overflow",
     "description": "Values 1.5 and -1.5 exceed the qint8 range at scale=0.0078125; encoder clamps to [127, -128]. Decoded values are [0.9921875, -1.0].",
     "schema": {
-      "c": { "dtype": 29, "shape": [2], "scale": 0.0078125, "zero_point": 0 }
+      "c": {
+        "dtype": 29,
+        "shape": [
+          2
+        ],
+        "scale": 0.0078125,
+        "zero_point": 0
+      }
     },
     "schema_hash_hex": "c7f5d472c796cb2f561d6b60bd138a81e29265d7de5f5004753555b591dea226",
     "input": {
       "tensors": {
-        "c": { "dtype": 29, "shape": [2], "data": [1.5, -1.5] }
+        "c": {
+          "dtype": 29,
+          "shape": [
+            2
+          ],
+          "data": [
+            1.5,
+            -1.5
+          ]
+        }
       }
     },
     "expected_bytes_hex": "71fd751cb1e5b2cbd5875ad82f44e2a078a49975f797d4011d4d556d6477a8899fe000",
     "expected_decoded": {
       "tensors": {
-        "c": { "dtype": 29, "shape": [2], "data": [0.9921875, -1.0] }
+        "c": {
+          "dtype": 29,
+          "shape": [
+            2
+          ],
+          "data": [
+            0.9921875,
+            -1
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "qint4 simple 1D",
+    "description": "1D qint4 tensor; scale=0.25, zero_point=0. Values [-2.0, -1.0, 0.0, 1.0] map exactly to q=[-8, -4, 0, 4]; dequant is lossless.",
+    "schema": {
+      "w": {
+        "dtype": 28,
+        "shape": [
+          4
+        ],
+        "scale": 0.25,
+        "zero_point": 0
+      }
+    },
+    "schema_hash_hex": "e46f4644fc3d9344051170c6a12cdf9a947639a5cd3a22052d87e4ef7dfc80d6",
+    "input": {
+      "tensors": {
+        "w": {
+          "dtype": 28,
+          "shape": [
+            4
+          ],
+          "data": [
+            -2,
+            -1,
+            0,
+            1
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "791bd1913f0f64d101445c31a84b37e6a51d8e69734e88814b61f93bdf7f2035a30100"
+  },
+  {
+    "name": "qint4 2D matrix",
+    "description": "2×2 qint4 matrix; scale=0.5, zero_point=0. Values are exact multiples of scale within 4-bit signed range.",
+    "schema": {
+      "mat": {
+        "dtype": 28,
+        "shape": [
+          2,
+          2
+        ],
+        "scale": 0.5,
+        "zero_point": 0
+      }
+    },
+    "schema_hash_hex": "873ffa7d26959025ace05ed58ccec548a6ff7bda647c17dfa537126452d8287f",
+    "input": {
+      "tensors": {
+        "mat": {
+          "dtype": 28,
+          "shape": [
+            2,
+            2
+          ],
+          "data": [
+            -1,
+            0,
+            0,
+            1
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "61cffe9f49a564096b3817b56333b15229bfdef6991f05f7e94dc49914b60a1ff80080"
+  },
+  {
+    "name": "qint4 nonzero zero_point",
+    "description": "1D qint4 tensor with zero_point=4, scale=0.25. Values [0.0, -1.0] map to q=[4, 0]; dequant is lossless.",
+    "schema": {
+      "v": {
+        "dtype": 28,
+        "shape": [
+          2
+        ],
+        "scale": 0.25,
+        "zero_point": 4
+      }
+    },
+    "schema_hash_hex": "64eca42840c117285f1904ddb8cb5adb80357e276c8ef8a67846c7aa64ac5d9a",
+    "input": {
+      "tensors": {
+        "v": {
+          "dtype": 28,
+          "shape": [
+            2
+          ],
+          "data": [
+            0,
+            -1
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "593b290a103045ca17c641376e32d6b6e00d5f89db23be299e11b1ea992b17669000"
+  },
+  {
+    "name": "qint4 clamping overflow",
+    "description": "Values 2.5 and -2.5 exceed qint4 range at scale=0.25; encoder clamps to [7, -8]. Decoded values are [1.75, -2.0].",
+    "schema": {
+      "c": {
+        "dtype": 28,
+        "shape": [
+          2
+        ],
+        "scale": 0.25,
+        "zero_point": 0
+      }
+    },
+    "schema_hash_hex": "77557f5d74a62417130969f06220db70759b12f6e9969e585b4c1840573cbf18",
+    "input": {
+      "tensors": {
+        "c": {
+          "dtype": 28,
+          "shape": [
+            2
+          ],
+          "data": [
+            2.5,
+            -2.5
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "5dd55fd75d298905c4c25a7c188836dc1d66c4bdba65a79616d3061015cf2fc61e00",
+    "expected_decoded": {
+      "tensors": {
+        "c": {
+          "dtype": 28,
+          "shape": [
+            2
+          ],
+          "data": [
+            1.75,
+            -2
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "qint4 odd count",
+    "description": "3-element qint4 tensor; nibble packing pads the 4th nibble to 0. Values [-1.0, 0.0, 1.0] → q=[-4, 0, 4], stored in 2 bytes.",
+    "schema": {
+      "x": {
+        "dtype": 28,
+        "shape": [
+          3
+        ],
+        "scale": 0.25,
+        "zero_point": 0
+      }
+    },
+    "schema_hash_hex": "22794204a7a78bf223cbb98280a9bc71ce50d8f81c9c13da0fcadbae6a062380",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 28,
+          "shape": [
+            3
+          ],
+          "data": [
+            -1,
+            0,
+            1
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "489e508129e9e2fc88f2ee60a02a6f1c7394363e072704f683f2b6eb9a8188e0301000"
+  },
+  {
+    "name": "qfp8 simple 1D",
+    "description": "1D qfp8 tensor; scale=2.0. Values [1.0, -1.0, 2.0] scaled to [0.5, -0.5, 1.0] then encoded as fp8e4m3 bits; dequant is lossless for these values.",
+    "schema": {
+      "w": {
+        "dtype": 30,
+        "shape": [
+          3
+        ],
+        "scale": 2
+      }
+    },
+    "schema_hash_hex": "830b6dcb26c18e087d68e796d15f57c87a32067d0455f9478bcaa96f4db12059",
+    "input": {
+      "tensors": {
+        "w": {
+          "dtype": 30,
+          "shape": [
+            3
+          ],
+          "data": [
+            1,
+            -1,
+            2
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "60c2db72c9b063821f5a39e5b457d5f21e8c819f41157e51e2f2aa5bd36c48164c2c0e00"
+  },
+  {
+    "name": "qfp8 2D matrix",
+    "description": "2×2 qfp8 matrix; scale=0.5. Values scaled ×2 before fp8e4m3 encoding; dequant multiplies by 0.5.",
+    "schema": {
+      "mat": {
+        "dtype": 30,
+        "shape": [
+          2,
+          2
+        ],
+        "scale": 0.5
+      }
+    },
+    "schema_hash_hex": "a80ca6dd5e39c3549fa414150369f8235f42aa057a02c054dd419c0217d1d75a",
+    "input": {
+      "tensors": {
+        "mat": {
+          "dtype": 30,
+          "shape": [
+            2,
+            2
+          ],
+          "data": [
+            0.5,
+            1,
+            -0.5,
+            -1
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "6a0329b7578e70d527e9050540da7e08d7d0aa815e80b0153750670085f475d68e102e3000"
+  },
+  {
+    "name": "qfp8 range extension via scale",
+    "description": "scale=256.0 extends fp8e4m3 dynamic range. Values [128, -128, 256] scaled down to [0.5, -0.5, 1.0] before fp8e4m3 encoding.",
+    "schema": {
+      "z": {
+        "dtype": 30,
+        "shape": [
+          3
+        ],
+        "scale": 256
+      }
+    },
+    "schema_hash_hex": "534bdcec8eb83d026c7ced6a06bb47b4e79acc925ff1d01387b973e8924ab68f",
+    "input": {
+      "tensors": {
+        "z": {
+          "dtype": 30,
+          "shape": [
+            3
+          ],
+          "data": [
+            128,
+            -128,
+            256
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "54d2f73b23ae0f409b1f3b5a81aed1ed39e6b32497fc7404e1ee5cfa2492ada3cc2c0e00"
+  },
+  {
+    "name": "qfp8 lossy rounding",
+    "description": "scale=1.0, input 0.1 is not exactly representable in fp8e4m3; expected_decoded shows the rounded value.",
+    "schema": {
+      "v": {
+        "dtype": 30,
+        "shape": [
+          1
+        ],
+        "scale": 1
+      }
+    },
+    "schema_hash_hex": "39942a48a91e140ee1c69865ac23c0828516137b903179262683875953e00ac5",
+    "input": {
+      "tensors": {
+        "v": {
+          "dtype": 30,
+          "shape": [
+            1
+          ],
+          "data": [
+            0.1
+          ]
+        }
+      }
+    },
+    "expected_bytes_hex": "4e650a922a478503b871a6196b08f020a14584dee40c5e4989a0e1d654f802b14740",
+    "expected_decoded": {
+      "tensors": {
+        "v": {
+          "dtype": 30,
+          "shape": [
+            1
+          ],
+          "data": [
+            0.1015625
+          ]
+        }
       }
     }
   }

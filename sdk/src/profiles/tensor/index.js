@@ -166,10 +166,18 @@ function emitDataBlock(u, t) {
   let dataView
   if (t.dtype === DTYPE.BOOL) {
     dataView = packBoolFromTensor(t)
-  } else if (t.dtype === DTYPE.INT4 || t.dtype === DTYPE.UINT4) {
+  } else if (t.dtype === DTYPE.INT4 || t.dtype === DTYPE.UINT4 || t.dtype === DTYPE.QINT4) {
     let total = 1
     for (const d of t.shape) total *= d
     dataView = packNibbles(t.data, total)
+  } else if (t.dtype === DTYPE.QFP8) {
+    // Accept Float32Array (raw already-encoded fp8e4m3 bits stored as floats
+    // is not sensible; callers pass Uint8Array of fp8 bits) or Uint8Array.
+    if (t.data instanceof Uint8Array) {
+      dataView = t.data
+    } else {
+      dataView = toBytes(t)
+    }
   } else if (t.dtype === DTYPE.FP16 || t.dtype === DTYPE.BF16) {
     // Accept either Float32Array (convert) or Uint16Array (raw bits).
     if (t.data instanceof Uint16Array) {
@@ -278,6 +286,30 @@ export function encodeDocumentSchemaful(doc, schema) {
         q[i] = Math.max(-128, Math.min(127, qval))
       }
       emitDataBlock(u, { dtype: DTYPE.QINT8, shape: t.shape, data: q })
+    } else if (t.dtype === DTYPE.QINT4 && sDef.scale !== undefined) {
+      // Quantize Float32Array → 4-bit signed nibbles via schema scale + zero_point.
+      // q = clamp(round(f32 / scale + zero_point), -8, 7)
+      const scale = sDef.scale, zp = sDef.zero_point || 0
+      let total = 1
+      for (const d of t.shape) total *= d
+      const q = new Int8Array(total)
+      const f32 = t.data instanceof Float32Array ? t.data : new Float32Array(Array.from(t.data))
+      for (let i = 0; i < total; i++) {
+        const qval = Math.round(f32[i] / scale + zp)
+        q[i] = Math.max(-8, Math.min(7, qval))
+      }
+      emitDataBlock(u, { dtype: DTYPE.QINT4, shape: t.shape, data: q })
+    } else if (t.dtype === DTYPE.QFP8 && sDef.scale !== undefined) {
+      // Quantize Float32Array → fp8e4m3 bits scaled by schema scale.
+      // q_fp8 = fp8e4m3_encode(f32 / scale); dequant: f32 = fp8e4m3_decode(q) * scale
+      const scale = sDef.scale
+      let total = 1
+      for (const d of t.shape) total *= d
+      const f32 = t.data instanceof Float32Array ? t.data : new Float32Array(Array.from(t.data))
+      const scaled = new Float32Array(total)
+      for (let i = 0; i < total; i++) scaled[i] = f32[i] / scale
+      const fp8bits = f32ArrayToFp8e4m3Bits(scaled)
+      emitDataBlock(u, { dtype: DTYPE.QFP8, shape: t.shape, data: fp8bits })
     } else {
       emitDataBlock(u, t)
     }
@@ -407,6 +439,18 @@ export function decodeDocumentSchemaful(bytes, registry) {
       const scale = sDef.scale, zp = sDef.zero_point || 0
       const f32 = new Float32Array(total)
       for (let i = 0; i < total; i++) f32[i] = (data[i] - zp) * scale
+      data = f32
+    } else if (sDef.dtype === DTYPE.QINT4 && sDef.scale !== undefined) {
+      // Dequantize 4-bit signed nibbles → Float32Array: f32 = (q - zero_point) * scale
+      const scale = sDef.scale, zp = sDef.zero_point || 0
+      const f32 = new Float32Array(total)
+      for (let i = 0; i < total; i++) f32[i] = (data[i] - zp) * scale
+      data = f32
+    } else if (sDef.dtype === DTYPE.QFP8 && sDef.scale !== undefined) {
+      // Dequantize fp8e4m3 bits → Float32Array: f32 = fp8e4m3_decode(q) * scale
+      const scale = sDef.scale
+      const f32 = new Float32Array(total)
+      for (let i = 0; i < total; i++) f32[i] = fp8e4m3ToF32(data[i]) * scale
       data = f32
     }
     tensors[name] = { dtype: sDef.dtype, shape: sDef.shape, data }
@@ -894,6 +938,7 @@ function materializeData(dtype, dataU8, total) {
     case DTYPE.FP64:   return new Float64Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.INT8:
     case DTYPE.QINT8:  return new Int8Array(dataU8.buffer, dataU8.byteOffset, total)
+    case DTYPE.QINT4:  return unpackInt4(dataU8, total)
     case DTYPE.UINT8:  return dataU8
     case DTYPE.INT16:  return new Int16Array(dataU8.buffer, dataU8.byteOffset, total)
     case DTYPE.UINT16: return new Uint16Array(dataU8.buffer, dataU8.byteOffset, total)
@@ -915,6 +960,7 @@ function materializeData(dtype, dataU8, total) {
       const copy = new Uint8Array(dataU8.buffer.slice(dataU8.byteOffset, dataU8.byteOffset + total * 2))
       return new Uint16Array(copy.buffer, 0, total)
     }
+    case DTYPE.QFP8:
     case DTYPE.FP8E4M3:
     case DTYPE.FP8E5M2: {
       // Return raw Uint8Array of fp8 bits; 1 byte per element.
