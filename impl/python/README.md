@@ -14,12 +14,11 @@ No external dependencies; targets Python 3.10+.
   25 delta vectors (chain application) remain skipped — see
   V0.2-PLANNING.md item D.2.
 - **weavepack-tensor**: full encoder + decoder + delta application at
-  Level 3 (byte-exact). 58/58 corpus vectors pass. Schemaless +
-  schemaful + 5 of 6 delta ops (tensor_replace, tensor_add,
-  tensor_remove, element_set, region_replace; quant_change is the
-  6th and is not yet implemented in any language). Decoder also
-  handles tensor_replace mode=1 (delta-from-prior arithmetic, V0.2
-  A.3); encoder always emits mode=0.
+  Level 3 (byte-exact). 97/97 corpus vectors pass. Schemaless +
+  schemaful + all 6 delta ops (tensor_replace, tensor_add,
+  tensor_remove, element_set, region_replace, quant_change). Decoder
+  also handles tensor_replace mode=1 (delta-from-prior arithmetic,
+  V0.2 A.3); encoder always emits mode=0.
 
 ## Why this exists
 
@@ -132,8 +131,10 @@ Python chain framing).
   vectors use `expected_chain_bytes_hex` and require applying ops
   from a delta payload to a prior snapshot. See `V0.2-PLANNING.md`
   item D.2 for planning notes.
-- weavepack-tensor `quant_change` op. Spec'd but no language
-  implements it yet (depends on full quantized-dtype implementation).
+- weavepack-tensor encoder-side `quant_change` emit. The decoder
+  handles `quant_change` (op 5) correctly; the encoder cannot
+  detect scale/zero_point changes since those aren't stored in the
+  tensor dict (encoder falls back to `tensor_replace`).
 - weavepack-tensor mode=1 emit from the Python encoder. The Python
   encoder always emits `tensor_replace` as mode=0; the decoder
   handles both modes (so it correctly reads JS-produced mode=1

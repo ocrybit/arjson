@@ -444,6 +444,29 @@ def apply_delta(base_doc: dict, delta_bytes: bytes) -> dict:
             recur(0)
             tensors[name] = {"dtype": dtype, "shape": shape, "data": base_data}
 
+        elif op_code == OP.QUANT_CHANGE:
+            name_len = r.read_short()
+            name = bytes(r.read_byte() for _ in range(name_len)).decode("utf-8")
+            if name not in tensors:
+                raise KeyError(f"quant_change on unknown tensor {name}")
+            base_dtype = tensors[name]["dtype"]
+            base_shape = tensors[name]["shape"]
+            # Read and discard new scale (fp32 LE, 4 bytes).
+            for _ in range(4):
+                r.read_byte()
+            # Read and discard new zero_point (dtype-dependent; QFP8 has none).
+            if base_dtype == DTYPE.QINT8:
+                r.read_byte()
+            elif base_dtype == DTYPE.QINT4:
+                r.read_byte()
+            nbytes = _data_bytes(base_dtype, base_shape)
+            raw = bytes(r.read_byte() for _ in range(nbytes))
+            total = 1
+            for d in base_shape:
+                total *= d
+            new_data = _materialize(base_dtype, raw, total)
+            tensors[name] = {"dtype": base_dtype, "shape": base_shape, "data": new_data}
+
         else:
             raise NotImplementedError(f"op {op_code} not in v0.0.1")
 

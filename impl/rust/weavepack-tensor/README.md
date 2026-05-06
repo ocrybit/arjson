@@ -77,7 +77,7 @@ src/
 ├── bits.rs             BitWriter/Reader (will migrate to weavepack-core)
 ├── encode.rs           encode_document, encode_document_schemaful
 ├── decode.rs           decode_document, decode_document_schemaful
-├── delta.rs            encode_delta, apply_delta (5 of 6 ops; quant_change pending)
+├── delta.rs            encode_delta, apply_delta (all 6 ops including quant_change)
 ├── schema.rs           SHA-256 schema hash + canonicalization
 ├── half_dtype.rs       fp16/bf16 conversions via half crate
 └── bin/

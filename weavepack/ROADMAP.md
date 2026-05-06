@@ -492,12 +492,18 @@ profiles. The honest commitment is to that gate.
     claims, registration process, checklist; repo has issues disabled so
     outreach is via the guide doc itself and external channels)
 
-Next action: Advance RFC 0001 fp16/bf16 toward Accepted (2-week discussion period
-ends 2026-05-17); RFC acceptance will unblock fp16/bf16 encode+decode implementation.
+Next action: Accept RFC 0001 fp16/bf16 (2-week discussion period ends 2026-05-17;
+all three impls pass 20/20 vectors; no blocking issues). After acceptance: update
+RFC status to Accepted and mark A.1 fp16/bf16 complete in V0.2-PLANNING.md.
 
 - PyO3 schemaful encode/decode bindings: ✓ DONE (see below).
 
 V0.2 in-progress (incremental):
+- A.2 quant_change Rust + Python decoders: ✓ COMPLETE — 97/97 Rust + Python
+  conformance (was 93/93; +4 quant_change vectors). Rust delta.rs apply_delta
+  now handles op 5 (reads name, fp32 scale, dtype-dependent zp, data block).
+  Python decoder.py gains matching QUANT_CHANGE branch. Rust conformance binary
+  adds QINT8/QINT4/QFP8 cases to json_data_to_bytes for signed initial data.
 - A.3 delta-from-prior: ✓ DONE. Decoder in JS, Rust, Python
   (58/58 vectors); JS encoder heuristic emits mode=1 when max
   abs delta ≤ 0.01 on fp32/fp64 dense updates. Empirically,
@@ -532,10 +538,11 @@ V0.2 in-progress (incremental):
   Rust and Python (was 79/93). Schema hash fix: recursive key sort in Python
   canonicalize_schema and Rust format_f64_json to match JS JSON.stringify.
 
-Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 93 tensor
-  + 93 JSON = 186; Python 93 tensor + 93 JSON = 186. All qint vectors
-  now pass in Rust + Python (was 79 each; 14 new). Schema hash fix (recursive
-  key sort) and SchemaEntry type extension unlock full qint conformance.
+Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
+  + 93 JSON = 190; Python 97 tensor + 93 JSON = 190. quant_change (op 5)
+  decoder ported to Rust + Python (was 93 each; +4 quant_change vectors).
+  Rust conformance binary gains QINT8/QINT4/QFP8 branches in json_data_to_bytes
+  to parse pre-quantized signed integer test-vector data arrays.
 
 - PyO3 schemaful encode/decode bindings: ✓ COMPLETE.
   New functions in impl/rust/weavepack-tensor-py/src/lib.rs:

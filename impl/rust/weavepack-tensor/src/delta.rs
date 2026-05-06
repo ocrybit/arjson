@@ -6,8 +6,8 @@
 
 use crate::bits::{finalize, write_leb128, write_short, BitReader, BitWriter};
 use crate::types::{
-    data_bytes, dtype_bits_per_elem, DTYPE_BITS, OP_BITS, OP_ELEMENT_SET, OP_REGION_REPLACE,
-    OP_TENSOR_ADD, OP_TENSOR_REMOVE, OP_TENSOR_REPLACE,
+    data_bytes, dtype_bits_per_elem, DTYPE_BITS, DTYPE_QINT4, DTYPE_QINT8, OP_BITS, OP_ELEMENT_SET,
+    OP_QUANT_CHANGE, OP_REGION_REPLACE, OP_TENSOR_ADD, OP_TENSOR_REMOVE, OP_TENSOR_REPLACE,
 };
 use crate::TensorData;
 use std::collections::BTreeMap;
@@ -439,8 +439,31 @@ pub fn apply_delta(
                 &region_data, &mut region_ptr, &mut new_data, bpe,
             );
             tensors[idx] = Some((name, TensorData { dtype, shape, data: new_data }));
+        } else if op_code == OP_QUANT_CHANGE {
+            let name = read_name(&mut r)?;
+            let idx = *name_to_idx
+                .get(&name)
+                .ok_or_else(|| format!("quant_change on unknown tensor \"{name}\""))?;
+            let (base_dtype, base_shape) = tensors[idx]
+                .as_ref()
+                .ok_or_else(|| format!("quant_change on removed tensor \"{name}\""))
+                .map(|(_, t)| (t.dtype, t.shape.clone()))?;
+            // Read and discard new scale (fp32 LE, 4 bytes).
+            for _ in 0..4 { r.read(8)?; }
+            // Read and discard new zero_point (dtype-dependent; QFP8 has none).
+            if base_dtype == DTYPE_QINT8 {
+                r.read(8)?;
+            } else if base_dtype == DTYPE_QINT4 {
+                r.read(8)?;
+            }
+            let bc = data_bytes(base_dtype, &base_shape) as usize;
+            let mut new_data = vec![0u8; bc];
+            for b in &mut new_data {
+                *b = r.read(8)? as u8;
+            }
+            tensors[idx] = Some((name, TensorData { dtype: base_dtype, shape: base_shape, data: new_data }));
         } else {
-            return Err(format!("unsupported op code {op_code} (quant_change not in v0.1)"));
+            return Err(format!("unsupported op code {op_code}"));
         }
     }
 
