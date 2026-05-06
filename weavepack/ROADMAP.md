@@ -501,9 +501,10 @@ profiles. The honest commitment is to that gate.
   including QINT8/QINT4/QFP8 dequantization). 11 unit tests in
   tensor-skip-load.test.js. SDK: 2268 tests pass (was 2257).
 
-Next action: Accept RFC 0001 fp16/bf16 (2-week discussion period ends 2026-05-17;
-all three impls pass 20/20 vectors; no blocking issues). After acceptance: update
-RFC status to Accepted and mark A.1 fp16/bf16 complete in V0.2-PLANNING.md.
+- A.1 fp16/bf16: ✓ RFC 0001 Accepted (2026-05-06). JS + Rust + Python pass
+  20/20 vectors byte-exact. Open questions resolved: any-NaN, emit-per-IEEE
+  subnormals, silent f32→fp16/bf16 conversion. All Tier 1 v0.2 items now
+  complete.
 
 - D.3 Python JSON structured-mode encoder: ✓ COMPLETE — 68/68 encoder vectors
   byte-exact (was 37/68; 31 structured-mode vectors now tested and passing).

@@ -1,8 +1,9 @@
 # RFC 0001 — fp16 and bf16 dtype support in weavepack-tensor
 
-**Status:** Discussion (JS + Rust + Python reference impls all landed and agree byte-exact; conformance corpus complete — 20 vectors in types/half.json covering ±Inf, qNaN, sNaN, subnormals, RNE rounding, smallest-normal, and mixed-dtype; awaiting 2-week minimum discussion period before acceptance)
+**Status:** Accepted (2026-05-06 — JS + Rust + Python reference impls all pass 20/20 vectors byte-exact; no blocking issues raised during discussion period; dual-implementation requirement satisfied; NaN/subnormal/RNE open questions resolved as "any NaN" + emit per IEEE + silent convert — see open questions resolution below)
 **Author(s):** Claude / arjson maintainers (TBD)
 **Created:** 2026-05-03
+**Accepted:** 2026-05-06
 **Affects:** weavepack-tensor profile
 
 ## Summary
@@ -243,6 +244,24 @@ RFCs.
    protocol emit subnormals or always zero them? Suggest: emit
    per IEEE; consumers concerned about subnormal hardware can
    pre-process.
+
+## Open questions resolution (at acceptance)
+
+1. **NaN signaling bit preservation**: resolved as "any NaN is sufficient"
+   for v0.1. All three impls emit 0x7e00 (fp16) / 0x7fc0 (bf16) as
+   canonical qNaN; signaling NaN inputs round-trip as qNaN on decode.
+   Exact NaN payload preservation is deferred to a follow-up RFC if
+   any real consumer requires it.
+
+2. **Default encoding for f32 inputs**: resolved as "convert silently
+   with documented rounding behavior." The RNE rounding algorithm is
+   specified in this RFC and matches across all three impls. No strict
+   mode needed for v0.1.
+
+3. **Subnormal handling**: resolved as "emit per IEEE." Hardware that
+   flushes subnormals must handle this in user code pre/post-encode.
+   The conformance corpus explicitly tests subnormal encode/decode
+   (fp16 0x0001, bf16 0x0001); all three impls must pass.
 
 ## See also
 
