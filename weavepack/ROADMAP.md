@@ -493,8 +493,8 @@ profiles. The honest commitment is to that gate.
     outreach is via the guide doc itself and external channels)
 
 Next action: Advance RFC 0001 fp16/bf16 toward Accepted (2-week discussion period
-ends 2026-05-17); implement qint4 + qfp8 (follow qint8 pattern); consider
-quant_change delta op once quantized dtypes are complete.
+ends 2026-05-17); port qint4/qfp8 to Rust + Python; consider quant_change
+delta op.
 
 V0.2 in-progress (incremental):
 - A.3 delta-from-prior: ✓ DONE. Decoder in JS, Rust, Python
@@ -523,14 +523,15 @@ V0.2 in-progress (incremental):
   cfloat32, cfloat64. Also fixed data_raw_bits decoder in Rust conformance
   binary (was hardcoded 2 bytes/element; fp8 needs 1 byte/element).
 
-- A.1 qint8: ✓ COMPLETE (JS). Schemaful encode+decode with per-tensor
-  scale + zero_point. Quantize: q = clamp(round(f32/scale + zp), -128, 127).
-  Dequantize: f32 = (q - zp) * scale. 5 corpus vectors in
-  schemas/qint.json (1D, 2D, nonzero zero_point, mixed-with-fp32,
-  clamping overflow). 06-schemas.md updated with normative qint schema
-  language spec (closes open issue #2). Rust + Python unimplemented.
+- A.1 qint8/qint4/qfp8: ✓ COMPLETE (JS). Schemaful encode+decode for all
+  three quantized dtypes. qint8: q = clamp(round(f32/scale + zp), -128, 127).
+  qint4: q = clamp(round(f32/scale + zp), -8, 7); nibble-packed (same as int4).
+  qfp8: uses fp8e4m3 sub-format; f32/scale → fp8e4m3 encode → wire bits;
+  decode: fp8e4m3_decode(bits) * scale. 14 corpus vectors total in
+  schemas/qint.json (5 qint8 + 5 qint4 + 4 qfp8). 186/186 conformance.
+  Rust + Python unimplemented.
 
 Cross-language total: 499 vectors agree across JS / Rust / Python;
-  JS baseline now 177 tensor (+ 5 qint8) + 93 JSON = 270.
+  JS baseline now 177 tensor (+ 14 quant) + 93 JSON = 284.
   (Rust: 79 tensor + 93 JSON = 172; Python: 79 tensor + 93 JSON = 172.
-  qint8 is JS-only until Rust/Python implementations are ported.)
+  qint8/qint4/qfp8 are JS-only until Rust/Python implementations are ported.)
