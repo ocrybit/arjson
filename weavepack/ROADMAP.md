@@ -493,8 +493,10 @@ profiles. The honest commitment is to that gate.
     outreach is via the guide doc itself and external channels)
 
 Next action: Advance RFC 0001 fp16/bf16 toward Accepted (2-week discussion period
-ends 2026-05-17); consider quant_change delta op; JP PyO3 schemaful
-encode/decode bindings (currently hash-only).
+ends 2026-05-17); implement quant_change delta op (spec'd in 04-deltas.md,
+code 5, last unimplemented tensor delta op).
+
+- PyO3 schemaful encode/decode bindings: ✓ DONE (see below).
 
 V0.2 in-progress (incremental):
 - A.3 delta-from-prior: ✓ DONE. Decoder in JS, Rust, Python
@@ -535,3 +537,15 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 93 tensor
   + 93 JSON = 186; Python 93 tensor + 93 JSON = 186. All qint vectors
   now pass in Rust + Python (was 79 each; 14 new). Schema hash fix (recursive
   key sort) and SchemaEntry type extension unlock full qint conformance.
+
+- PyO3 schemaful encode/decode bindings: ✓ COMPLETE.
+  New functions in impl/rust/weavepack-tensor-py/src/lib.rs:
+  `encode_schemaful(tensors, schema)` — wraps encode_document_schemaful;
+  `decode_schemaful(data, schema)` — computes hash, builds single-entry
+  registry, wraps decode_document_schemaful. Both registered in the
+  weavepack_tensor_rs Python module. Conformance test updated: all 17
+  schema vectors (3 schemaful.json + 14 qint.json) now exercise the full
+  encode→byte-check→decode round-trip (was hash-only). qint4/qint8/qfp8
+  quantization helpers added to test helper (float→nibble/int8/fp8e4m3
+  bytes). PyO3 conformance: 61/93 pass (32 pre-existing failures for
+  int4/fp8/cfloat schema-less vectors; 0 new regressions).

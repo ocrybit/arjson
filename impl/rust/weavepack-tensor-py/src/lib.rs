@@ -205,6 +205,54 @@ fn validate_chain(data: &[u8]) -> PyResult<()> {
     weavepack_tensor::chain::chain_validate(data).map_err(PyValueError::new_err)
 }
 
+/// Encode a schemaful tensor document.
+///
+/// Wire: [0][1][256-bit schema-hash][tensor data in schema-key order]
+///
+/// tensors: list of (name: str, dict(dtype=int, shape=list[int], data=bytes))
+/// schema: dict mapping name: str -> {dtype: int, shape: list[int], scale?: float, zero_point?: int}
+/// Returns bytes.
+///
+/// Raises ValueError if a tensor required by the schema is absent, or if
+/// dtype/shape in the tensor dict doesn't match the schema entry.
+#[pyfunction]
+fn encode_schemaful<'py>(
+    py: Python<'py>,
+    tensors: &Bound<'py, PyAny>,
+    schema: &Bound<'py, PyDict>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    let ts = py_to_tensors(tensors)?;
+    let schema_map = py_to_schema(schema)?;
+    let tensor_map: BTreeMap<String, TensorData> = ts.into_iter().collect();
+    let bytes = weavepack_tensor::encode::encode_document_schemaful(&tensor_map, &schema_map)
+        .map_err(PyValueError::new_err)?;
+    Ok(PyBytes::new(py, &bytes))
+}
+
+/// Decode a schemaful tensor document.
+///
+/// data: bytes produced by encode_schemaful()
+/// schema: dict mapping name: str -> {dtype: int, shape: list[int], scale?: float, zero_point?: int}
+///   The SHA-256 hash of this schema must match the 256-bit hash embedded in
+///   the payload header; raises ValueError if there is a mismatch.
+/// Returns list of (name: str, dict(dtype=int, shape=list[int], data=bytes))
+/// in sorted name order (as recorded in the schema).
+#[pyfunction]
+fn decode_schemaful<'py>(
+    py: Python<'py>,
+    data: &[u8],
+    schema: &Bound<'py, PyDict>,
+) -> PyResult<Bound<'py, PyList>> {
+    let schema_map = py_to_schema(schema)?;
+    let hash_hex = weavepack_tensor::schema::schema_hash_hex(&schema_map);
+    let mut registry = BTreeMap::new();
+    registry.insert(hash_hex, schema_map);
+    let tensors =
+        weavepack_tensor::decode::decode_document_schemaful(data, &registry)
+            .map_err(PyValueError::new_err)?;
+    tensors_to_py(py, tensors)
+}
+
 // ── module ────────────────────────────────────────────────────────────────────
 
 #[pymodule]
@@ -215,6 +263,8 @@ fn weavepack_tensor_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(apply_delta, m)?)?;
     m.add_function(wrap_pyfunction!(schema_hash, m)?)?;
     m.add_function(wrap_pyfunction!(schema_hash_hex, m)?)?;
+    m.add_function(wrap_pyfunction!(encode_schemaful, m)?)?;
+    m.add_function(wrap_pyfunction!(decode_schemaful, m)?)?;
     m.add_function(wrap_pyfunction!(parse_chain, m)?)?;
     m.add_function(wrap_pyfunction!(serialize_chain, m)?)?;
     m.add_function(wrap_pyfunction!(validate_chain, m)?)?;
