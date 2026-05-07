@@ -562,6 +562,14 @@ V0.2 in-progress (incremental):
   now handles op 5 (reads name, fp32 scale, dtype-dependent zp, data block).
   Python decoder.py gains matching QUANT_CHANGE branch. Rust conformance binary
   adds QINT8/QINT4/QFP8 cases to json_data_to_bytes for signed initial data.
+- A.2 quant_change Rust encoder: ✓ COMPLETE — TensorData gains scale/zero_point
+  fields; QuantChange DeltaOp variant added; compute_ops detects when QINT8/
+  QINT4/QFP8 tensor has same dtype/shape but different scale or zero_point;
+  encode_delta emits op 5 byte-exact vs JS reference (verified by unit test:
+  delta hex 80d1770000803f00050a0f1400 for qint8 scale 0.1→1.0). apply_delta
+  quant_change branch now preserves new scale/zero_point in TensorData instead
+  of discarding. PyO3 bindings and conformance binary updated. 37/37 Rust unit
+  tests; 97/97 conformance; 190/190 corpus; 2277/2277 JS SDK.
 - A.3 delta-from-prior: ✓ DONE (encoder + decoder, all 3 langs).
   Decoder in JS, Rust, Python (58/58 vectors). Encoder heuristic
   emits mode=1 when max abs delta ≤ 0.01 on fp32/fp64 dense
