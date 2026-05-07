@@ -2,11 +2,13 @@
 
 Proof-of-concept Python implementation of the weavepack-tensor
 profile. Supports both schemaless and schemaful document encode +
-decode, plus delta application for all 6 ops (tensor_replace,
-tensor_add, tensor_remove, element_set, region_replace, quant_change).
+decode, plus delta computation and encoding for all 6 ops
+(tensor_replace, tensor_add, tensor_remove, element_set,
+region_replace, quant_change).
 
-Decoder also handles tensor_replace mode=1 (delta-from-prior
-arithmetic, V0.2 A.3); the Python encoder always emits mode=0.
+Encoder handles tensor_replace mode=1 (delta-from-prior arithmetic,
+V0.2 A.3) using the same heuristic as the JS and Rust encoders:
+emit mode=1 when max absolute per-element delta ≤ 0.01 (fp32/fp64 only).
 
 Supported dtypes: fp32, fp64, int8/16/32/64, uint8/16/32/64, bool,
 fp16/bf16, fp8e4m3/fp8e5m2, cfloat32/64, qint4/qint8/qfp8.
@@ -40,6 +42,8 @@ from .decoder import (
 from .encoder import (
     encode_document,
     encode_document_schemaful,
+    compute_delta,
+    encode_delta,
 )
 from .chain import (
     parse_chain,
@@ -55,6 +59,8 @@ __all__ = [
     "iterate_tensors_schemaful",
     "encode_document",
     "encode_document_schemaful",
+    "compute_delta",
+    "encode_delta",
     "apply_delta",
     "schema_hash",
     "schema_hash_hex",

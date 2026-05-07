@@ -4,9 +4,8 @@ Counterpart to decoder.py. Implements schemaless + schemaful encoding
 for the dtypes the decoder supports. Round-trips byte-exactly with
 the JS reference for every supported dtype.
 
-Scope: encode_document (schemaless), encode_document_schemaful.
-Delta encoding (compute_delta + encode_delta) deferred to a future
-revision.
+Scope: encode_document (schemaless), encode_document_schemaful,
+compute_delta, encode_delta.
 """
 
 import struct
@@ -17,6 +16,7 @@ from .decoder import (
     _DTYPE_BITS,
     _data_bytes,
     schema_hash,
+    OP,
 )
 
 
@@ -284,5 +284,349 @@ def encode_document_schemaful(doc: dict, schema: dict) -> bytes:
             _emit_data_block(w, {"dtype": DTYPE.QFP8, "shape": t["shape"], "data": q})
         else:
             _emit_data_block(w, t)
+    _emit_structured_trailer(w)
+    return w.finish()
+
+
+# ── delta encoder (compute_delta + encode_delta) ──────────────────────────────
+
+_OP_BITS = 3
+_DENSITY_THRESHOLD = 0.3
+_REGION_DENSITY_THRESHOLD = 0.5
+_DELTA_FROM_PRIOR_THRESHOLD = 0.01
+
+
+def _bytes_per_elem(dtype: int) -> int:
+    """Bytes per element for the wire format (element_set uses 1 byte for sub-byte types)."""
+    bits = _DTYPE_BITS.get(dtype, 0)
+    return (bits + 7) // 8
+
+
+def _encode_single_element(dtype: int, value) -> bytes:
+    """Encode one element value as its element_set wire bytes."""
+    if dtype in (DTYPE.INT4, DTYPE.UINT4):
+        return bytes([int(value) & 0x0F])
+    fmt_map = {
+        DTYPE.FP32: ("<f", 4), DTYPE.FP64: ("<d", 8),
+        DTYPE.INT8: ("<b", 1), DTYPE.UINT8: ("<B", 1),
+        DTYPE.INT16: ("<h", 2), DTYPE.UINT16: ("<H", 2),
+        DTYPE.INT32: ("<i", 4), DTYPE.UINT32: ("<I", 4),
+        DTYPE.INT64: ("<q", 8), DTYPE.UINT64: ("<Q", 8),
+    }
+    if dtype in fmt_map:
+        fmt, _ = fmt_map[dtype]
+        return struct.pack(fmt, value)
+    raise ValueError(f"element_set not supported for dtype {dtype}")
+
+
+def _packed_wire_bytes(t: dict) -> bytes:
+    """Get the full tensor as wire bytes for change comparison."""
+    total = 1
+    for d in t["shape"]:
+        total *= d
+    return _serialize_data(t["dtype"], t["data"], total)
+
+
+def _flat_to_indices(flat: int, shape: list) -> list:
+    indices = [0] * len(shape)
+    for i in range(len(shape) - 1, -1, -1):
+        indices[i] = flat % shape[i]
+        flat //= shape[i]
+    return indices
+
+
+def _find_changed_elements(base_t: dict, new_t: dict):
+    """Return list of {flat, indices} for changed elements, or None for unsupported dtypes."""
+    dtype = base_t["dtype"]
+    if dtype == DTYPE.BOOL:
+        return None
+    if dtype in (DTYPE.CFLOAT32, DTYPE.CFLOAT64):
+        return None
+    total = 1
+    for d in base_t["shape"]:
+        total *= d
+    changed = []
+    for i in range(total):
+        if base_t["data"][i] != new_t["data"][i]:
+            changed.append({"flat": i, "indices": _flat_to_indices(i, base_t["shape"])})
+    return changed
+
+
+def _bounding_box(changed: list, shape: list) -> list:
+    """Compute per-dim [start, end) bounding box of changed elements."""
+    rank = len(shape)
+    mins = [float("inf")] * rank
+    maxs = [float("-inf")] * rank
+    for c in changed:
+        for r in range(rank):
+            if c["indices"][r] < mins[r]:
+                mins[r] = c["indices"][r]
+            if c["indices"][r] > maxs[r]:
+                maxs[r] = c["indices"][r]
+    return [[int(mins[r]), int(maxs[r]) + 1] for r in range(rank)]
+
+
+def _bbox_element_count(bbox: list) -> int:
+    n = 1
+    for s, e in bbox:
+        n *= (e - s)
+    return n
+
+
+def _extract_region(t: dict, bbox: list) -> list:
+    """Extract elements within bbox in row-major order."""
+    rank = len(t["shape"])
+    result = []
+
+    def recur(dim, idx):
+        if dim == rank:
+            flat = 0
+            for r in range(rank):
+                flat = flat * t["shape"][r] + idx[r]
+            result.append(t["data"][flat])
+            return
+        s, e = bbox[dim]
+        for i in range(s, e):
+            idx[dim] = i
+            recur(dim + 1, idx)
+
+    recur(0, [0] * rank)
+    return result
+
+
+def _max_abs_delta(base_t: dict, new_t: dict) -> float:
+    """Max absolute per-element delta for fp32/fp64; returns inf for other dtypes."""
+    dtype = base_t["dtype"]
+    if dtype not in (DTYPE.FP32, DTYPE.FP64):
+        return float("inf")
+    max_d = 0.0
+    for b, n in zip(base_t["data"], new_t["data"]):
+        d = abs(n - b)
+        if d > max_d:
+            max_d = d
+    return max_d
+
+
+def _compute_delta_bytes_fp(base_t: dict, new_t: dict) -> bytes:
+    """Per-element arithmetic delta bytes (new - base) for fp32 or fp64."""
+    dtype = base_t["dtype"]
+    if dtype == DTYPE.FP32:
+        deltas = [float(n) - float(b) for b, n in zip(base_t["data"], new_t["data"])]
+        return struct.pack(f"<{len(deltas)}f", *deltas)
+    else:  # FP64
+        deltas = [float(n) - float(b) for b, n in zip(base_t["data"], new_t["data"])]
+        return struct.pack(f"<{len(deltas)}d", *deltas)
+
+
+def compute_delta(base_doc: dict, new_doc: dict) -> list:
+    """Compute ops list between two tensor documents.
+
+    Returns a list of op dicts, one per tensor operation.  Returns an
+    empty list when the two documents are identical.
+    """
+    ops = []
+    base_tensors = base_doc.get("tensors", {})
+    new_tensors = new_doc.get("tensors", {})
+
+    # Removals
+    for name in base_tensors:
+        if name not in new_tensors:
+            ops.append({"op": OP.TENSOR_REMOVE, "name": name})
+
+    # Additions
+    for name in new_tensors:
+        if name not in base_tensors:
+            t = new_tensors[name]
+            ops.append({"op": OP.TENSOR_ADD, "name": name, **t})
+
+    # Changes
+    for name in new_tensors:
+        if name not in base_tensors:
+            continue
+        base_t = base_tensors[name]
+        new_t = new_tensors[name]
+
+        if base_t["dtype"] != new_t["dtype"] or list(base_t["shape"]) != list(new_t["shape"]):
+            ops.append({"op": OP.TENSOR_REMOVE, "name": name})
+            ops.append({"op": OP.TENSOR_ADD, "name": name, **new_t})
+            continue
+
+        dtype = base_t["dtype"]
+
+        # quant_change: same dtype/shape, quantized dtype, scale or zero_point changed
+        if dtype in (DTYPE.QINT8, DTYPE.QINT4, DTYPE.QFP8):
+            scale_changed = base_t.get("scale", 0) != new_t.get("scale", 0)
+            zp_changed = base_t.get("zero_point", 0) != new_t.get("zero_point", 0)
+            if scale_changed or zp_changed:
+                ops.append({
+                    "op": OP.QUANT_CHANGE,
+                    "name": name,
+                    "dtype": new_t["dtype"],
+                    "shape": new_t["shape"],
+                    "data": new_t["data"],
+                    "scale": new_t.get("scale", 0),
+                    "zero_point": new_t.get("zero_point", 0),
+                })
+                continue
+
+        base_bytes = _packed_wire_bytes(base_t)
+        new_bytes = _packed_wire_bytes(new_t)
+        expected = _data_bytes(dtype, base_t["shape"])
+        if base_bytes[:expected] == new_bytes[:expected]:
+            continue  # no change
+
+        total = 1
+        for d in base_t["shape"]:
+            total *= d
+
+        changed = _find_changed_elements(base_t, new_t)
+        if changed is None:
+            ops.append({"op": OP.TENSOR_REPLACE, "name": name, **new_t, "mode": 0})
+            continue
+
+        sparsity = len(changed) / total if total > 0 else 0.0
+
+        if sparsity < _DENSITY_THRESHOLD:
+            bbox = _bounding_box(changed, new_t["shape"])
+            bbox_size = _bbox_element_count(bbox)
+            if (bbox_size > 0 and bbox_size < total
+                    and len(changed) / bbox_size > _REGION_DENSITY_THRESHOLD):
+                region_data = _extract_region(new_t, bbox)
+                ops.append({
+                    "op": OP.REGION_REPLACE,
+                    "name": name,
+                    "dtype": new_t["dtype"],
+                    "shape": new_t["shape"],
+                    "bbox": bbox,
+                    "region_data": region_data,
+                })
+            else:
+                elements = [
+                    {"indices": c["indices"], "value": new_t["data"][c["flat"]]}
+                    for c in changed
+                ]
+                ops.append({
+                    "op": OP.ELEMENT_SET,
+                    "name": name,
+                    "dtype": new_t["dtype"],
+                    "shape": new_t["shape"],
+                    "elements": elements,
+                })
+        else:
+            max_d = _max_abs_delta(base_t, new_t)
+            if 0 < max_d <= _DELTA_FROM_PRIOR_THRESHOLD:
+                delta_bytes = _compute_delta_bytes_fp(base_t, new_t)
+                ops.append({
+                    "op": OP.TENSOR_REPLACE,
+                    "name": name,
+                    **new_t,
+                    "mode": 1,
+                    "delta_data": delta_bytes,
+                })
+            else:
+                ops.append({"op": OP.TENSOR_REPLACE, "name": name, **new_t, "mode": 0})
+
+    return ops
+
+
+def _emit_quant_change(w: _BitWriter, op: dict) -> None:
+    """Emit a quant_change op (op code 5)."""
+    _emit_name(w, op["name"])
+    # scale: fp32 little-endian
+    scale_bytes = struct.pack("<f", float(op.get("scale", 0)))
+    for b in scale_bytes:
+        w.write_byte(b)
+    # zero_point: dtype-dependent
+    dtype = op["dtype"]
+    if dtype == DTYPE.QINT8:
+        w.write_byte(int(op.get("zero_point", 0)) & 0xFF)
+    elif dtype == DTYPE.QINT4:
+        w.write_byte(int(op.get("zero_point", 0)) & 0x0F)
+    # QFP8: no zero_point field
+    _emit_data_block(w, op)
+
+
+def encode_delta(base_doc: dict, new_doc: dict):
+    """Encode a delta between two tensor documents.
+
+    Returns bytes if any tensor changed, or None if the documents are identical.
+    Byte-exact with the JS ``encodeDelta`` and Rust ``encode_delta`` for all
+    supported ops: tensor_replace (mode 0 and 1), tensor_add, tensor_remove,
+    element_set, region_replace, quant_change.
+    """
+    ops = compute_delta(base_doc, new_doc)
+    if not ops:
+        return None
+
+    w = _BitWriter()
+    w.write_bits(1, 1)  # bit 0: delta
+    _leb128(w, len(ops))
+
+    for op in ops:
+        op_code = op["op"]
+        w.write_bits(op_code, _OP_BITS)
+
+        if op_code == OP.TENSOR_REMOVE:
+            _emit_name(w, op["name"])
+
+        elif op_code in (OP.TENSOR_ADD, OP.TENSOR_REPLACE):
+            _emit_name(w, op["name"])
+            w.write_bits(op["dtype"], 5)
+            _short(w, len(op["shape"]))
+            for dim in op["shape"]:
+                _leb128(w, dim)
+            if op_code == OP.TENSOR_REPLACE:
+                mode = op.get("mode", 0)
+                w.write_bits(mode, 1)
+                if mode == 1:
+                    delta_data = op["delta_data"]
+                    for b in delta_data:
+                        w.write_byte(b)
+                else:
+                    _emit_data_block(w, op)
+            else:
+                _emit_data_block(w, op)
+
+        elif op_code == OP.ELEMENT_SET:
+            _emit_name(w, op["name"])
+            w.write_bits(op["dtype"], 5)
+            _short(w, len(op["shape"]))
+            for dim in op["shape"]:
+                _leb128(w, dim)
+            elements = op["elements"]
+            _leb128(w, len(elements))
+            bpe = _bytes_per_elem(op["dtype"])
+            for elem in elements:
+                for idx in elem["indices"]:
+                    _leb128(w, idx)
+                eb = _encode_single_element(op["dtype"], elem["value"])
+                for b in eb[:bpe]:
+                    w.write_byte(b)
+
+        elif op_code == OP.REGION_REPLACE:
+            _emit_name(w, op["name"])
+            w.write_bits(op["dtype"], 5)
+            _short(w, len(op["shape"]))
+            for dim in op["shape"]:
+                _leb128(w, dim)
+            bbox = op["bbox"]
+            _short(w, len(bbox))
+            for s, e in bbox:
+                _leb128(w, s)
+                _leb128(w, e)
+            region_data = op["region_data"]
+            total_region = 1
+            for s, e in bbox:
+                total_region *= (e - s)
+            region_bytes = _serialize_data(op["dtype"], region_data, total_region)
+            for b in region_bytes:
+                w.write_byte(b)
+
+        elif op_code == OP.QUANT_CHANGE:
+            _emit_quant_change(w, op)
+
+        else:
+            raise ValueError(f"unsupported op code {op_code}")
+
     _emit_structured_trailer(w)
     return w.finish()

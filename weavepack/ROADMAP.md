@@ -615,3 +615,11 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   quantization helpers added to test helper (float→nibble/int8/fp8e4m3
   bytes). PyO3 conformance: 61/93 pass (32 pre-existing failures for
   int4/fp8/cfloat schema-less vectors; 0 new regressions).
+
+- D.4 Python tensor delta encoder: ✓ COMPLETE — compute_delta + encode_delta
+  in impl/python/weavepack_tensor/encoder.py; 14/14 corpus delta vectors
+  byte-exact (tensor_replace, tensor_add, tensor_remove, element_set,
+  region_replace, quant_change); mode=1 (delta-from-prior) heuristic
+  matches JS/Rust threshold (≤ 0.01 for fp32/fp64); 15 unit tests in
+  impl/python/test_encode_delta.py. All cross-language totals unchanged;
+  97/97 Python conformance, 2277/2277 JS SDK, 190/190 corpus vectors.
