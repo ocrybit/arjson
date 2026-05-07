@@ -631,3 +631,14 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   matches JS/Rust threshold (≤ 0.01 for fp32/fp64); 15 unit tests in
   impl/python/test_encode_delta.py. All cross-language totals unchanged;
   97/97 Python conformance, 2277/2277 JS SDK, 190/190 corpus vectors.
+
+- C.4 Streaming-mode conformance corpus: ✓ COMPLETE — 4 vectors added to
+  weavepack/profiles/tensor/test-vectors/streaming/schemaful.json; verify-
+  test-vectors.js gains a streaming/ handler that calls iterateTensorsSchemaful
+  and compares yielded tensor name/dtype/shape/data arrays against expected_tensors.
+  Vectors: single fp32 (same bytes as schemaful.json #1, verifies exact parity),
+  multi-tensor sorted order (bias before weight; canonical-order invariant),
+  mixed dtypes (int32 + fp32 in one doc), qint8 dequantisation (scale=2^-7,
+  lossless round-trip). 194/194 conformance vectors pass (was 190/190).
+  Also: V0.2-PLANNING.md quant_change table updated to record ✓ Rust encoder
+  + Python encoder (both shipped in prior commits).

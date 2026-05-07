@@ -1,0 +1,58 @@
+[
+  {
+    "name": "stream single fp32",
+    "description": "iterateTensorsSchemaful on a single-tensor schemaful doc yields exactly that tensor with dequantized data in Float32Array form. bytes_hex is the same as the schemaful.json 'schemaful single fp32' vector.",
+    "kind": "streaming",
+    "schema": {
+      "weight": { "dtype": 15, "shape": [4] }
+    },
+    "schema_hash_hex": "feee367dae1bc25b45e1162712e9f0de47cd60746fe08fed499ed85afb7dff8f",
+    "bytes_hex": "7fbb8d9f6b86f096d1784589c4ba7c3791f3581d1bf823fb5267b616bedf7fe3c000200fc0000010000010100000201000",
+    "expected_tensors": [
+      { "name": "weight", "dtype": 15, "shape": [4], "data": [1.0, 2.0, 3.0, 4.0] }
+    ]
+  },
+  {
+    "name": "stream multi-tensor sorted order",
+    "description": "iterateTensorsSchemaful yields tensors in canonical (alphabetically sorted) name order regardless of insertion order in the source doc. 'bias' precedes 'weight' lexicographically; verify the iterator yields bias first.",
+    "kind": "streaming",
+    "schema": {
+      "bias":   { "dtype": 15, "shape": [2] },
+      "weight": { "dtype": 15, "shape": [2, 3] }
+    },
+    "schema_hash_hex": "87362ccc717ffb686fb086f04e33677c7d4bf52cd4665de2a22abf2307b83531",
+    "bytes_hex": "61cd8b331c5ffeda1bec21bc138cd9df1f52fd4b35199778a88aafc8c1ee0d4c4000200fc00000103373330f7373130fa6a6664fb373330f8000000fe6a6464fc0",
+    "expected_tensors": [
+      { "name": "bias",   "dtype": 15, "shape": [2],    "data": [1.0, 2.0] },
+      { "name": "weight", "dtype": 15, "shape": [2, 3], "data": [0.10000000149011612, 0.20000000298023224, 0.30000001192092896, 0.4000000059604645, 0.5, 0.6000000238418579] }
+    ]
+  },
+  {
+    "name": "stream mixed dtypes",
+    "description": "iterateTensorsSchemaful correctly materialises different dtypes in a single doc: int32 'indices' and fp32 'values', both yielded in canonical order (i < v).",
+    "kind": "streaming",
+    "schema": {
+      "indices": { "dtype": 7,  "shape": [3] },
+      "values":  { "dtype": 15, "shape": [3] }
+    },
+    "schema_hash_hex": "db43e8cb0046c4163fc015882dad493bfe35602bfcccfe3e4b43419b356b562b",
+    "bytes_hex": "76d0fa32c011b1058ff005620b6b524eff8d580aff333f8f92d0d066cd5ad58ac1c000000a800000190000000000002fc00000000000000fc0",
+    "expected_tensors": [
+      { "name": "indices", "dtype": 7,  "shape": [3], "data": [7, 42, 100] },
+      { "name": "values",  "dtype": 15, "shape": [3], "data": [-0.5, 0.0, 0.5] }
+    ]
+  },
+  {
+    "name": "stream qint8 dequantization",
+    "description": "iterateTensorsSchemaful applies scale dequantisation for QINT8 tensors: stored bytes are int8 q-values; iterator yields Float32Array of (q - zero_point) * scale. scale=2^-7=0.0078125 gives lossless round-trip for values in [-1, 1].",
+    "kind": "streaming",
+    "schema": {
+      "weights": { "dtype": 29, "shape": [4], "scale": 0.0078125, "zero_point": 0 }
+    },
+    "schema_hash_hex": "c171953154dbc63d758c0e693e8b1d2f1ccf358b3d8e3e2c745dacbe8ddc343b",
+    "bytes_hex": "705c654c5536f18f5d63039a4fa2c74bc733cd62cf638f8b1d176b2fa3770d0ee030001fc0",
+    "expected_tensors": [
+      { "name": "weights", "dtype": 29, "shape": [4], "data": [-1.0, -0.5, 0.0, 0.9921875] }
+    ]
+  }
+]

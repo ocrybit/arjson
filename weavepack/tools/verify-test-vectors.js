@@ -15,6 +15,7 @@ import {
   decodeDocument as tensorDec,
   encodeDocumentSchemaful,
   decodeDocumentSchemaful,
+  iterateTensorsSchemaful,
   TensorPack,
   DTYPE,
   schemaHashHex,
@@ -178,11 +179,37 @@ for (const path of walk(TENSOR_ROOT)) {
   const rel    = path.slice(TENSOR_ROOT.length + 1)
   const prefix = "tensor:" + rel
   const vectors = JSON.parse(readFileSync(path, "utf8"))
-  const isSchema = rel.startsWith("schemas/")
-  const isDelta  = rel.startsWith("deltas/")
+  const isSchema    = rel.startsWith("schemas/")
+  const isDelta     = rel.startsWith("deltas/")
+  const isStreaming = rel.startsWith("streaming/")
 
   for (const v of vectors) {
-    if (isSchema) {
+    if (isStreaming) {
+      // Streaming vector: call iterateTensorsSchemaful, compare yielded tensors.
+      try {
+        const bytes    = new Uint8Array(v.bytes_hex.match(/.{2}/g).map(h => parseInt(h, 16)))
+        const registry = new Map([[v.schema_hash_hex, v.schema]])
+        const yielded  = []
+        for (const t of iterateTensorsSchemaful(bytes, registry)) {
+          yielded.push({ name: t.name, dtype: t.dtype, shape: t.shape, data: Array.from(t.data) })
+        }
+        if (yielded.length !== v.expected_tensors.length) {
+          record(prefix, v.name, "tensor count mismatch", v.expected_tensors.length, yielded.length); continue
+        }
+        let ok = true
+        for (let i = 0; i < yielded.length; i++) {
+          const got = yielded[i], exp = v.expected_tensors[i]
+          if (got.name !== exp.name || got.dtype !== exp.dtype ||
+              !equals(got.shape, exp.shape) || !equals(got.data, exp.data)) {
+            record(prefix, v.name, `tensor[${i}] mismatch`, JSON.stringify(exp), JSON.stringify(got))
+            ok = false; break
+          }
+        }
+        if (ok) pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    } else if (isSchema) {
       // Schema vector: encode schemaful, compare bytes, decode, compare tensors.
       try {
         const doc    = parseTensorDoc(v.input)
