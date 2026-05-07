@@ -302,6 +302,54 @@ fn walk_json(dir: &Path, files: &mut Vec<PathBuf>) {
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
+fn run_security_vectors(runner: &mut Runner, security_root: &Path) {
+    let mut files = Vec::new();
+    walk_json(security_root, &mut files);
+    for path in &files {
+        let rel = match path.strip_prefix(security_root) {
+            Ok(r) => format!("core/security/{}", r.to_string_lossy()),
+            Err(_) => path.to_string_lossy().to_string(),
+        };
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(e) => { runner.err(&rel, &format!("read error: {e}")); continue; }
+        };
+        let vectors: Vec<Value> = match serde_json::from_str(&content) {
+            Ok(v) => v,
+            Err(e) => { runner.err(&rel, &format!("JSON parse error: {e}")); continue; }
+        };
+        for v in &vectors {
+            let name = v["name"].as_str().unwrap_or("?");
+            let full = format!("{rel} :: {name}");
+            let hex = match v["input_bytes_hex"].as_str() {
+                Some(h) => h,
+                None => { runner.err(&full, "input_bytes_hex missing"); continue; }
+            };
+            let bytes = match from_hex(hex) {
+                Ok(b) => b,
+                Err(e) => { runner.err(&full, &format!("hex parse error: {e}")); continue; }
+            };
+            let expected = v["expected_behavior"].as_str().unwrap_or("refusal");
+            match decode_snapshot(&bytes) {
+                Ok(decoded) => {
+                    if expected == "refusal" {
+                        runner.err(&full, &format!("expected refusal but decoded to {decoded}"));
+                    } else {
+                        runner.ok();
+                    }
+                }
+                Err(_) => {
+                    if expected == "refusal" {
+                        runner.ok();
+                    } else {
+                        runner.err(&full, "unexpected decode error");
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn main() {
     let vectors_root: PathBuf = std::env::args()
         .nth(1)
@@ -363,6 +411,17 @@ fn main() {
                 runner.run_snapshot(&rel, v);
             }
         }
+    }
+
+    // ── core security adversarial vectors ─────────────────────────────────────
+    // vectors_root = .../weavepack/profiles/json/test-vectors
+    // go up 3 levels to reach .../weavepack, then into core/test-vectors/security
+    let security_root = vectors_root
+        .parent().and_then(|p| p.parent()).and_then(|p| p.parent())
+        .map(|r| r.join("core/test-vectors/security"))
+        .unwrap_or_else(|| PathBuf::from("../../core/test-vectors/security"));
+    if security_root.exists() {
+        run_security_vectors(&mut runner, &security_root);
     }
 
     println!("Pass: {}", runner.pass);

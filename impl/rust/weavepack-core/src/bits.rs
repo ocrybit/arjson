@@ -85,6 +85,10 @@ impl<'a> BitReader<'a> {
         let bit_off = self.pos & 7;
         self.pos += n;
 
+        if self.pos > self.data.len() * 8 + 64 {
+            return Err("read past end of buffer".into());
+        }
+
         // Fast path: up to 24 bits fit in a 4-byte window.
         if n <= 24 {
             let b0 = *self.data.get(byte_idx).unwrap_or(&0) as u32;

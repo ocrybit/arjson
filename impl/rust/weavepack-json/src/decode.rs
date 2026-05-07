@@ -155,6 +155,9 @@ fn read_vrefs(r: &mut BitReader<'_>, vflags: &[u8]) -> Result<(Vec<u64>, u64), S
                 // RLE: run of repeated vlinks.
                 let run = r.short()? as usize;
                 let rv  = r.read(3)?;
+                if run > vflags.len() - i {
+                    return Err("vrefs run-length exceeds remaining flags".into());
+                }
                 let run_start = i;
                 for j in 0..run {
                     let d = vflags[run_start + j] == 1;
@@ -172,7 +175,6 @@ fn read_vrefs(r: &mut BitReader<'_>, vflags: &[u8]) -> Result<(Vec<u64>, u64), S
         } else {
             let mut raw = 0u64;
             loop { raw = r.read(cbits)?; if raw != 0 { break; } cbits += 1; }
-            // Check for absolute-mode RLE (raw==0 after widening — already exited above).
             let (v, np) = apply_vlink(false, raw, prev);
             prev = np; vrefs.push(v);
             if v > key_len { key_len = v; }
@@ -206,6 +208,9 @@ fn read_krefs(r: &mut BitReader<'_>, kflags: &[u8]) -> Result<Vec<u64>, String> 
             if raw == 0 {
                 let run = r.short()? as usize;
                 let rv  = r.read(3)?;
+                if run > kflags.len() - i {
+                    return Err("krefs run-length exceeds remaining flags".into());
+                }
                 let run_start = i;
                 for j in 0..run {
                     let d = kflags[run_start + j] == 1;

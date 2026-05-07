@@ -63,6 +63,8 @@ class _BitReader:
             val = (val << 1) | bit
             pos += 1
         self.bit_pos = pos
+        if self.bit_pos > data_len * 8 + 64:
+            raise ValueError("read past end of buffer")
         return val
 
     def leb128(self) -> int:
@@ -190,6 +192,8 @@ def _read_vrefs(r: _BitReader, vflags: list[int]) -> tuple[list[int], int]:
             if raw == 0:
                 run = r.short()
                 rv = r.read_bits(3)
+                if run > len(vflags) - i:
+                    raise ValueError("vrefs run-length exceeds remaining flags")
                 run_start = i
                 for j in range(run):
                     d = vflags[run_start + j] == 1
@@ -227,6 +231,8 @@ def _read_krefs(r: _BitReader, kflags: list[int]) -> list[int]:
             if raw == 0:
                 run = r.short()
                 rv = r.read_bits(3)
+                if run > len(kflags) - i:
+                    raise ValueError("krefs run-length exceeds remaining flags")
                 run_start = i
                 for j in range(run):
                     d = kflags[run_start + j] == 1

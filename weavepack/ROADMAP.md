@@ -720,3 +720,20 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   verify-test-vectors.js core/security/ handler unchanged (existing patterns cover
   all new error classes). 215/215 conformance vectors pass (was 213/213; +2
   security vectors); 2298/2298 JS SDK tests unchanged.
+
+- Security adversarial corpus — Rust + Python conformance: ✓ COMPLETE (2026-05-07) —
+  Rust and Python decoders extended to test all 13 security adversarial vectors.
+  Two decoder bugs fixed in both implementations:
+  (1) Read-past-end guard: `BitReader::read()` (Rust) and `_BitReader.read_bits()`
+  (Python) now raise an error when `pos > buffer_bytes * 8 + 64` — same 64-bit grace
+  period as the JS reference. This terminates the cbits-expansion loop in `read_vrefs`
+  / `read_krefs` that previously ran forever on truncated payloads.
+  (2) RLE bomb bounds check: `read_vrefs` and `read_krefs` in both Rust and Python now
+  check `run > remaining_flags` before iterating, returning a clean error instead of
+  panicking (Rust) or raising IndexError (Python) mid-loop.
+  Rust conformance binary: `run_security_vectors()` added; security_root = three parents
+  up from json/test-vectors, then `core/test-vectors/security`. 110/110 Rust JSON
+  conformance vectors pass (was 97/97; +13 security vectors).
+  Python conformance: security loop added after JSON vectors. 110/110 Python JSON
+  conformance vectors pass (was 97/97; +13 security vectors).
+  JS SDK and verify-test-vectors.js totals unchanged: 2298/2298 and 215/215.

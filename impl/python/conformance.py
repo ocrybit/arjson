@@ -174,6 +174,35 @@ for vec_file in walk(VECTORS):
             continue
         passes += 1
 
+# ── core security adversarial vectors ─────────────────────────────────────────
+SECURITY_ROOT = REPO_ROOT / "weavepack" / "core" / "test-vectors" / "security"
+
+if SECURITY_ROOT.exists():
+    for vec_file in sorted(SECURITY_ROOT.glob("*.json")):
+        rel = "core/security/" + vec_file.name
+        with open(vec_file) as f:
+            sec_vectors = json.load(f)
+        for v in sec_vectors:
+            name = v.get("name", "(unnamed)")
+            hex_str = v.get("input_bytes_hex", "")
+            expected = v.get("expected_behavior", "refusal")
+            if not hex_str:
+                skips += 1
+                continue
+            try:
+                decode(bytes.fromhex(hex_str))
+                if expected == "refusal":
+                    fails += 1
+                    failures.append(f"{rel} :: {name}: expected refusal but decoded successfully")
+                else:
+                    passes += 1
+            except Exception:
+                if expected == "refusal":
+                    passes += 1
+                else:
+                    fails += 1
+                    failures.append(f"{rel} :: {name}: unexpected decode error")
+
 print(f"Pass: {passes}")
 print(f"Fail: {fails}")
 print(f"Skip: {skips} (structured-mode or non-byte-vectored)")
