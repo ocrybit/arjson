@@ -6,8 +6,9 @@
 
 use crate::bits::{finalize, write_leb128, write_short, BitReader, BitWriter};
 use crate::types::{
-    data_bytes, dtype_bits_per_elem, DTYPE_BITS, DTYPE_QINT4, DTYPE_QINT8, OP_BITS, OP_ELEMENT_SET,
-    OP_QUANT_CHANGE, OP_REGION_REPLACE, OP_TENSOR_ADD, OP_TENSOR_REMOVE, OP_TENSOR_REPLACE,
+    data_bytes, dtype_bits_per_elem, DTYPE_BITS, DTYPE_FP32, DTYPE_FP64, DTYPE_QINT4, DTYPE_QINT8,
+    OP_BITS, OP_ELEMENT_SET, OP_QUANT_CHANGE, OP_REGION_REPLACE, OP_TENSOR_ADD, OP_TENSOR_REMOVE,
+    OP_TENSOR_REPLACE,
 };
 use crate::TensorData;
 use std::collections::BTreeMap;
@@ -18,6 +19,10 @@ fn to_map(tensors: &[(String, TensorData)]) -> BTreeMap<&str, &TensorData> {
 }
 
 const DENSITY_THRESHOLD: f64 = 0.3;
+// V0.2 A.3 — emit mode=1 (delta-from-prior) when max abs per-element
+// change is at or below this threshold (fp32/fp64 only). Mirrors the
+// JS heuristic; see V0.2-PLANNING.md A.3 for empirical brotli sweep.
+const DELTA_FROM_PRIOR_THRESHOLD: f32 = 0.01;
 
 // ── op emission helpers ───────────────────────────────────────────────────────
 
@@ -47,6 +52,58 @@ fn write_tensor_body_data(w: &mut BitWriter, t: &TensorData) {
 fn write_tensor_body(w: &mut BitWriter, t: &TensorData) {
     write_tensor_body_header(w, t);
     write_tensor_body_data(w, t);
+}
+
+// ── mode=1 (delta-from-prior) helpers ────────────────────────────────────────
+
+/// Returns the max absolute per-element difference for fp32 or fp64 tensors.
+/// For any other dtype returns `f32::INFINITY` (= "don't use mode=1").
+fn max_abs_delta(base_t: &TensorData, new_t: &TensorData) -> f32 {
+    if base_t.dtype == DTYPE_FP32 {
+        let mut max: f32 = 0.0;
+        for i in (0..base_t.data.len()).step_by(4) {
+            let b = f32::from_le_bytes(base_t.data[i..i + 4].try_into().unwrap());
+            let n = f32::from_le_bytes(new_t.data[i..i + 4].try_into().unwrap());
+            let d = (n - b).abs();
+            if d > max { max = d; }
+        }
+        max
+    } else if base_t.dtype == DTYPE_FP64 {
+        let mut max: f64 = 0.0;
+        for i in (0..base_t.data.len()).step_by(8) {
+            let b = f64::from_le_bytes(base_t.data[i..i + 8].try_into().unwrap());
+            let n = f64::from_le_bytes(new_t.data[i..i + 8].try_into().unwrap());
+            let d = (n - b).abs();
+            if d > max { max = d; }
+        }
+        max as f32
+    } else {
+        f32::INFINITY
+    }
+}
+
+/// Compute per-element arithmetic delta bytes: `new[i] - base[i]` for fp32/fp64.
+fn compute_delta_bytes(base_t: &TensorData, new_t: &TensorData) -> Vec<u8> {
+    if base_t.dtype == DTYPE_FP32 {
+        let n = base_t.data.len();
+        let mut out = vec![0u8; n];
+        for i in (0..n).step_by(4) {
+            let b = f32::from_le_bytes(base_t.data[i..i + 4].try_into().unwrap());
+            let v = f32::from_le_bytes(new_t.data[i..i + 4].try_into().unwrap());
+            out[i..i + 4].copy_from_slice(&(v - b).to_le_bytes());
+        }
+        out
+    } else {
+        // DTYPE_FP64
+        let n = base_t.data.len();
+        let mut out = vec![0u8; n];
+        for i in (0..n).step_by(8) {
+            let b = f64::from_le_bytes(base_t.data[i..i + 8].try_into().unwrap());
+            let v = f64::from_le_bytes(new_t.data[i..i + 8].try_into().unwrap());
+            out[i..i + 8].copy_from_slice(&(v - b).to_le_bytes());
+        }
+        out
+    }
 }
 
 // ── element-level helpers ─────────────────────────────────────────────────────
@@ -88,7 +145,7 @@ fn changed_elements(base: &TensorData, new: &TensorData) -> Option<Vec<(usize, V
 enum DeltaOp<'a> {
     TensorRemove { name: &'a str },
     TensorAdd { name: &'a str, t: &'a TensorData },
-    TensorReplace { name: &'a str, t: &'a TensorData },
+    TensorReplace { name: &'a str, t: &'a TensorData, mode: u8, delta_data: Vec<u8> },
     ElementSet { name: &'a str, t: &'a TensorData, elements: Vec<(Vec<u64>, &'a [u8])> },
     RegionReplace { name: &'a str, t: &'a TensorData, bbox: Vec<(u64, u64)>, region: Vec<u8> },
 }
@@ -192,7 +249,17 @@ fn compute_ops<'a>(
             }
         }
 
-        ops.push(DeltaOp::TensorReplace { name, t: new_t });
+        // Dense update: TENSOR_REPLACE.  Choose mode=1 (delta-from-prior)
+        // when the max abs per-element delta is small enough that brotli
+        // exploits the leading-zero structure.  fp32/fp64 only; integers
+        // always use mode=0.
+        let max_d = max_abs_delta(base_t, new_t);
+        if max_d > 0.0 && max_d <= DELTA_FROM_PRIOR_THRESHOLD {
+            let delta_data = compute_delta_bytes(base_t, new_t);
+            ops.push(DeltaOp::TensorReplace { name, t: new_t, mode: 1, delta_data });
+        } else {
+            ops.push(DeltaOp::TensorReplace { name, t: new_t, mode: 0, delta_data: Vec::new() });
+        }
     }
 
     ops
@@ -225,17 +292,19 @@ pub fn encode_delta(
                 write_name(&mut w, name);
                 write_tensor_body(&mut w, t);
             }
-            DeltaOp::TensorReplace { name, t } => {
+            DeltaOp::TensorReplace { name, t, mode, delta_data } => {
                 w.write_bits(OP_TENSOR_REPLACE as u32, OP_BITS);
                 write_name(&mut w, name);
                 write_tensor_body_header(&mut w, t);
-                // mode bit: 0 = absolute values. The Rust encoder always
-                // emits 0; the JS reference ships a mode=1 heuristic
-                // (max abs delta ≤ 0.01 → emit delta-from-prior).
-                // Porting that heuristic to Rust is V0.2 A.3 follow-up.
-                // The Rust decoder DOES handle mode=1 chains from JS.
-                w.write_bits(0, 1);
-                write_tensor_body_data(&mut w, t);
+                w.write_bits(*mode as u32, 1);
+                if *mode == 1 {
+                    // Emit per-element deltas instead of absolute values.
+                    for b in delta_data {
+                        w.write_bits(*b as u32, 8);
+                    }
+                } else {
+                    write_tensor_body_data(&mut w, t);
+                }
             }
             DeltaOp::ElementSet { name, t, elements } => {
                 w.write_bits(OP_ELEMENT_SET as u32, OP_BITS);
@@ -707,9 +776,8 @@ mod tests {
 
     #[test]
     fn encode_apply_round_trip_tensor_replace() {
-        // Full round-trip: encoder builds a TENSOR_REPLACE delta (mode=0
-        // is the only mode the encoder emits today), decoder applies
-        // it back. Locks the mode-bit emit/read paths against drift.
+        // Full round-trip (large delta → mode=0): encoder builds a TENSOR_REPLACE
+        // delta with mode=0 for large changes, decoder applies it back.
         let base = vec![("w".to_string(), TensorData {
             dtype: DTYPE_FP32, shape: vec![3],
             data: 1.0f32.to_le_bytes().iter().chain(2.0f32.to_le_bytes().iter())
@@ -723,5 +791,74 @@ mod tests {
         let delta_bytes = encode_delta(&base, &new).expect("delta should not be empty");
         let result = apply_delta(&base, &delta_bytes).expect("apply should succeed");
         assert_eq!(result, new, "round-trip should reproduce target tensor");
+    }
+
+    #[test]
+    fn encoder_emits_mode1_for_small_fp32_delta() {
+        // base=[1.0, 2.0, 3.0, 4.0], update by ±0.001 → max abs delta 0.001 ≤ 0.01
+        // → encoder must choose mode=1 and round-trip correctly.
+        let base_data: Vec<u8> = [1.0f32, 2.0, 3.0, 4.0].iter()
+            .flat_map(|f| f.to_le_bytes()).collect();
+        let new_vals = [1.001f32, 1.999, 3.002, 3.998];
+        let new_data: Vec<u8> = new_vals.iter().flat_map(|f| f.to_le_bytes()).collect();
+        let base = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_FP32, shape: vec![4], data: base_data,
+        })];
+        let new = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_FP32, shape: vec![4], data: new_data,
+        })];
+        let delta_bytes = encode_delta(&base, &new).expect("delta must be produced");
+
+        // Verify that the mode bit in the encoded payload is 1.
+        // The delta payload is: [1][leb128(1)][op_bits(0)][name][dtype][rank][shapes][mode_bit=1][data...]
+        // Decode via apply_delta and check numeric accuracy.
+        let result = apply_delta(&base, &delta_bytes).expect("apply must succeed");
+        let result_floats: Vec<f32> = (0..4)
+            .map(|i| f32::from_le_bytes(result[0].1.data[i * 4..i * 4 + 4].try_into().unwrap()))
+            .collect();
+        for (i, (&got, &want)) in result_floats.iter().zip(new_vals.iter()).enumerate() {
+            assert!((got - want).abs() < 1e-4, "elem {i}: got {got}, want {want}");
+        }
+    }
+
+    #[test]
+    fn encoder_emits_mode0_for_large_fp32_delta() {
+        // max abs delta = 9.0 >> 0.01 → encoder must choose mode=0.
+        let base_data: Vec<u8> = [1.0f32, 2.0].iter()
+            .flat_map(|f| f.to_le_bytes()).collect();
+        let new_data: Vec<u8> = [10.0f32, 2.0].iter()
+            .flat_map(|f| f.to_le_bytes()).collect();
+        let base = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_FP32, shape: vec![2], data: base_data,
+        })];
+        let new = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_FP32, shape: vec![2], data: new_data,
+        })];
+        let delta_bytes = encode_delta(&base, &new).expect("delta must be produced");
+        let result = apply_delta(&base, &delta_bytes).expect("apply must succeed");
+        assert_eq!(result, new, "mode=0 round-trip must be exact");
+    }
+
+    #[test]
+    fn encoder_emits_mode1_for_small_fp64_delta() {
+        // fp64 tensors with small deltas → mode=1.
+        let base_vals = [1.0f64, 2.0, 3.0];
+        let new_vals  = [1.005f64, 1.997, 3.008];
+        let base_data: Vec<u8> = base_vals.iter().flat_map(|f| f.to_le_bytes()).collect();
+        let new_data: Vec<u8>  = new_vals.iter().flat_map(|f| f.to_le_bytes()).collect();
+        let base = vec![("v".to_string(), TensorData {
+            dtype: DTYPE_FP64, shape: vec![3], data: base_data,
+        })];
+        let new = vec![("v".to_string(), TensorData {
+            dtype: DTYPE_FP64, shape: vec![3], data: new_data,
+        })];
+        let delta_bytes = encode_delta(&base, &new).expect("delta must be produced");
+        let result = apply_delta(&base, &delta_bytes).expect("apply must succeed");
+        let result_f64: Vec<f64> = (0..3)
+            .map(|i| f64::from_le_bytes(result[0].1.data[i * 8..i * 8 + 8].try_into().unwrap()))
+            .collect();
+        for (i, (&got, &want)) in result_f64.iter().zip(new_vals.iter()).enumerate() {
+            assert!((got - want).abs() < 1e-6, "elem {i}: got {got}, want {want}");
+        }
     }
 }

@@ -562,12 +562,14 @@ V0.2 in-progress (incremental):
   now handles op 5 (reads name, fp32 scale, dtype-dependent zp, data block).
   Python decoder.py gains matching QUANT_CHANGE branch. Rust conformance binary
   adds QINT8/QINT4/QFP8 cases to json_data_to_bytes for signed initial data.
-- A.3 delta-from-prior: ✓ DONE. Decoder in JS, Rust, Python
-  (58/58 vectors); JS encoder heuristic emits mode=1 when max
-  abs delta ≤ 0.01 on fp32/fp64 dense updates. Empirically,
-  weavepack+brotli is 1.6× smaller than safetensors+brotli on
-  the dense Adam-style training scenario (was ~1.0× before the
-  heuristic). See V0.2-PLANNING.md A.3 table for the full sweep.
+- A.3 delta-from-prior: ✓ DONE (encoder + decoder, all 3 langs).
+  Decoder in JS, Rust, Python (58/58 vectors). Encoder heuristic
+  emits mode=1 when max abs delta ≤ 0.01 on fp32/fp64 dense
+  updates; now ported to Rust (was JS-only). Rust encoder: 3 new
+  unit tests (small fp32, large fp32, small fp64); all 35 delta
+  tests pass; 97/97 conformance vectors pass. Empirically,
+  weavepack+brotli is 1.6× smaller than safetensors+brotli on the
+  dense Adam-style training scenario (V0.2-PLANNING.md A.3 table).
 - D.1 Rust JSON encoder: ✓ COMPLETE — 68/68 vectors byte-exact.
   Full structured-mode encoder (struct_encode.rs): column buffers, vlink/
   klink diff+RLE, vtypes RLE, nums diff+RLE, vflags/kflags/bools prefix
