@@ -1,6 +1,5 @@
-// weavepack-json decoder — Level 1 + Level 2 conformance.
+// weavepack-json decoder — Level 1 + Level 2 conformance + delta chain.
 //
-// Handles snapshot payloads (no delta application).
 // Wire layout (structured mode):
 //   [0-bit] [short:rcount] vflags vlinks kflags klinks
 //   keys(+kvals) vtypes bools nums vals strdiffs
@@ -378,7 +377,13 @@ fn read_nums(r: &mut BitReader<'_>, vtypes: &[VType]) -> Result<Vec<Value>, Stri
 }
 
 fn vt_num_tag(vt: &VType) -> u8 {
-    match vt { VType::IntPos => 4, VType::IntNeg => 5, VType::Float => 6, _ => 0 }
+    match vt {
+        VType::IntPos => 4,
+        VType::IntNeg => 5,
+        VType::Float  => 6,
+        VType::SpliceReplace { typ, .. } if *typ == 4 || *typ == 5 || *typ == 6 => *typ,
+        _ => 0,
+    }
 }
 
 /// Read one dint value, consulting/updating the RLE cache.
@@ -796,4 +801,569 @@ fn resolve_str(entry: StrEntry, cols: &Cols) -> Result<Value, String> {
 
 fn make_float(v: f64) -> Value {
     serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null)
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Delta chain decoder
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── bits helper ───────────────────────────────────────────────────────────────
+
+fn bits(n: usize) -> usize {
+    if n <= 1 { 1 } else { (u32::BITS - (n as u32).leading_zeros()) as usize }
+}
+
+// ── strdiff helpers ───────────────────────────────────────────────────────────
+
+fn leb128_encode(v: u64) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    let mut v = v;
+    loop {
+        let mut b = (v & 0x7F) as u8;
+        v >>= 7;
+        if v != 0 { b |= 0x80; }
+        bytes.push(b);
+        if v == 0 { break; }
+    }
+    bytes
+}
+
+fn read_strdiff_bytes(r: &mut BitReader<'_>) -> Result<Vec<u8>, String> {
+    let total_bits = r.leb128()?;
+    let byte_count = ((total_bits + 7) / 8) as usize;
+    let mut data = leb128_encode(total_bits);
+    for _ in 0..byte_count {
+        data.push(r.read(8)? as u8);
+    }
+    Ok(data)
+}
+
+fn leb128_decode(data: &[u8], offset: &mut usize) -> u64 {
+    let mut val = 0u64;
+    let mut shift = 0;
+    loop {
+        let b = data[*offset]; *offset += 1;
+        val |= ((b & 0x7F) as u64) << shift;
+        shift += 7;
+        if b & 0x80 == 0 { break; }
+    }
+    val
+}
+
+fn apply_strdiff(original: &str, data: &[u8], strmap: &HashMap<usize, String>) -> String {
+    if data.is_empty() { return original.to_string(); }
+    let mut offset = 0;
+    // Skip LEB128 prefix bytes.
+    while offset < data.len() && data[offset] & 0x80 != 0 { offset += 1; }
+    if offset >= data.len() { return original.to_string(); }
+    offset += 1; // last LEB128 byte
+    if offset >= data.len() { return original.to_string(); }
+    let op_count = data[offset] as usize; offset += 1;
+
+    let chars: Vec<char> = original.chars().collect();
+    enum Op { Delete { pos: usize, len: usize }, Insert { pos: usize, s: String } }
+    let mut ops: Vec<Op> = Vec::with_capacity(op_count);
+
+    for _ in 0..op_count {
+        if offset >= data.len() { break; }
+        let flags = data[offset]; offset += 1;
+        let op_type = (flags >> 7) & 1;
+        let has_ref = (flags >> 6) & 1;
+        let pos = leb128_decode(data, &mut offset) as usize;
+        if op_type == 0 {
+            let len = leb128_decode(data, &mut offset) as usize;
+            ops.push(Op::Delete { pos, len });
+        } else if has_ref != 0 {
+            let idx = leb128_decode(data, &mut offset) as usize;
+            let s = strmap.get(&idx).cloned().unwrap_or_default();
+            ops.push(Op::Insert { pos, s });
+        } else {
+            let length = leb128_decode(data, &mut offset) as usize;
+            let s: String = data[offset..offset + length].iter().map(|&b| b as char).collect();
+            offset += length;
+            ops.push(Op::Insert { pos, s });
+        }
+    }
+    ops.sort_by_key(|op| match op { Op::Delete { pos, .. } | Op::Insert { pos, .. } => *pos });
+
+    let mut result: Vec<char> = Vec::with_capacity(chars.len());
+    let mut orig_pos = 0usize;
+    for op in &ops {
+        match op {
+            Op::Delete { pos, len } => {
+                if *pos > orig_pos { result.extend_from_slice(&chars[orig_pos..*pos]); }
+                orig_pos = pos + len;
+            }
+            Op::Insert { pos, s } => {
+                if *pos > orig_pos { result.extend_from_slice(&chars[orig_pos..*pos]); }
+                result.extend(s.chars());
+                orig_pos = *pos;
+            }
+        }
+    }
+    result.extend_from_slice(&chars[orig_pos..]);
+    result.into_iter().collect()
+}
+
+// ── chain context ─────────────────────────────────────────────────────────────
+
+pub struct ChainContext {
+    pub krefs:  Vec<u64>,
+    pub keys:   Vec<KeyEntry>,
+    pub strmap: HashMap<usize, String>,
+}
+
+// ── generalized vrefs/krefs readers (supports initial_cbits > 1) ─────────────
+
+fn read_vrefs_cbits(
+    r: &mut BitReader<'_>,
+    vflags: &[u8],
+    initial_cbits: usize,
+) -> Result<(Vec<u64>, u64), String> {
+    let mut vrefs   = Vec::with_capacity(vflags.len());
+    let mut key_len = 0u64;
+    let mut prev    = 0u64;
+    let mut cbits   = initial_cbits;
+    let mut i       = 0;
+    while i < vflags.len() {
+        let diff = vflags[i] == 1;
+        if diff {
+            let raw = r.read(3)?;
+            if raw == 0 {
+                let run = r.short()? as usize;
+                let rv  = r.read(3)?;
+                let rs  = i;
+                for j in 0..run {
+                    let (v, np) = apply_vlink(vflags[rs + j] == 1, rv, prev);
+                    prev = np; vrefs.push(v);
+                    if v > key_len { key_len = v; }
+                    i += 1;
+                }
+            } else {
+                let (v, np) = apply_vlink(true, raw, prev);
+                prev = np; vrefs.push(v);
+                if v > key_len { key_len = v; }
+                i += 1;
+            }
+        } else {
+            let mut raw = 0u64;
+            loop { raw = r.read(cbits)?; if raw != 0 { break; } cbits += 1; }
+            let (v, np) = apply_vlink(false, raw, prev);
+            prev = np; vrefs.push(v);
+            if v > key_len { key_len = v; }
+            i += 1;
+        }
+    }
+    Ok((vrefs, key_len))
+}
+
+fn read_krefs_cbits(
+    r: &mut BitReader<'_>,
+    kflags: &[u8],
+    initial_cbits: usize,
+) -> Result<Vec<u64>, String> {
+    let mut krefs = Vec::with_capacity(kflags.len());
+    let mut prev  = 0u64;
+    let mut cbits = initial_cbits;
+    let mut i     = 0;
+    while i < kflags.len() {
+        let diff = kflags[i] == 1;
+        if diff {
+            let raw = r.read(3)?;
+            if raw == 0 {
+                let run = r.short()? as usize;
+                let rv  = r.read(3)?;
+                let rs  = i;
+                for j in 0..run {
+                    let (v, np) = apply_vlink(kflags[rs + j] == 1, rv, prev);
+                    prev = np; krefs.push(v); i += 1;
+                }
+            } else {
+                let (v, np) = apply_vlink(true, raw, prev);
+                prev = np; krefs.push(v); i += 1;
+            }
+        } else {
+            let mut raw = 0u64;
+            loop { raw = r.read(cbits)?; if raw != 0 { break; } cbits += 1; }
+            let (v, np) = apply_vlink(false, raw, prev);
+            prev = np; krefs.push(v); i += 1;
+        }
+    }
+    Ok(krefs)
+}
+
+// ── snapshot decode with chain context ───────────────────────────────────────
+
+fn decode_structured_with_ctx(r: &mut BitReader<'_>) -> Result<(Value, ChainContext), String> {
+    let rcount = r.short()? as usize;
+    let vflags          = read_flag_col(r, rcount)?;
+    let (vrefs, klen)   = read_vrefs(r, &vflags)?;
+    let kflag_n         = if klen > 1 { (klen - 1) as usize } else { 0 };
+    let kflags          = read_flag_col(r, kflag_n)?;
+    let krefs           = read_krefs(r, &kflags)?;
+    let ktype_n = if krefs.is_empty() && rcount == 0 { 0 } else { krefs.len() + 1 };
+    let ktypes  = read_ktypes(r, ktype_n)?;
+    let keys    = read_keys(r, &ktypes)?;
+    let vtype_n = vrefs.len().max(1);
+    let vtypes  = read_vtypes(r, vtype_n)?;
+    let bools   = read_bools(r, &vtypes)?;
+    let nums    = read_nums(r, &vtypes)?;
+    let strs    = read_strs(r, &vtypes)?;
+    let diff_count = strs.iter().filter(|s| matches!(s, StrEntry::StrDiffRef(_))).count();
+    for _ in 0..diff_count {
+        let bits_count = r.leb128()?;
+        r.pos += ((bits_count + 7) / 8) as usize * 8;
+    }
+    let mut cols = Cols { vrefs, krefs: krefs.clone(), ktypes, keys: keys.clone(),
+                          vtypes, bools, nums, strs, strmap: HashMap::new() };
+    build_strmap(&mut cols);
+    let val = build_tree(&cols)?;
+    let ctx = ChainContext { krefs, keys, strmap: cols.strmap };
+    Ok((val, ctx))
+}
+
+pub fn decode_snapshot_for_chain(data: &[u8]) -> Result<(Value, ChainContext), String> {
+    let mut r = BitReader::new(data);
+    if r.read(1)? == 1 {
+        let val = decode_single(&mut r)?;
+        Ok((val, ChainContext { krefs: vec![], keys: vec![], strmap: HashMap::new() }))
+    } else {
+        decode_structured_with_ctx(&mut r)
+    }
+}
+
+// ── delta payload decode ──────────────────────────────────────────────────────
+
+struct DeltaCols {
+    vrefs:          Vec<u64>,
+    vtypes:         Vec<VType>,
+    bools:          Vec<bool>,
+    nums:           Vec<Value>,
+    strs:           Vec<StrEntry>,
+    strdiff_bytes:  Vec<Vec<u8>>,
+    combined_krefs: Vec<u64>,
+    combined_keys:  Vec<KeyEntry>,
+    strmap:         HashMap<usize, String>,
+}
+
+fn decode_delta_cols(r: &mut BitReader<'_>, base: &ChainContext) -> Result<(DeltaCols, ChainContext), String> {
+    let base_len       = base.krefs.len();
+    let initial_cbits  = if base_len > 0 { bits(base_len + 2) } else { 1 };
+
+    let rcount = r.short()? as usize;
+    let vflags = read_flag_col(r, rcount)?;
+    let (vrefs, klen) = if initial_cbits == 1 {
+        read_vrefs(r, &vflags)?
+    } else {
+        read_vrefs_cbits(r, &vflags, initial_cbits)?
+    };
+
+    let new_klen  = klen as i64 - 1 - base_len as i64;
+    let kflag_n   = if new_klen > 0 { new_klen as usize } else { 0 };
+    let kflags    = read_flag_col(r, kflag_n)?;
+    let new_krefs = if initial_cbits == 1 {
+        read_krefs(r, &kflags)?
+    } else {
+        read_krefs_cbits(r, &kflags, initial_cbits)?
+    };
+
+    let ktype_n    = new_krefs.len(); // delta: no +1 for root
+    let ktypes_raw = read_ktypes(r, ktype_n)?;
+    let new_keys   = read_keys(r, &ktypes_raw)?;
+
+    let vtype_n = vrefs.len().max(1);
+    let vtypes  = read_vtypes(r, vtype_n)?;
+    let bools   = read_bools(r, &vtypes)?;
+    let nums    = read_nums(r, &vtypes)?;
+    let strs    = read_strs(r, &vtypes)?;
+
+    // Read strdiff payloads (skip in snapshot; save in delta).
+    let mut strdiff_bytes: Vec<Vec<u8>> = Vec::new();
+    for s in &strs {
+        if matches!(s, StrEntry::StrDiffRef(_)) {
+            strdiff_bytes.push(read_strdiff_bytes(r)?);
+        }
+    }
+
+    let combined_krefs: Vec<u64>    = base.krefs.iter().cloned().chain(new_krefs.iter().cloned()).collect();
+    let combined_keys: Vec<KeyEntry> = base.keys.iter().cloned().chain(new_keys.iter().cloned()).collect();
+
+    // Build strmap for delta: base strings + new literal string values in vtypes order.
+    let mut strmap = base.strmap.clone();
+    let mut str_rev: HashMap<String, usize> = strmap.iter().map(|(&k, v)| (v.clone(), k)).collect();
+    let mut next_idx = strmap.len();
+    let mut sc = 0usize;
+    for vt in &vtypes {
+        let t = vt_str_type(vt);
+        if t == 2 || t == 7 {
+            if let Some(StrEntry::Literal(s)) = strs.get(sc) {
+                if !str_rev.contains_key(s) {
+                    str_rev.insert(s.clone(), next_idx);
+                    strmap.insert(next_idx, s.clone());
+                    next_idx += 1;
+                }
+            }
+            sc += 1;
+        }
+    }
+
+    let new_ctx = ChainContext {
+        krefs:  combined_krefs.clone(),
+        keys:   combined_keys.clone(),
+        strmap: strmap.clone(),
+    };
+    Ok((DeltaCols { vrefs, vtypes, bools, nums, strs, strdiff_bytes, combined_krefs, combined_keys, strmap }, new_ctx))
+}
+
+// ── path resolution (combined krefs/keys) ────────────────────────────────────
+
+fn resolve_path_combined(
+    vref_val:      u64,
+    combined_krefs: &[u64],
+    combined_keys:  &[KeyEntry],
+    strmap:         &HashMap<usize, String>,
+) -> Vec<Step> {
+    let mut chain: Vec<u64> = Vec::new();
+    let mut cur = vref_val;
+    loop {
+        chain.push(cur);
+        if cur > 1 {
+            if let Some(&p) = combined_krefs.get((cur - 2) as usize) {
+                if p > 0 { cur = p; continue; }
+            }
+        }
+        break;
+    }
+    let mut steps = Vec::with_capacity(chain.len());
+    for &ci in chain.iter().rev() {
+        let key_idx = ci.saturating_sub(1) as usize;
+        steps.push(match combined_keys.get(key_idx) {
+            None                           => Step::Root,
+            Some(KeyEntry::ArrIdx(_))      => Step::ArrNode(ci),
+            Some(KeyEntry::ObjMarker(_))   => Step::ObjNode(ci),
+            Some(KeyEntry::StrKey(s))      => Step::StrKey(ci, s.clone()),
+            Some(KeyEntry::StrmapRef(idx)) => {
+                let s = strmap.get(&(*idx as usize)).cloned().unwrap_or_default();
+                Step::StrKey(ci, s)
+            }
+        });
+    }
+    steps
+}
+
+// ── delta operations ──────────────────────────────────────────────────────────
+
+enum DeltaOp {
+    Set(Value),
+    Delete,
+    SpliceDel  { idx: usize, rem: usize },
+    SpliceRep  { idx: usize, rem: usize, val: Value },
+    StrDiff    { diff_bytes: Vec<u8>, strmap: HashMap<usize, String> },
+}
+
+fn nav_apply_delta(
+    node:  &mut Value,
+    steps: &[Step],
+    depth: usize,
+    op:    DeltaOp,
+) -> Result<(), String> {
+    let total = steps.len();
+    if depth >= total {
+        apply_delta_op_here(node, op);
+        return Ok(());
+    }
+    match &steps[depth] {
+        Step::Root | Step::ObjNode(_) | Step::ArrNode(_) => {
+            if depth == total - 1 {
+                apply_delta_op_here(node, op);
+            } else {
+                nav_apply_delta(node, steps, depth + 1, op)?;
+            }
+        }
+        Step::StrKey(_, key) => {
+            if depth == total - 1 {
+                apply_delta_op_at_key(node, key, op);
+            } else {
+                let key = key.clone();
+                if let Some(obj) = node.as_object_mut() {
+                    if !obj.contains_key(&key) {
+                        obj.insert(key.clone(), Value::Object(Map::new()));
+                    }
+                    let child = obj.get_mut(&key).unwrap();
+                    nav_apply_delta(child, steps, depth + 1, op)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn apply_delta_op_here(node: &mut Value, op: DeltaOp) {
+    match op {
+        DeltaOp::Set(val) => *node = val,
+        DeltaOp::Delete   => {}
+        DeltaOp::SpliceDel { idx, rem } => {
+            if let Some(arr) = node.as_array_mut() {
+                let end = (idx + rem).min(arr.len());
+                arr.drain(idx..end);
+            }
+        }
+        DeltaOp::SpliceRep { idx, rem, val } => {
+            if let Some(arr) = node.as_array_mut() {
+                let end = (idx + rem).min(arr.len());
+                arr.drain(idx..end);
+                arr.insert(idx, val);
+            }
+        }
+        DeltaOp::StrDiff { diff_bytes, strmap } => {
+            if let Some(s) = node.as_str().map(|s| s.to_string()) {
+                *node = Value::String(apply_strdiff(&s, &diff_bytes, &strmap));
+            }
+        }
+    }
+}
+
+fn apply_delta_op_at_key(node: &mut Value, key: &str, op: DeltaOp) {
+    if !node.is_object() { *node = Value::Object(Map::new()); }
+    let obj = node.as_object_mut().unwrap();
+    match op {
+        DeltaOp::Set(val) => { obj.insert(key.to_string(), val); }
+        DeltaOp::Delete   => { obj.remove(key); }
+        DeltaOp::SpliceDel { idx, rem } => {
+            if let Some(arr) = obj.get_mut(key).and_then(|v| v.as_array_mut()) {
+                let end = (idx + rem).min(arr.len());
+                arr.drain(idx..end);
+            }
+        }
+        DeltaOp::SpliceRep { idx, rem, val } => {
+            if let Some(arr) = obj.get_mut(key).and_then(|v| v.as_array_mut()) {
+                let end = (idx + rem).min(arr.len());
+                arr.drain(idx..end);
+                arr.insert(idx, val);
+            }
+        }
+        DeltaOp::StrDiff { diff_bytes, strmap } => {
+            let old = obj.get(key).and_then(|v| v.as_str()).map(|s| s.to_string());
+            if let Some(s) = old {
+                let new_s = apply_strdiff(&s, &diff_bytes, &strmap);
+                obj.insert(key.to_string(), Value::String(new_s));
+            }
+        }
+    }
+}
+
+fn get_delta_splice_val(
+    typ: u8, delta: &DeltaCols, nc: &mut usize, bc: &mut usize, sc: &mut usize,
+) -> Result<Value, String> {
+    match typ {
+        1 => Ok(Value::Null),
+        2 | 7 => {
+            let e = delta.strs.get(*sc).cloned().ok_or("strs exhausted")?;
+            *sc += 1;
+            match e {
+                StrEntry::Literal(s)   => Ok(Value::String(s)),
+                StrEntry::StrmapRef(i) => Ok(Value::String(delta.strmap.get(&(i as usize)).cloned().unwrap_or_default())),
+                StrEntry::StrDiffRef(_) => Err("strdiff in splice_rep value".into()),
+            }
+        }
+        3 => { let b = *delta.bools.get(*bc).ok_or("bools exhausted")?; *bc += 1; Ok(Value::Bool(b)) }
+        4 | 5 | 6 => { let v = delta.nums.get(*nc).cloned().ok_or("nums exhausted")?; *nc += 1; Ok(v) }
+        _ => Ok(Value::Null),
+    }
+}
+
+fn apply_delta_ops(root: &mut Value, delta: &DeltaCols) -> Result<(), String> {
+    let mut nc = 0usize;
+    let mut bc = 0usize;
+    let mut sc = 0usize;
+
+    for (vi, &vref) in delta.vrefs.iter().enumerate() {
+        let vt = delta.vtypes.get(vi).unwrap_or(&VType::Undefined).clone();
+        let steps = resolve_path_combined(vref, &delta.combined_krefs, &delta.combined_keys, &delta.strmap);
+
+        let op = match vt {
+            VType::DeleteDelta => DeltaOp::Delete,
+            VType::Null | VType::Undefined | VType::MergeDelta => DeltaOp::Set(Value::Null),
+            VType::Bool => {
+                let b = *delta.bools.get(bc).ok_or("bools exhausted")?;
+                bc += 1;
+                DeltaOp::Set(Value::Bool(b))
+            }
+            VType::IntPos | VType::IntNeg | VType::Float => {
+                let v = delta.nums.get(nc).cloned().ok_or("nums exhausted")?;
+                nc += 1;
+                DeltaOp::Set(v)
+            }
+            VType::StrB64 | VType::StrFall => {
+                let entry = delta.strs.get(sc).cloned().ok_or("strs exhausted")?;
+                sc += 1;
+                match entry {
+                    StrEntry::StrDiffRef(diff_idx) => {
+                        let diff_bytes = delta.strdiff_bytes.get(diff_idx).cloned().unwrap_or_default();
+                        DeltaOp::StrDiff { diff_bytes, strmap: delta.strmap.clone() }
+                    }
+                    StrEntry::Literal(s) => DeltaOp::Set(Value::String(s)),
+                    StrEntry::StrmapRef(idx) => {
+                        let s = delta.strmap.get(&(idx as usize)).cloned().unwrap_or_default();
+                        DeltaOp::Set(Value::String(s))
+                    }
+                }
+            }
+            VType::SpliceDel { index, remove } => DeltaOp::SpliceDel {
+                idx: index as usize,
+                rem: remove as usize,
+            },
+            VType::SpliceReplace { index, remove, typ } => {
+                let val = get_delta_splice_val(typ, delta, &mut nc, &mut bc, &mut sc)?;
+                DeltaOp::SpliceRep { idx: index as usize, rem: remove as usize, val }
+            }
+        };
+
+        nav_apply_delta(root, &steps, 0, op)?;
+    }
+    Ok(())
+}
+
+// ── public chain API ──────────────────────────────────────────────────────────
+
+pub fn parse_chain(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+    let mut payloads = Vec::new();
+    let mut offset   = 0usize;
+    while offset < data.len() {
+        let mut length = 0usize;
+        let mut shift  = 0u32;
+        loop {
+            if offset >= data.len() { return Err("truncated LEB128 in chain".into()); }
+            let b = data[offset]; offset += 1;
+            length |= ((b & 0x7F) as usize) << shift;
+            shift  += 7;
+            if b & 0x80 == 0 { break; }
+        }
+        if offset + length > data.len() { return Err("truncated payload in chain".into()); }
+        payloads.push(data[offset..offset + length].to_vec());
+        offset += length;
+    }
+    Ok(payloads)
+}
+
+pub fn decode_chain(data: &[u8]) -> Result<Value, String> {
+    let payloads = parse_chain(data)?;
+    if payloads.is_empty() { return Ok(Value::Null); }
+
+    let (mut root, mut ctx) = decode_snapshot_for_chain(&payloads[0])?;
+
+    for payload in &payloads[1..] {
+        let mut r = BitReader::new(payload);
+        let is_single = r.read(1)? == 1;
+        if is_single {
+            // Re-anchor: single-value payload replaces the entire root.
+            root = decode_single(&mut r)?;
+            ctx  = ChainContext { krefs: vec![], keys: vec![], strmap: HashMap::new() };
+        } else {
+            let (delta, new_ctx) = decode_delta_cols(&mut r, &ctx)?;
+            apply_delta_ops(&mut root, &delta)?;
+            ctx = new_ctx;
+        }
+    }
+    Ok(root)
 }

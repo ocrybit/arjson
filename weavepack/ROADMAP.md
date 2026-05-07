@@ -653,3 +653,17 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   (was 194/194). The fp32_and_int32.json vectors test mode=1 decoder with
   manually-crafted bytes (deltas exceed threshold so encoder uses mode=0);
   fp64.json tests encoder-driven mode=1 (deltas below threshold).
+
+- D.6 Rust JSON delta chain decoder: ✓ COMPLETE — parse_chain + decode_chain
+  added to impl/rust/weavepack-json/src/decode.rs; also decode_snapshot_for_chain
+  + ChainContext for chain context carry-over. Delta payload decode uses
+  initial_cbits = bits(base_krefs_len + 2) when base_krefs_len > 0, combined
+  krefs/keys context, and strmap inherited from base + new literals. apply_delta_ops
+  handles set/delete/splice_del/splice_rep/strdiff operations via nav_apply_delta
+  recursion. Also fixed a latent bug: vt_num_tag now correctly handles
+  SpliceReplace{typ:4/5/6} (numeric splice values were not read into nums array
+  in snapshot mode — harmless for existing snapshot tests but caused "nums
+  exhausted" when delta payloads with splice_rep were decoded). Conformance binary
+  extended: run_delta now also verifies expected_chain_bytes_hex → expected_final
+  via decode_chain for all 25 chain vectors. 93/93 Rust conformance (all previously
+  passing vectors still pass; 25 now have stronger chain-level verification).

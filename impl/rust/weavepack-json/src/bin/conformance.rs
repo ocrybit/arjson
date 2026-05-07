@@ -15,7 +15,7 @@ use std::{
 };
 
 use serde_json::Value;
-use weavepack_json::{decode_snapshot, encode};
+use weavepack_json::{decode_snapshot, decode_chain, encode};
 
 // ── hex helper ────────────────────────────────────────────────────────────────
 
@@ -164,6 +164,7 @@ impl Runner {
 
     // Delta vector: has `initial` and `initial_delta_hex`.
     // Level 1: decode initial_delta_hex → must equal initial.
+    // Chain check: if expected_chain_bytes_hex present, decode_chain → expected_final.
     fn run_delta(&mut self, label: &str, v: &Value) {
         let name = v["name"].as_str().unwrap_or("?");
         let full = format!("{label}(delta) :: {name}");
@@ -191,6 +192,28 @@ impl Runner {
                 ),
             );
         }
+
+        // Chain verification: expected_chain_bytes_hex → expected_final
+        if let Some(chain_hex) = v["expected_chain_bytes_hex"].as_str() {
+            let chain_bytes = match from_hex(chain_hex) {
+                Ok(b) => b,
+                Err(e) => return self.err(&full, &format!("chain hex parse error: {e}")),
+            };
+            let chain_result = match decode_chain(&chain_bytes) {
+                Ok(r) => r,
+                Err(e) => return self.err(&full, &format!("decode_chain error: {e}")),
+            };
+            let expected_final = &v["expected_final"];
+            if !json_eq(&chain_result, expected_final) {
+                return self.err(
+                    &full,
+                    &format!(
+                        "chain decode mismatch\n    expected: {expected_final}\n    actual:   {chain_result}"
+                    ),
+                );
+            }
+        }
+
         self.ok();
     }
 }
