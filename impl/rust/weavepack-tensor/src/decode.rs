@@ -68,7 +68,7 @@ pub fn decode_document(bytes: &[u8]) -> Result<Vec<(String, TensorData)>, String
             *b = r.read(8)? as u8;
         }
 
-        tensors.push((name, TensorData { dtype, shape, data }));
+        tensors.push((name, TensorData { dtype, shape, data, scale: None, zero_point: None }));
     }
 
     Ok(tensors)
@@ -92,7 +92,7 @@ pub fn decode_document_schemaful(
         }
         tensors.push((
             name.clone(),
-            TensorData { dtype: entry.dtype, shape: entry.shape.clone(), data },
+            TensorData { dtype: entry.dtype, shape: entry.shape.clone(), data, scale: None, zero_point: None},
         ));
     }
 
@@ -127,7 +127,7 @@ pub fn decode_tensor_schemaful(
             for b in &mut data {
                 *b = r.read(8)? as u8;
             }
-            return Ok(TensorData { dtype: entry.dtype, shape: entry.shape.clone(), data });
+            return Ok(TensorData { dtype: entry.dtype, shape: entry.shape.clone(), data, scale: None, zero_point: None});
         }
         // Skip this tensor's data block.
         let byte_count = data_bytes(entry.dtype, &entry.shape) as usize;
@@ -163,7 +163,7 @@ impl<'bytes, 'reg> Iterator for SchemafulIter<'bytes, 'reg> {
                 Err(e) => return Some(Err(e)),
             }
         }
-        Some(Ok((name.clone(), TensorData { dtype: entry.dtype, shape: entry.shape.clone(), data })))
+        Some(Ok((name.clone(), TensorData { dtype: entry.dtype, shape: entry.shape.clone(), data, scale: None, zero_point: None})))
     }
 }
 
@@ -211,9 +211,9 @@ mod tests {
         schema.insert("gamma".into(), fp32_entry(vec![1]));
 
         let mut tensors = BTreeMap::new();
-        tensors.insert("alpha".into(), TensorData { dtype: DTYPE_FP32, shape: vec![4], data: fp32_data(&[1.0, 2.0, 3.0, 4.0]) });
-        tensors.insert("beta".into(),  TensorData { dtype: DTYPE_FP32, shape: vec![2, 3], data: fp32_data(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0]) });
-        tensors.insert("gamma".into(), TensorData { dtype: DTYPE_FP32, shape: vec![1], data: fp32_data(&[999.0]) });
+        tensors.insert("alpha".into(), TensorData { dtype: DTYPE_FP32, shape: vec![4], data: fp32_data(&[1.0, 2.0, 3.0, 4.0]) , scale: None, zero_point: None});
+        tensors.insert("beta".into(),  TensorData { dtype: DTYPE_FP32, shape: vec![2, 3], data: fp32_data(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0]) , scale: None, zero_point: None});
+        tensors.insert("gamma".into(), TensorData { dtype: DTYPE_FP32, shape: vec![1], data: fp32_data(&[999.0]) , scale: None, zero_point: None});
 
         let bytes = encode_document_schemaful(&tensors, &schema).unwrap();
         let reg = registry(schema);
@@ -267,7 +267,7 @@ mod tests {
         let mut schema = BTreeMap::new();
         schema.insert("w".into(), fp32_entry(vec![3]));
         let mut tensors = BTreeMap::new();
-        tensors.insert("w".into(), TensorData { dtype: DTYPE_FP32, shape: vec![3], data: fp32_data(&[0.1, 0.2, 0.3]) });
+        tensors.insert("w".into(), TensorData { dtype: DTYPE_FP32, shape: vec![3], data: fp32_data(&[0.1, 0.2, 0.3]) , scale: None, zero_point: None});
         let bytes = encode_document_schemaful(&tensors, &schema).unwrap();
         let reg = registry(schema);
 
@@ -284,8 +284,8 @@ mod tests {
         schema.insert("a".into(), fp32_entry(vec![2]));
         schema.insert("b".into(), SchemaEntry { dtype: DTYPE_INT8, shape: vec![4], scale: None, zero_point: None });
         let mut tensors = BTreeMap::new();
-        tensors.insert("a".into(), TensorData { dtype: DTYPE_FP32, shape: vec![2], data: fp32_data(&[1.0, -1.0]) });
-        tensors.insert("b".into(), TensorData { dtype: DTYPE_INT8, shape: vec![4], data: vec![10u8, 20, 30, 40] });
+        tensors.insert("a".into(), TensorData { dtype: DTYPE_FP32, shape: vec![2], data: fp32_data(&[1.0, -1.0]) , scale: None, zero_point: None});
+        tensors.insert("b".into(), TensorData { dtype: DTYPE_INT8, shape: vec![4], data: vec![10u8, 20, 30, 40] , scale: None, zero_point: None});
         let bytes = encode_document_schemaful(&tensors, &schema).unwrap();
         let reg = registry(schema);
 
@@ -328,7 +328,7 @@ mod tests {
         let mut schema = BTreeMap::new();
         schema.insert("w".into(), fp32_entry(vec![3]));
         let mut tensors = BTreeMap::new();
-        tensors.insert("w".into(), TensorData { dtype: DTYPE_FP32, shape: vec![3], data: fp32_data(&[0.1, 0.2, 0.3]) });
+        tensors.insert("w".into(), TensorData { dtype: DTYPE_FP32, shape: vec![3], data: fp32_data(&[0.1, 0.2, 0.3]) , scale: None, zero_point: None});
         let bytes = encode_document_schemaful(&tensors, &schema).unwrap();
         let reg = registry(schema);
 
@@ -347,8 +347,8 @@ mod tests {
         schema.insert("a".into(), fp32_entry(vec![2]));
         schema.insert("b".into(), SchemaEntry { dtype: DTYPE_INT8, shape: vec![4], scale: None, zero_point: None });
         let mut tensors = BTreeMap::new();
-        tensors.insert("a".into(), TensorData { dtype: DTYPE_FP32, shape: vec![2], data: fp32_data(&[1.0, -1.0]) });
-        tensors.insert("b".into(), TensorData { dtype: DTYPE_INT8, shape: vec![4], data: vec![10u8, 20, 30, 40] });
+        tensors.insert("a".into(), TensorData { dtype: DTYPE_FP32, shape: vec![2], data: fp32_data(&[1.0, -1.0]) , scale: None, zero_point: None});
+        tensors.insert("b".into(), TensorData { dtype: DTYPE_INT8, shape: vec![4], data: vec![10u8, 20, 30, 40] , scale: None, zero_point: None});
         let bytes = encode_document_schemaful(&tensors, &schema).unwrap();
         let reg = registry(schema);
 
@@ -397,7 +397,7 @@ mod tests {
         use crate::encode::encode_document;
         let tensors = vec![(
             "x".to_string(),
-            TensorData { dtype: DTYPE_FP32, shape: vec![1], data: fp32_data(&[1.0]) },
+            TensorData { dtype: DTYPE_FP32, shape: vec![1], data: fp32_data(&[1.0]) , scale: None, zero_point: None},
         )];
         let bytes = encode_document(&tensors);
         let reg = registry(schema);

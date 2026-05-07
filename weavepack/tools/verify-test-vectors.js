@@ -141,7 +141,10 @@ function parseTensorDoc(jsonDoc) {
     } else {
       data = jsonToTyped(t.dtype, t.data)
     }
-    tensors[name] = { dtype: t.dtype, shape: t.shape, data }
+    const entry = { dtype: t.dtype, shape: t.shape, data }
+    if (t.scale !== undefined) entry.scale = t.scale
+    if (t.zero_point !== undefined) entry.zero_point = t.zero_point
+    tensors[name] = entry
   }
   return { tensors }
 }

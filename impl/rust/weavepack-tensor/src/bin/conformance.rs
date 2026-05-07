@@ -304,7 +304,11 @@ fn parse_tensor_map(obj: &Value) -> Result<Vec<(String, TensorData)>, String> {
             let data_arr = tv["data"].as_array().ok_or("data or data_raw_bits missing")?;
             json_data_to_bytes(dtype, data_arr)?
         };
-        tensors.push((name.clone(), TensorData { dtype, shape, data }));
+        // Carry scale/zero_point for quantized tensors so the encoder can
+        // detect quant_change ops when scale or zero_point differs.
+        let scale = tv.get("scale").and_then(|v| v.as_f64());
+        let zero_point = tv.get("zero_point").and_then(|v| v.as_i64());
+        tensors.push((name.clone(), TensorData { dtype, shape, data, scale, zero_point }));
     }
     Ok(tensors)
 }
@@ -519,7 +523,9 @@ impl Runner {
                     Err(e) => return self.err(&full, &format!("parse tensor error: {e}")),
                 }
             };
-            doc_map.insert(tname.clone(), TensorData { dtype, shape, data: wire_bytes });
+            let t_scale = entry.scale;
+            let t_zp = entry.zero_point;
+            doc_map.insert(tname.clone(), TensorData { dtype, shape, data: wire_bytes, scale: t_scale, zero_point: t_zp });
         }
 
         // Encode schemaful (schema keys are sorted by BTreeMap) and compare.

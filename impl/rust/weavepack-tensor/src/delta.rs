@@ -6,7 +6,8 @@
 
 use crate::bits::{finalize, write_leb128, write_short, BitReader, BitWriter};
 use crate::types::{
-    data_bytes, dtype_bits_per_elem, DTYPE_BITS, DTYPE_FP32, DTYPE_FP64, DTYPE_QINT4, DTYPE_QINT8,
+    data_bytes, dtype_bits_per_elem, DTYPE_BITS, DTYPE_FP32, DTYPE_FP64,
+    DTYPE_QINT4, DTYPE_QINT8, DTYPE_QFP8,
     OP_BITS, OP_ELEMENT_SET, OP_QUANT_CHANGE, OP_REGION_REPLACE, OP_TENSOR_ADD, OP_TENSOR_REMOVE,
     OP_TENSOR_REPLACE,
 };
@@ -148,6 +149,7 @@ enum DeltaOp<'a> {
     TensorReplace { name: &'a str, t: &'a TensorData, mode: u8, delta_data: Vec<u8> },
     ElementSet { name: &'a str, t: &'a TensorData, elements: Vec<(Vec<u64>, &'a [u8])> },
     RegionReplace { name: &'a str, t: &'a TensorData, bbox: Vec<(u64, u64)>, region: Vec<u8> },
+    QuantChange { name: &'a str, t: &'a TensorData },
 }
 
 const REGION_DENSITY_THRESHOLD: f64 = 0.5;
@@ -176,6 +178,16 @@ fn compute_ops<'a>(
             ops.push(DeltaOp::TensorRemove { name });
             ops.push(DeltaOp::TensorAdd { name, t: new_t });
             continue;
+        }
+
+        // quant_change: same dtype/shape, quantized dtype, different scale or zero_point.
+        if matches!(new_t.dtype, DTYPE_QINT8 | DTYPE_QINT4 | DTYPE_QFP8) {
+            let scale_changed = base_t.scale.unwrap_or(0.0) != new_t.scale.unwrap_or(0.0);
+            let zp_changed = base_t.zero_point.unwrap_or(0) != new_t.zero_point.unwrap_or(0);
+            if scale_changed || zp_changed {
+                ops.push(DeltaOp::QuantChange { name, t: new_t });
+                continue;
+            }
         }
 
         let expected = data_bytes(base_t.dtype, &base_t.shape) as usize;
@@ -342,6 +354,27 @@ pub fn encode_delta(
                     w.write_bits(*b as u32, 8);
                 }
             }
+            DeltaOp::QuantChange { name, t } => {
+                w.write_bits(OP_QUANT_CHANGE as u32, OP_BITS);
+                write_name(&mut w, name);
+                // new scale: fp32 little-endian (4 bytes).
+                let scale_f32 = t.scale.unwrap_or(0.0) as f32;
+                for b in scale_f32.to_le_bytes() {
+                    w.write_bits(b as u32, 8);
+                }
+                // new zero_point: dtype-dependent.
+                if t.dtype == DTYPE_QINT8 {
+                    w.write_bits((t.zero_point.unwrap_or(0) as u8) as u32, 8);
+                } else if t.dtype == DTYPE_QINT4 {
+                    w.write_bits((t.zero_point.unwrap_or(0) & 0xF) as u32, 8);
+                }
+                // QFP8: no zero_point field.
+                // data block: raw wire bytes.
+                let bc = data_bytes(t.dtype, &t.shape) as usize;
+                for b in &t.data[..bc] {
+                    w.write_bits(*b as u32, 8);
+                }
+            }
         }
     }
 
@@ -425,7 +458,7 @@ pub fn apply_delta(
                     *b = r.read(8)? as u8;
                 }
             }
-            tensors[idx] = Some((name, TensorData { dtype, shape, data: new_data }));
+            tensors[idx] = Some((name, TensorData { dtype, shape, data: new_data, scale: None, zero_point: None }));
         } else if op_code == OP_REGION_REPLACE {
             // Wire format: name + dtype + full shape + bbox-rank + per-dim
             // ranges (start, end) + region data block in row-major order.
@@ -507,7 +540,7 @@ pub fn apply_delta(
                 0, bbox_rank, &bbox, &mut idx_v, &strides,
                 &region_data, &mut region_ptr, &mut new_data, bpe,
             );
-            tensors[idx] = Some((name, TensorData { dtype, shape, data: new_data }));
+            tensors[idx] = Some((name, TensorData { dtype, shape, data: new_data, scale: None, zero_point: None }));
         } else if op_code == OP_QUANT_CHANGE {
             let name = read_name(&mut r)?;
             let idx = *name_to_idx
@@ -517,20 +550,27 @@ pub fn apply_delta(
                 .as_ref()
                 .ok_or_else(|| format!("quant_change on removed tensor \"{name}\""))
                 .map(|(_, t)| (t.dtype, t.shape.clone()))?;
-            // Read and discard new scale (fp32 LE, 4 bytes).
-            for _ in 0..4 { r.read(8)?; }
-            // Read and discard new zero_point (dtype-dependent; QFP8 has none).
-            if base_dtype == DTYPE_QINT8 {
-                r.read(8)?;
+            // Read new scale: fp32 LE (4 bytes).
+            let mut scale_bytes = [0u8; 4];
+            for b in &mut scale_bytes { *b = r.read(8)? as u8; }
+            let new_scale = f32::from_le_bytes(scale_bytes) as f64;
+            // Read new zero_point (dtype-dependent; QFP8 has none).
+            let new_zp: Option<i64> = if base_dtype == DTYPE_QINT8 {
+                Some(r.read(8)? as i8 as i64)
             } else if base_dtype == DTYPE_QINT4 {
-                r.read(8)?;
-            }
+                Some(r.read(8)? as i8 as i64)
+            } else {
+                None
+            };
             let bc = data_bytes(base_dtype, &base_shape) as usize;
             let mut new_data = vec![0u8; bc];
             for b in &mut new_data {
                 *b = r.read(8)? as u8;
             }
-            tensors[idx] = Some((name, TensorData { dtype: base_dtype, shape: base_shape, data: new_data }));
+            tensors[idx] = Some((name, TensorData {
+                dtype: base_dtype, shape: base_shape, data: new_data,
+                scale: Some(new_scale), zero_point: new_zp,
+            }));
         } else {
             return Err(format!("unsupported op code {op_code}"));
         }
@@ -560,7 +600,7 @@ fn read_tensor_body(r: &mut BitReader) -> Result<TensorData, String> {
     for b in &mut data {
         *b = r.read(8)? as u8;
     }
-    Ok(TensorData { dtype, shape, data })
+    Ok(TensorData { dtype, shape, data, scale: None, zero_point: None })
 }
 
 // tensor_replace carries an extra 1-bit mode field between shape and
@@ -586,7 +626,7 @@ fn read_tensor_body_with_mode(
         *b = r.read(8)? as u8;
     }
     if mode_bit == 0 {
-        return Ok(TensorData { dtype, shape, data });
+        return Ok(TensorData { dtype, shape, data, scale: None, zero_point: None });
     }
     // mode=1: data is per-element delta. Look up base tensor and add.
     let base = name_to_idx
@@ -601,7 +641,7 @@ fn read_tensor_body_with_mode(
     }
     let mut new_data = base.1.data.clone();
     apply_arithmetic_delta(dtype, &mut new_data, &data)?;
-    Ok(TensorData { dtype, shape, data: new_data })
+    Ok(TensorData { dtype, shape, data: new_data, scale: None, zero_point: None })
 }
 
 fn apply_arithmetic_delta(dtype: u8, base: &mut [u8], delta: &[u8]) -> Result<(), String> {
@@ -745,6 +785,7 @@ mod tests {
         let base = vec![("w".to_string(), TensorData {
             dtype: DTYPE_FP32, shape: vec![4],
             data: [1.0f32, 2.0, 3.0, 4.0].iter().flat_map(|f| f.to_le_bytes()).collect(),
+            scale: None, zero_point: None,
         })];
         let result = apply_delta(&base, &delta).expect("Rust must decode JS mode=1 chain");
         let result_floats: Vec<f32> = (0..4)
@@ -765,9 +806,11 @@ mod tests {
         let new_data: Vec<u8> = (10i32..=40).step_by(10).flat_map(|v| v.to_le_bytes()).collect();
         let base = vec![("m".to_string(), TensorData {
             dtype: DTYPE_INT32, shape: vec![4], data: base_data,
+        scale: None, zero_point: None,
         })];
         let new = vec![("m".to_string(), TensorData {
             dtype: DTYPE_INT32, shape: vec![4], data: new_data,
+        scale: None, zero_point: None,
         })];
         let delta = encode_delta(&base, &new).expect("delta should not be empty");
         let result = apply_delta(&base, &delta).expect("apply should succeed");
@@ -782,11 +825,13 @@ mod tests {
             dtype: DTYPE_FP32, shape: vec![3],
             data: 1.0f32.to_le_bytes().iter().chain(2.0f32.to_le_bytes().iter())
                   .chain(3.0f32.to_le_bytes().iter()).copied().collect(),
+            scale: None, zero_point: None,
         })];
         let new = vec![("w".to_string(), TensorData {
             dtype: DTYPE_FP32, shape: vec![3],
             data: 10.0f32.to_le_bytes().iter().chain(20.0f32.to_le_bytes().iter())
                   .chain(30.0f32.to_le_bytes().iter()).copied().collect(),
+            scale: None, zero_point: None,
         })];
         let delta_bytes = encode_delta(&base, &new).expect("delta should not be empty");
         let result = apply_delta(&base, &delta_bytes).expect("apply should succeed");
@@ -803,9 +848,11 @@ mod tests {
         let new_data: Vec<u8> = new_vals.iter().flat_map(|f| f.to_le_bytes()).collect();
         let base = vec![("w".to_string(), TensorData {
             dtype: DTYPE_FP32, shape: vec![4], data: base_data,
+        scale: None, zero_point: None,
         })];
         let new = vec![("w".to_string(), TensorData {
             dtype: DTYPE_FP32, shape: vec![4], data: new_data,
+        scale: None, zero_point: None,
         })];
         let delta_bytes = encode_delta(&base, &new).expect("delta must be produced");
 
@@ -830,9 +877,11 @@ mod tests {
             .flat_map(|f| f.to_le_bytes()).collect();
         let base = vec![("w".to_string(), TensorData {
             dtype: DTYPE_FP32, shape: vec![2], data: base_data,
+        scale: None, zero_point: None,
         })];
         let new = vec![("w".to_string(), TensorData {
             dtype: DTYPE_FP32, shape: vec![2], data: new_data,
+        scale: None, zero_point: None,
         })];
         let delta_bytes = encode_delta(&base, &new).expect("delta must be produced");
         let result = apply_delta(&base, &delta_bytes).expect("apply must succeed");
@@ -848,9 +897,11 @@ mod tests {
         let new_data: Vec<u8>  = new_vals.iter().flat_map(|f| f.to_le_bytes()).collect();
         let base = vec![("v".to_string(), TensorData {
             dtype: DTYPE_FP64, shape: vec![3], data: base_data,
+        scale: None, zero_point: None,
         })];
         let new = vec![("v".to_string(), TensorData {
             dtype: DTYPE_FP64, shape: vec![3], data: new_data,
+        scale: None, zero_point: None,
         })];
         let delta_bytes = encode_delta(&base, &new).expect("delta must be produced");
         let result = apply_delta(&base, &delta_bytes).expect("apply must succeed");
@@ -860,5 +911,53 @@ mod tests {
         for (i, (&got, &want)) in result_f64.iter().zip(new_vals.iter()).enumerate() {
             assert!((got - want).abs() < 1e-6, "elem {i}: got {got}, want {want}");
         }
+    }
+
+    #[test]
+    fn encoder_emits_quant_change_for_qint8_rescale() {
+        // qint8 tensor: same dtype/shape, scale changes 0.1 → 1.0.
+        // Encoder must emit quant_change (op 5) byte-exact vs JS reference.
+        // JS expected delta: 80d1770000803f00050a0f1400
+        use crate::types::DTYPE_QINT8;
+        let base = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_QINT8, shape: vec![4],
+            data: vec![10u8, 20, 30, 40],
+            scale: Some(0.1), zero_point: Some(0),
+        })];
+        let new = vec![("w".to_string(), TensorData {
+            dtype: DTYPE_QINT8, shape: vec![4],
+            data: vec![5u8, 10, 15, 20],
+            scale: Some(1.0), zero_point: Some(0),
+        })];
+        let delta_bytes = encode_delta(&base, &new).expect("quant_change delta must be produced");
+        let expected_hex = "80d1770000803f00050a0f1400";
+        let actual_hex: String = delta_bytes.iter().map(|b| format!("{b:02x}")).collect();
+        assert_eq!(actual_hex, expected_hex, "quant_change delta must be byte-exact vs JS");
+        let result = apply_delta(&base, &delta_bytes).expect("apply must succeed");
+        assert_eq!(result[0].1.data, vec![5u8, 10, 15, 20]);
+        assert!((result[0].1.scale.unwrap_or(0.0) - 1.0).abs() < 1e-6,
+            "new scale must be 1.0, got {:?}", result[0].1.scale);
+        assert_eq!(result[0].1.zero_point, Some(0));
+    }
+
+    #[test]
+    fn encoder_emits_quant_change_for_qfp8_rescale() {
+        // qfp8 tensor: no zero_point in wire format; scale change triggers quant_change.
+        use crate::types::DTYPE_QFP8;
+        let base = vec![("s".to_string(), TensorData {
+            dtype: DTYPE_QFP8, shape: vec![2],
+            data: vec![0x3Cu8, 0x00],
+            scale: Some(0.5), zero_point: None,
+        })];
+        let new = vec![("s".to_string(), TensorData {
+            dtype: DTYPE_QFP8, shape: vec![2],
+            data: vec![0x40u8, 0x08],
+            scale: Some(2.0), zero_point: None,
+        })];
+        let delta_bytes = encode_delta(&base, &new).expect("quant_change delta must be produced");
+        let result = apply_delta(&base, &delta_bytes).expect("apply must succeed");
+        assert_eq!(result[0].1.data, vec![0x40u8, 0x08]);
+        assert!((result[0].1.scale.unwrap_or(0.0) - 2.0).abs() < 1e-5,
+            "new scale must be 2.0, got {:?}", result[0].1.scale);
     }
 }

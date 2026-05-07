@@ -20,7 +20,9 @@ fn py_to_tensor(obj: &Bound<'_, PyAny>) -> PyResult<TensorData> {
     let dtype: u8 = obj.get_item("dtype")?.extract()?;
     let shape: Vec<u64> = obj.get_item("shape")?.extract()?;
     let data: Vec<u8> = obj.get_item("data")?.extract::<Vec<u8>>()?;
-    Ok(TensorData { dtype, shape, data })
+    let scale: Option<f64> = obj.get_item("scale").ok().and_then(|v| v.extract().ok());
+    let zero_point: Option<i64> = obj.get_item("zero_point").ok().and_then(|v| v.extract().ok());
+    Ok(TensorData { dtype, shape, data, scale, zero_point })
 }
 
 fn tensor_to_py<'py>(py: Python<'py>, t: &TensorData) -> PyResult<Bound<'py, PyDict>> {
@@ -28,6 +30,8 @@ fn tensor_to_py<'py>(py: Python<'py>, t: &TensorData) -> PyResult<Bound<'py, PyD
     dict.set_item("dtype", t.dtype)?;
     dict.set_item("shape", t.shape.clone())?;
     dict.set_item("data", PyBytes::new(py, &t.data))?;
+    if let Some(s) = t.scale { dict.set_item("scale", s)?; }
+    if let Some(z) = t.zero_point { dict.set_item("zero_point", z)?; }
     Ok(dict)
 }
 
