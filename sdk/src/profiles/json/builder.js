@@ -16,10 +16,10 @@ const buildType = k => (typeof k[0] === "string" ? 2 : k[0])
 // container twice in a single build pass when multiple vrefs share a
 // path. Bucket 0 = array slots, bucket 1 = object slots. Returns true
 // when the bucket key was actionable (i.e. fully specified k tuple).
-const buildSet = (k, init0, init1) => {
+const buildSet = (k, init0, init1, pos = -1) => {
   if (k && k[0] !== null && k[0] !== undefined && k[1] !== undefined) {
-    if (k[0] === 0) init0.add(k[1])
-    else init1.add(k[1])
+    if (k[0] === 0) init0.set(k[1], pos)
+    else init1.set(k[1], pos)
     return true
   }
   return false
@@ -85,7 +85,7 @@ const handleJsonNullInit = (
     }
     if (atTerminal1) {
       if (k2t === 0) {
-        set(k2)
+        set(k2, json.length)
         json.push([])
         json = json[json.length - 1]
         arr_push(json, val, obj)
@@ -98,11 +98,11 @@ const handleJsonNullInit = (
     }
     // Not terminal, not terminal-1 — descend into next container.
     if (k2t === 0) {
-      set(k2)
+      set(k2, json.length)
       json.push([])
       json = json[json.length - 1]
     } else if (k2t === 1) {
-      set(k2)
+      set(k2, json.length)
       json.push({})
       json = json[json.length - 1]
     }
@@ -123,7 +123,7 @@ const handleJsonNullInit = (
 // json based on (t1, t2, keys.length) and returns { json, action }.
 // Note: `k3` (the key 2 positions ahead) was passed in the original
 // inline code but only used to compute an unused `t3` variable. Dropped.
-const handleFirstKey = (json, k, k2, val, obj, keysLen, type, set, ex) => {
+const handleFirstKey = (json, k, k2, val, obj, keysLen, type, set, ex, getPos) => {
   if (!k2) {
     arr_push(json, val, obj)
     return { json, action: ACT_BREAK }
@@ -138,7 +138,7 @@ const handleFirstKey = (json, k, k2, val, obj, keysLen, type, set, ex) => {
     if (keysLen === 2) {
       if (t2 === 0) {
         if (k2[2] === true) {
-          set(k2)
+          set(k2, json.length)
           json.push([])
         }
         json = json[json.length - 1]
@@ -146,7 +146,7 @@ const handleFirstKey = (json, k, k2, val, obj, keysLen, type, set, ex) => {
         return { json, action: ACT_BREAK }
       }
       if (!ex(k2) || k2[2] === true) {
-        set(k2)
+        set(k2, json.length)
         json.push({})
       }
       json = json[json.length - 1]
@@ -156,7 +156,7 @@ const handleFirstKey = (json, k, k2, val, obj, keysLen, type, set, ex) => {
     // keysLen >= 3
     if (t2 === 0) {
       if (!ex(k2) || k2[2] === true) {
-        set(k2)
+        set(k2, json.length)
         json.push([])
       } else if (
         json.length > 0 &&
@@ -168,10 +168,10 @@ const handleFirstKey = (json, k, k2, val, obj, keysLen, type, set, ex) => {
     }
     if (t2 === 1) {
       if (!ex(k2) || k2[2] === true) {
-        set(k2)
+        set(k2, json.length)
         json.push({})
       }
-      return { json: json[json.length - 1], action: ACT_CONTINUE }
+      return { json: json[getPos(k2)], action: ACT_CONTINUE }
     }
     return { json, action: ACT_CONTINUE }
   }
@@ -222,7 +222,7 @@ const handleFirstKey = (json, k, k2, val, obj, keysLen, type, set, ex) => {
 //   jtype 0 + ctype 0 + ntype 0: descend into array under array slot
 //   jtype 0 + ctype 0 + ntype 1: descend into object under array slot
 //   jtype 0 + ctype 0 + ntype 2: descend into object under array slot
-const handleMiddleKey = (json, k, k2, type, set, ex) => {
+const handleMiddleKey = (json, k, k2, type, set, ex, getPos) => {
   const jtype = Array.isArray(json) ? 0 : 1
   const ctype = type(k)
   const ntype = type(k2)
@@ -251,30 +251,29 @@ const handleMiddleKey = (json, k, k2, type, set, ex) => {
   if (jtype === 0 && ctype === 0) {
     if (ntype === 0) {
       if (!ex(k2) || k2[2] === true) {
-        set(k2)
+        set(k2, json.length)
         json.push([])
         return json[json.length - 1]
       }
       if (json.length > 0 && !Array.isArray(json[json.length - 1])) {
-        set(k2)
+        set(k2, json.length)
         json.push([])
         return json[json.length - 1]
       }
       if (json.length > 0) {
-        set(k2)
-        return json[json.length - 1]
+        return json[getPos(k2)]
       }
       // json is array of length 0
-      set(k2)
+      set(k2, json.length)
       json.push([])
       return json[json.length - 1]
     }
     // ntype 1 or 2 → object slot
     if (!ex(k2) || k2[2] === true) {
-      set(k2)
+      set(k2, json.length)
       json.push({})
     }
-    return json[json.length - 1]
+    return json[getPos(k2)]
   }
 
   return json
@@ -292,7 +291,7 @@ const handleTerminalKey = (json, k, k2, val, obj, type, set, ex) => {
 
   if (ctype === 0 && ntype === 0) {
     if (!ex(k2) || k2[2] === true) {
-      set(k2)
+      set(k2, json.length)
       json.push([])
     }
     json = json[json.length - 1]
@@ -575,16 +574,21 @@ class Builder {
     }
 
     let i = 0
-    // init is a 2-bucket marker table — bucket 0 (arrays) and 1 (objects).
-    // k[1] can be an array index OR a strmap index; max is unknown up
-    // front, so use Set rather than a fixed-size typed array.
-    const init0 = new Set()
-    const init1 = new Set()
+    // init is a 2-bucket position table — bucket 0 (arrays) and 1 (objects).
+    // Maps k[1] → the array index at which the container was pushed, so that
+    // delta re-visits of an already-initialized array element return the
+    // originally-recorded element rather than the last one.
+    const init0 = new Map()
+    const init1 = new Map()
     // Local aliases to module-level helpers (closes over the per-call
     // init buckets but otherwise is the same logic).
     const type = buildType
-    const set = k => buildSet(k, init0, init1)
+    const set = (k, pos = -1) => buildSet(k, init0, init1, pos)
     const ex = k => buildEx(k, init0, init1)
+    const getPos = k => {
+      if (!k || k[0] === null || k[0] === undefined || k[1] === undefined) return -1
+      return (k[0] === 0 ? init0 : init1).get(k[1]) ?? -1
+    }
 
     // Reuse a single `keys` array across vref iterations — was a fresh
     // [] per iteration. For wide inputs this saves an allocation per
@@ -622,13 +626,13 @@ class Builder {
           continue
         } else if (i2 === 0) {
           const k2 = keys[i2 + 1]
-          const r = handleFirstKey(json, k, k2, val, obj, klen, type, set, ex)
+          const r = handleFirstKey(json, k, k2, val, obj, klen, type, set, ex, getPos)
           json = r.json
           if (r.action === ACT_BREAK) break
           continue
         }
         if (i2 > 0 && i2 < klen - 2) {
-          json = handleMiddleKey(json, k, keys[i2 + 1], type, set, ex)
+          json = handleMiddleKey(json, k, keys[i2 + 1], type, set, ex, getPos)
           continue
         }
         if (i2 === klen - 2) {

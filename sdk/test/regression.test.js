@@ -508,6 +508,35 @@ describe("delta — array operations", () => {
     )
   })
 
+  it("array of objects — modify non-last element (B.2 sub-path delta)", () => {
+    // The B.2 fix: diffArray emits sub-path replace ops for array-of-objects
+    // when only primitive leaf values change. The builder must navigate to the
+    // correct element, not json[json.length-1].
+    update(
+      [{ a: 1 }, { b: 2 }],
+      [{ a: 99 }, { b: 2 }],
+    )
+    update(
+      [{ x: 1 }, { x: 2 }, { x: 3 }],
+      [{ x: 10 }, { x: 2 }, { x: 30 }],
+    )
+    update(
+      [{ id: 1, v: "old" }, { id: 2, v: "keep" }, { id: 3, v: "also" }],
+      [{ id: 1, v: "new" }, { id: 2, v: "keep" }, { id: 3, v: "also" }],
+    )
+  })
+
+  it("nested object with array of objects — leaf replacement", () => {
+    update(
+      { list: [{ a: 1 }, { b: 2 }] },
+      { list: [{ a: 99 }, { b: 2 }] },
+    )
+    update(
+      { data: [{ n: 1, s: "x" }, { n: 2, s: "y" }] },
+      { data: [{ n: 99, s: "x" }, { n: 2, s: "y" }] },
+    )
+  })
+
   it("array of arrays — modify inner array", () => {
     update([[1, 2], [3, 4]], [[1, 2, 3], [3, 4]])
     update([[1, 2], [3, 4]], [[1], [3, 4, 5]])

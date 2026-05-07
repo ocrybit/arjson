@@ -69,8 +69,32 @@ function diffArray(a, b, path = "") {
     if (!equals(a[i], b[i])) modifications.push(i)
   }
 
+  // For object-to-object modifications, attempt sub-path replace ops.
+  // ARTable supports replace-at-existing-path within array-element objects
+  // but not add/remove of keys — so bail to full-array replace if any sub-op
+  // would add or remove a key, or if a changed value is itself non-primitive.
+  const objSubOps = new Map()
   for (const i of modifications) {
-    if (!isPrimitive(b[i]) || !isPrimitive(a[i])) return replaceOp(path, a, b)
+    if (!isPrimitive(b[i]) || !isPrimitive(a[i])) {
+      if (
+        isObject(a[i]) && !Array.isArray(a[i]) &&
+        isObject(b[i]) && !Array.isArray(b[i])
+      ) {
+        const sub = diff(a[i], b[i], `${path}[${i}]`)
+        if (
+          sub.length > 0 &&
+          sub.every(op =>
+            isPrimitive(op.to) && (op.op === "replace" || op.op === "diff")
+          )
+        ) {
+          objSubOps.set(i, sub)
+        } else {
+          return replaceOp(path, a, b)
+        }
+      } else {
+        return replaceOp(path, a, b)
+      }
+    }
   }
 
   if (a.length !== b.length) {
@@ -90,16 +114,10 @@ function diffArray(a, b, path = "") {
 
   for (let i = modifications.length - 1; i >= 0; i--) {
     const idx = modifications[i]
-    if (isPrimitive(b[idx])) {
-      ops.push({ path: `${path}[${idx}]`, ...primitiveChangeOp("", a[idx], b[idx]) })
+    if (objSubOps.has(idx)) {
+      for (const op of objSubOps.get(idx)) ops.push(op)
     } else {
-      ops.push({ path: `${path}[${idx}]`, op: "remove", from: a[idx] })
-    }
-  }
-
-  for (const idx of modifications) {
-    if (!isPrimitive(b[idx])) {
-      ops.push({ path: `${path}[${idx}]`, to: b[idx] })
+      ops.push({ path: `${path}[${idx}]`, ...primitiveChangeOp("", a[idx], b[idx]) })
     }
   }
 
