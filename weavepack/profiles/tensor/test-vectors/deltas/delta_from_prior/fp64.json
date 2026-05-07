@@ -1,0 +1,66 @@
+[
+  {
+    "name": "fp64 1D delta-from-prior (encoder mode=1)",
+    "description": "tensor_replace mode=1 on a 3-element fp64 tensor with small gradient-style updates; max abs delta = 0.002 ≤ 0.01 threshold, so encoder emits mode=1",
+    "initial": {
+      "tensors": {
+        "w": {
+          "dtype": 16,
+          "shape": [3],
+          "data": [0.1, 0.2, 0.3]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "w": {
+          "dtype": 16,
+          "shape": [3],
+          "data": [0.101, 0.198, 0.3015]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "1e0045de0207353333333333727f353333333333927e666666666667a67e001e8081778081c02abc749358940fc02abc749358982fc01fdaaf1d24d60fc0",
+    "expected_final": {
+      "tensors": {
+        "w": {
+          "dtype": 16,
+          "shape": [3],
+          "data": [0.101, 0.198, 0.3015]
+        }
+      }
+    }
+  },
+  {
+    "name": "fp64 2D matrix delta-from-prior (encoder mode=1)",
+    "description": "tensor_replace mode=1 on a 2×3 fp64 matrix with small per-element updates; max abs delta = 0.003 ≤ 0.01 threshold, so encoder emits mode=1",
+    "initial": {
+      "tensors": {
+        "m": {
+          "dtype": 16,
+          "shape": [2, 3],
+          "data": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        }
+      }
+    },
+    "update": {
+      "tensors": {
+        "m": {
+          "dtype": 16,
+          "shape": [2, 3],
+          "data": [1.001, 1.998, 3.003, 3.997, 5.002, 5.999]
+        }
+      }
+    },
+    "expected_chain_bytes_hex": "370045b6040406000000000001e07e00000000000000800000000000001080000000000000208000000000000028800000000000003080003780816d810101c02a3c749358940fc02abc749358982fc0201aaf1d24da0fc0201aaf1d24da2fc02a3c749358980fc02c3c749358942fc0",
+    "expected_final": {
+      "tensors": {
+        "m": {
+          "dtype": 16,
+          "shape": [2, 3],
+          "data": [1.001, 1.998, 3.003, 3.997, 5.002, 5.999]
+        }
+      }
+    }
+  }
+]

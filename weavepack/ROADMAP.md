@@ -642,3 +642,14 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   lossless round-trip). 194/194 conformance vectors pass (was 190/190).
   Also: V0.2-PLANNING.md quant_change table updated to record ✓ Rust encoder
   + Python encoder (both shipped in prior commits).
+
+- A.3 fp64 delta-from-prior corpus: ✓ COMPLETE — 2 vectors added to
+  weavepack/profiles/tensor/test-vectors/deltas/delta_from_prior/fp64.json.
+  Uses full-chain format (initial + update + expected_chain_bytes_hex) rather
+  than raw delta_bytes_hex, since the JS encoder naturally emits mode=1 for
+  fp64 when max abs delta ≤ 0.01. Vector 1: 3-element 1D tensor, deltas
+  [+0.001, -0.002, +0.0015]; Vector 2: 2×3 matrix, per-element deltas ≤ 0.003.
+  Both verify encoder + decoder + round-trip. 196/196 conformance vectors pass
+  (was 194/194). The fp32_and_int32.json vectors test mode=1 decoder with
+  manually-crafted bytes (deltas exceed threshold so encoder uses mode=0);
+  fp64.json tests encoder-driven mode=1 (deltas below threshold).
