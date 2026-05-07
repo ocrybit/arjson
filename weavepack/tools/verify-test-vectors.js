@@ -20,6 +20,7 @@ import {
   DTYPE,
   schemaHashHex,
 } from "../../sdk/src/profiles/tensor/index.js"
+import { wrapPayload, peekHeader, PID } from "../../sdk/src/dispatch.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const TOOLS_DIR  = dirname(__filename)
@@ -51,9 +52,32 @@ for (const path of walk(JSON_ROOT)) {
   const rel = path.slice(JSON_ROOT.length + 1)
   const vectors = JSON.parse(readFileSync(path, "utf8"))
   const isDelta = rel.startsWith("deltas/")
+  const isV12   = rel.startsWith("v1.2/")
 
   for (const v of vectors) {
-    if (isDelta) {
+    if (isV12) {
+      // v1.2 vector: encode with wrapPayload, compare bytes, decode via peekHeader + dec.
+      try {
+        const v1xBytes  = enc(v.input)
+        const v12Bytes  = wrapPayload(v1xBytes, PID.JSON)
+        const hex       = toHex(v12Bytes)
+        if (hex !== v.expected_bytes_hex) {
+          record(rel, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
+        }
+        const h = peekHeader(v12Bytes)
+        if (h === null || h.profileId !== PID.JSON) {
+          record(rel, v.name, "peekHeader failed to detect JSON v1.2 header"); continue
+        }
+        const decoded = dec(h.payload)
+        const target  = v.expected_decoded !== undefined ? v.expected_decoded : v.input
+        if (!equals(decoded, target)) {
+          record(rel, v.name, "decode mismatch", target, decoded); continue
+        }
+        pass++
+      } catch (e) {
+        record(rel, v.name, "exception: " + e.message)
+      }
+    } else if (isDelta) {
       try {
         const arj = new ARJSON({ json: v.initial })
         if (v.updates) for (const u of v.updates) arj.update(u)
@@ -182,9 +206,32 @@ for (const path of walk(TENSOR_ROOT)) {
   const isSchema    = rel.startsWith("schemas/")
   const isDelta     = rel.startsWith("deltas/")
   const isStreaming = rel.startsWith("streaming/")
+  const isV12       = rel.startsWith("v1.2/")
 
   for (const v of vectors) {
-    if (isStreaming) {
+    if (isV12) {
+      // v1.2 tensor vector: encode with wrapPayload, compare bytes, decode via peekHeader.
+      try {
+        const doc      = parseTensorDoc(v.input)
+        const v1xBytes = tensorEnc(doc)
+        const v12Bytes = wrapPayload(v1xBytes, PID.TENSOR)
+        const hex      = toHex(v12Bytes)
+        if (hex !== v.expected_bytes_hex) {
+          record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
+        }
+        const h = peekHeader(v12Bytes)
+        if (h === null || h.profileId !== PID.TENSOR) {
+          record(prefix, v.name, "peekHeader failed to detect tensor v1.2 header"); continue
+        }
+        const decoded = tensorDec(h.payload)
+        if (!tensorDocsEqual(decoded, doc)) {
+          record(prefix, v.name, "round-trip mismatch"); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    } else if (isStreaming) {
       // Streaming vector: call iterateTensorsSchemaful, compare yielded tensors.
       try {
         const bytes    = new Uint8Array(v.bytes_hex.match(/.{2}/g).map(h => parseInt(h, 16)))

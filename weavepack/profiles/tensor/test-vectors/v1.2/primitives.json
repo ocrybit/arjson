@@ -1,0 +1,32 @@
+[
+  {
+    "name": "v1.2 tensor fp32 scalar",
+    "description": "single-element fp32 tensor encoded with the 4-byte v1.2 magic header (RFC 0002)",
+    "wire_format": "v1.2",
+    "input": {
+      "tensors": {
+        "w": {
+          "dtype": 15,
+          "shape": [1],
+          "data": [1.0]
+        }
+      }
+    },
+    "expected_bytes_hex": "575012010045dde2020001007e00"
+  },
+  {
+    "name": "v1.2 tensor int8 1D",
+    "description": "3-element int8 tensor encoded with the 4-byte v1.2 magic header (RFC 0002)",
+    "wire_format": "v1.2",
+    "input": {
+      "tensors": {
+        "x": {
+          "dtype": 3,
+          "shape": [3],
+          "data": [0, 1, -1]
+        }
+      }
+    },
+    "expected_bytes_hex": "575012010045e062060003fe00"
+  }
+]

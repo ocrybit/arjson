@@ -685,11 +685,15 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   via decode_chain for all 25 chain vectors. 93/93 Rust conformance (all previously
   passing vectors still pass; 25 now have stronger chain-level verification).
 
-- C.3 / RFC 0002: explicit profile-id in wire envelope — Discussion (2026-05-07).
-  Filed `weavepack/rfcs/0002-explicit-profile-id.md`. Proposes a 4-byte magic
-  header `WP <ver> <pid>` (0x57 0x50 0x12 <profile-id>) prepended to all v1.2+
-  payloads. Backwards-compatible: payloads without the header are v1.x JSON.
-  Resolves open issue #1 in weavepack-core/07-extensions.md ("Profile-id
-  placement in v1.x") now that a second profile (tensor) has shipped. Also
-  updated weavepack/governance/01-rfc-process.md to replace stale forward-looking
-  RFC examples with accurate filed-RFCs list.
+- C.3 / RFC 0002: explicit profile-id in wire envelope — ✓ Accepted + Implemented (2026-05-07).
+  `weavepack/rfcs/0002-explicit-profile-id.md` status: Accepted.
+  JS implementation: `sdk/src/dispatch.js` — `wrapPayload(bytes, profileId)` prepends
+  the 4-byte magic header `[0x57, 0x50, 0x12, pid]`; `peekHeader(bytes)` detects and
+  strips the header, returns `{ version, profileId, payload }` or null for v1.x payloads.
+  `PID.JSON = 0x00`, `PID.TENSOR = 0x01` constants. Exported from `sdk/src/index.js`.
+  Conformance test vectors: 4 JSON v1.2 vectors in `profiles/json/test-vectors/v1.2/primitives.json`;
+  2 tensor v1.2 vectors in `profiles/tensor/test-vectors/v1.2/primitives.json`.
+  `verify-test-vectors.js` extended: `v1.2/` subdirectory handler for both JSON and tensor.
+  19 unit tests in `sdk/test/dispatch.test.js` (wrapPayload, peekHeader, PID constants,
+  major-version error, v1.x fallback null return). 2298/2298 JS SDK tests pass;
+  202/202 conformance vectors pass (was 196/196; +6 v1.2 vectors).

@@ -1,0 +1,30 @@
+[
+  {
+    "name": "v1.2 null",
+    "description": "null encoded with the 4-byte v1.2 magic header (RFC 0002)",
+    "wire_format": "v1.2",
+    "input": null,
+    "expected_bytes_hex": "5750120080"
+  },
+  {
+    "name": "v1.2 true",
+    "description": "true encoded with the 4-byte v1.2 magic header (RFC 0002)",
+    "wire_format": "v1.2",
+    "input": true,
+    "expected_bytes_hex": "5750120081"
+  },
+  {
+    "name": "v1.2 false",
+    "description": "false encoded with the 4-byte v1.2 magic header (RFC 0002)",
+    "wire_format": "v1.2",
+    "input": false,
+    "expected_bytes_hex": "5750120082"
+  },
+  {
+    "name": "v1.2 integer 42",
+    "description": "integer 42 encoded with the 4-byte v1.2 magic header (RFC 0002)",
+    "wire_format": "v1.2",
+    "input": 42,
+    "expected_bytes_hex": "57501200ea"
+  }
+]

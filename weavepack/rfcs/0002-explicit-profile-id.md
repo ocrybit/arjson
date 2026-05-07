@@ -1,6 +1,6 @@
 # RFC 0002 — Explicit profile-id in the wire envelope (v1.2 magic header)
 
-**Status:** Discussion
+**Status:** Accepted
 **Author(s):** Claude / arjson maintainers
 **Created:** 2026-05-07
 **Affects:** weavepack-core
