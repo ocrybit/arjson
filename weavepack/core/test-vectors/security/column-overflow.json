@@ -12,5 +12,12 @@
     "input_bytes_hex": "0ad4c58aec2f4b2d00",
     "expected_behavior": "refusal",
     "expected_error_class": "column_overflow"
+  },
+  {
+    "name": "key-length field exceeds buffer bounds",
+    "description": "Derived from enc({a:1,b:2})=12d28b144d372042 by setting bit 3 of byte 0 to 1 (0x12→0x1a). Bit 3 of byte 0 falls within the short() field that encodes the structured-mode entry count; setting it inflates the declared count beyond the true number of encoded entries. When the decoder reaches the key-data section for the phantom trailing entry, the key length it reads from the buffer exceeds the remaining payload, which MUST be refused.",
+    "input_bytes_hex": "1ad28b144d372042",
+    "expected_behavior": "refusal",
+    "expected_error_class": "column_overflow"
   }
 ]

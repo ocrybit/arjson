@@ -710,12 +710,13 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   (was 101; +4 streaming vectors now tested via `iterate_tensors_schemaful` with float
   tolerance comparison for fp32/qint8 dequantization).
 
-- Core security adversarial corpus: ✓ COMPLETE (2026-05-07) —
-  `weavepack/core/test-vectors/security/` created with 11 adversarial vectors
-  across 4 files (truncated-payloads.json, invalid-mode-tags.json,
-  runlength-bombs.json, column-overflow.json). Covers all attack classes from
-  core/08-security.md Open Issue #3: read_past_end (3 vectors), invalid_mode
-  (4 vectors), runlength_bomb (2 vectors), column_overflow (2 vectors). Each
-  vector has input_bytes_hex, expected_behavior="refusal", expected_error_class.
-  verify-test-vectors.js extended with a `core/security/` handler. 213/213
-  conformance vectors pass (was 202/202; +11 security vectors); 2298/2298 JS.
+- Core security adversarial corpus: ✓ COMPLETE (2026-05-07, expanded 2026-05-07) —
+  `weavepack/core/test-vectors/security/` with 13 adversarial vectors across 4
+  files (truncated-payloads.json, invalid-mode-tags.json, runlength-bombs.json,
+  column-overflow.json). read_past_end (3), invalid_mode (4), runlength_bomb (3:
+  vrefs + vtypes from initial release; krefs added in expansion), column_overflow
+  (3: vflags + string-length from initial release; key-length added in expansion).
+  Each vector has input_bytes_hex, expected_behavior="refusal", expected_error_class.
+  verify-test-vectors.js core/security/ handler unchanged (existing patterns cover
+  all new error classes). 215/215 conformance vectors pass (was 213/213; +2
+  security vectors); 2298/2298 JS SDK tests unchanged.

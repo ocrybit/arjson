@@ -230,7 +230,10 @@ versions when published.
 
 3. **Adversarial corpus expansion**: the security corpus grows
    as new attack vectors are discovered. Versioned corpus
-   releases will follow. Initial corpus shipped at
-   `weavepack/core/test-vectors/security/` (11 vectors, 4 files;
-   2026-05-07): truncated-payloads, invalid-mode-tags,
-   runlength-bombs, column-overflow.
+   releases will follow. Current corpus at
+   `weavepack/core/test-vectors/security/` (13 vectors, 4 files):
+   truncated-payloads (3), invalid-mode-tags (4),
+   runlength-bombs (3: vrefs, vtypes, krefs),
+   column-overflow (3: vflags, string-length, key-length).
+   Initial release 2026-05-07 (11 vectors); expanded 2026-05-07
+   (+2: krefs run-length bomb, key-length column overflow).
