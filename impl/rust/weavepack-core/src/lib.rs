@@ -7,3 +7,4 @@
 
 pub mod bits;
 pub mod chain;
+pub mod dispatch;

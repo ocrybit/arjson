@@ -50,6 +50,7 @@ from .chain import (
     serialize_chain,
     validate_chain,
 )
+from .dispatch import wrap_payload, peek_header, PID, VERSION_12
 
 __all__ = [
     "decode_document",
@@ -71,5 +72,9 @@ __all__ = [
     "OP",
     "fp16_bits_to_f32",
     "bf16_bits_to_f32",
+    "wrap_payload",
+    "peek_header",
+    "PID",
+    "VERSION_12",
 ]
 __version__ = "0.0.1"

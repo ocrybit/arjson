@@ -697,3 +697,15 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   19 unit tests in `sdk/test/dispatch.test.js` (wrapPayload, peekHeader, PID constants,
   major-version error, v1.x fallback null return). 2298/2298 JS SDK tests pass;
   202/202 conformance vectors pass (was 196/196; +6 v1.2 vectors).
+  Rust + Python dispatch: `weavepack-core::dispatch` module (`wrap_payload`, `peek_header`,
+  `PID::JSON/TENSOR`, `VERSION_12`, `PeekResult`); 7 unit tests. Rust JSON conformance
+  binary extended: v1.2/ handler routes to `run_v12_snapshot` (encode+wrap+peek+decode,
+  byte-exact) — 97/97 (was 93/93; +4 v1.2 JSON vectors). Rust tensor conformance binary
+  extended: v1.2/ handler → `run_v12_document_vector`; streaming/ handler →
+  `run_streaming_vector` (`iterate_tensors_schemaful` + per-dtype data comparison incl.
+  QINT8 dequantization) — 105/105 (was failing: streaming vectors caused parse-error exits).
+  Python dispatch: `weavepack_json/dispatch.py` + `weavepack_tensor/dispatch.py` (profile-
+  isolated copies; `wrap_payload`, `peek_header`, `PID`, `VERSION_12`). Python JSON
+  conformance: 97/97 (was 93/93; +4 v1.2 JSON vectors). Python tensor conformance: 105/105
+  (was 101; +4 streaming vectors now tested via `iterate_tensors_schemaful` with float
+  tolerance comparison for fp32/qint8 dequantization).

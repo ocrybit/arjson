@@ -15,9 +15,10 @@ use std::{
 };
 
 use serde_json::Value;
+use weavepack_core::dispatch::{wrap_payload, peek_header, PID};
 use weavepack_tensor::{
     chain::{chain_parse, chain_serialize}, // re-exported from weavepack-core
-    decode::{decode_document, decode_document_schemaful},
+    decode::{decode_document, decode_document_schemaful, iterate_tensors_schemaful},
     delta::{apply_delta, encode_delta},
     encode::{encode_document, encode_document_schemaful},
     fp8_dtype::{f32_to_fp8e4m3, f32_to_fp8e5m2},
@@ -393,6 +394,72 @@ fn tensors_equal(
     true
 }
 
+/// Compare raw TensorData bytes against a JSON expected_data array for
+/// streaming conformance. Handles fp32, fp64, int32, and qint8 (dequantized).
+fn streaming_data_equal(td: &TensorData, exp: &[Value], entry: Option<&SchemaEntry>) -> bool {
+    match td.dtype {
+        DTYPE_FP32 => {
+            if td.data.len() != exp.len() * 4 { return false; }
+            for (chunk, ev) in td.data.chunks_exact(4).zip(exp) {
+                let got = f32::from_le_bytes(chunk.try_into().unwrap()) as f64;
+                let expected = ev.as_f64().unwrap_or(f64::NAN);
+                // Allow small relative tolerance for fp32 precision.
+                if (got - expected).abs() > 1e-6_f64.max(expected.abs() * 1e-6) {
+                    return false;
+                }
+            }
+            true
+        }
+        DTYPE_FP64 => {
+            if td.data.len() != exp.len() * 8 { return false; }
+            for (chunk, ev) in td.data.chunks_exact(8).zip(exp) {
+                let got = f64::from_le_bytes(chunk.try_into().unwrap());
+                let expected = ev.as_f64().unwrap_or(f64::NAN);
+                if got != expected { return false; }
+            }
+            true
+        }
+        DTYPE_INT32 => {
+            if td.data.len() != exp.len() * 4 { return false; }
+            for (chunk, ev) in td.data.chunks_exact(4).zip(exp) {
+                let got = i32::from_le_bytes(chunk.try_into().unwrap()) as i64;
+                let expected = ev.as_i64().unwrap_or(i64::MAX);
+                if got != expected { return false; }
+            }
+            true
+        }
+        DTYPE_QINT8 => {
+            // QINT8: each byte is a signed int8 q-value; dequantize to float.
+            let (scale, zp) = match entry {
+                Some(e) => (e.scale.unwrap_or(1.0), e.zero_point.unwrap_or(0) as f64),
+                None => (1.0, 0.0),
+            };
+            if td.data.len() != exp.len() { return false; }
+            for (b, ev) in td.data.iter().zip(exp) {
+                let q = *b as i8 as f64;
+                let got = (q - zp) * scale;
+                let expected = ev.as_f64().unwrap_or(f64::NAN);
+                if (got - expected).abs() > 1e-9 { return false; }
+            }
+            true
+        }
+        _ => {
+            // For other dtypes, compare raw bytes to i64 values.
+            let elem_bytes = td.data.len() / exp.len().max(1);
+            if elem_bytes == 0 || td.data.len() != exp.len() * elem_bytes { return false; }
+            for (chunk, ev) in td.data.chunks_exact(elem_bytes).zip(exp) {
+                let mut val: i64 = 0;
+                for (j, b) in chunk.iter().enumerate().take(8) {
+                    val |= (*b as i64) << (j * 8);
+                }
+                let expected = ev.as_i64().unwrap_or(i64::MAX);
+                if val != expected { return false; }
+            }
+            true
+        }
+    }
+}
+
 // ── test runner ───────────────────────────────────────────────────────────────
 
 struct Runner {
@@ -551,6 +618,132 @@ impl Runner {
                 }
             }
             Err(e) => return self.err(&full, &format!("decode error: {e}")),
+        }
+
+        self.ok();
+    }
+
+    // v1.2 vector: encode with wrap_payload, compare bytes, decode via peek_header.
+    fn run_v12_document_vector(&mut self, label: &str, v: &Value) {
+        let name = v["name"].as_str().unwrap_or("?");
+        let full = format!("{label} :: {name}");
+
+        let doc = match parse_tensor_map(&v["input"]["tensors"]) {
+            Ok(d) => d,
+            Err(e) => return self.err(&full, &format!("parse error: {e}")),
+        };
+        let expected_hex = match v["expected_bytes_hex"].as_str() {
+            Some(h) => h,
+            None => return self.err(&full, "expected_bytes_hex missing"),
+        };
+
+        // Encode the inner payload, then wrap with the v1.2 tensor header.
+        let inner = encode_document(&doc);
+        let wrapped = wrap_payload(&inner, PID::TENSOR);
+        let wrapped_hex = to_hex(&wrapped);
+        if wrapped_hex != expected_hex {
+            return self.err(
+                &full,
+                &format!(
+                    "v1.2 wrap mismatch\n    expected: {expected_hex}\n    actual:   {wrapped_hex}"
+                ),
+            );
+        }
+
+        // Decode by stripping the header, then decoding the inner payload.
+        let expected_bytes = match from_hex(expected_hex) {
+            Ok(b) => b,
+            Err(e) => return self.err(&full, &format!("hex parse error: {e}")),
+        };
+        let peek = match peek_header(&expected_bytes) {
+            Ok(Some(r)) => r,
+            Ok(None) => return self.err(&full, "peek_header returned None for v1.2 bytes"),
+            Err(e) => return self.err(&full, &format!("peek_header error: {e}")),
+        };
+        if peek.profile_id != PID::TENSOR {
+            return self.err(&full, &format!("wrong profile_id: {}", peek.profile_id));
+        }
+        match decode_document(&peek.payload) {
+            Ok(decoded) => {
+                if !tensors_equal(&to_btree(&decoded), &to_btree(&doc)) {
+                    return self.err(&full, "v1.2 decode round-trip mismatch");
+                }
+            }
+            Err(e) => return self.err(&full, &format!("v1.2 decode error: {e}")),
+        }
+
+        self.ok();
+    }
+
+    // streaming/ vector: call iterate_tensors_schemaful, compare yielded tensors.
+    fn run_streaming_vector(&mut self, label: &str, v: &Value) {
+        let name = v["name"].as_str().unwrap_or("?");
+        let full = format!("{label} :: {name}");
+
+        let schema = match parse_schema(&v["schema"]) {
+            Ok(s) => s,
+            Err(e) => return self.err(&full, &format!("parse schema error: {e}")),
+        };
+        let schema_hash = schema_hash_hex(&schema);
+        let mut registry = BTreeMap::new();
+        registry.insert(schema_hash, schema.clone());
+
+        let bytes_hex = match v["bytes_hex"].as_str() {
+            Some(h) => h,
+            None => return self.err(&full, "bytes_hex missing"),
+        };
+        let bytes = match from_hex(bytes_hex) {
+            Ok(b) => b,
+            Err(e) => return self.err(&full, &format!("hex parse error: {e}")),
+        };
+
+        let expected_tensors = match v["expected_tensors"].as_array() {
+            Some(a) => a,
+            None => return self.err(&full, "expected_tensors missing or not array"),
+        };
+
+        let iter = match iterate_tensors_schemaful(&bytes, &registry) {
+            Ok(it) => it,
+            Err(e) => return self.err(&full, &format!("iterate_tensors_schemaful error: {e}")),
+        };
+        let mut yielded: Vec<(String, TensorData)> = Vec::new();
+        for item in iter {
+            match item {
+                Ok((n, td)) => yielded.push((n, td)),
+                Err(e) => return self.err(&full, &format!("iterator error: {e}")),
+            }
+        }
+
+        if yielded.len() != expected_tensors.len() {
+            return self.err(
+                &full,
+                &format!("tensor count mismatch: expected {} got {}", expected_tensors.len(), yielded.len()),
+            );
+        }
+
+        for (i, ((got_name, got_td), exp)) in yielded.iter().zip(expected_tensors).enumerate() {
+            let exp_name = exp["name"].as_str().unwrap_or("?");
+            if got_name != exp_name {
+                return self.err(&full, &format!("tensor[{i}] name: expected {exp_name:?} got {got_name:?}"));
+            }
+            let exp_dtype = exp["dtype"].as_u64().unwrap_or(0) as u8;
+            if got_td.dtype != exp_dtype {
+                return self.err(&full, &format!("tensor[{i}] dtype: expected {exp_dtype} got {}", got_td.dtype));
+            }
+            let exp_shape: Vec<u64> = exp["shape"].as_array().unwrap_or(&vec![])
+                .iter().filter_map(|v| v.as_u64()).collect();
+            if got_td.shape != exp_shape {
+                return self.err(&full, &format!("tensor[{i}] shape mismatch"));
+            }
+            let exp_data = match exp["data"].as_array() {
+                Some(a) => a,
+                None => return self.err(&full, &format!("tensor[{i}] expected data not array")),
+            };
+
+            let entry = schema.get(got_name);
+            if !streaming_data_equal(got_td, exp_data, entry) {
+                return self.err(&full, &format!("tensor[{i}] data mismatch"));
+            }
         }
 
         self.ok();
@@ -728,11 +921,17 @@ fn main() {
             }
         };
 
-        let is_schema = rel.starts_with("schemas/");
-        let is_delta = rel.starts_with("deltas/");
+        let is_schema    = rel.starts_with("schemas/");
+        let is_delta     = rel.starts_with("deltas/");
+        let is_v12       = rel.starts_with("v1.2/");
+        let is_streaming = rel.starts_with("streaming/");
 
         for v in &vectors {
-            if is_schema {
+            if is_v12 {
+                runner.run_v12_document_vector(&rel, v);
+            } else if is_streaming {
+                runner.run_streaming_vector(&rel, v);
+            } else if is_schema {
                 runner.run_schema_vector(&rel, v);
             } else if is_delta {
                 runner.run_delta_vector(&rel, v);

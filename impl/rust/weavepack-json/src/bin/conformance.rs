@@ -16,6 +16,7 @@ use std::{
 
 use serde_json::Value;
 use weavepack_json::{decode_snapshot, decode_chain, encode};
+use weavepack_core::dispatch::{wrap_payload, peek_header, PID};
 
 // ── hex helper ────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,68 @@ impl Runner {
         self.ok();
     }
 
+    // v1.2 vector: encode with wrap_payload, compare bytes, decode via peek_header.
+    fn run_v12_snapshot(&mut self, label: &str, v: &Value) {
+        let name = v["name"].as_str().unwrap_or("?");
+        let full = format!("{label} :: {name}");
+
+        let expected_hex = match v["expected_bytes_hex"].as_str() {
+            Some(h) => h,
+            None => return self.err(&full, "expected_bytes_hex missing"),
+        };
+        let expected_bytes = match from_hex(expected_hex) {
+            Ok(b) => b,
+            Err(e) => return self.err(&full, &format!("hex parse error: {e}")),
+        };
+
+        // Encode the inner payload, then wrap with v1.2 header.
+        let inner = match encode(&v["input"]) {
+            Ok(b) => b,
+            Err(e) => return self.err(&full, &format!("encode error: {e}")),
+        };
+        let wrapped = wrap_payload(&inner, PID::JSON);
+        let wrapped_hex = to_hex(&wrapped);
+        if wrapped_hex != expected_hex {
+            return self.err(
+                &full,
+                &format!(
+                    "v1.2 wrap mismatch\n    expected: {expected_hex}\n    actual:   {wrapped_hex}"
+                ),
+            );
+        }
+
+        // Decode by stripping the header, then decoding the inner payload.
+        let peek = match peek_header(&expected_bytes) {
+            Ok(Some(r)) => r,
+            Ok(None) => return self.err(&full, "peek_header returned None for v1.2 bytes"),
+            Err(e) => return self.err(&full, &format!("peek_header error: {e}")),
+        };
+        if peek.profile_id != PID::JSON {
+            return self.err(&full, &format!("wrong profile_id: {}", peek.profile_id));
+        }
+        let decoded = match decode_snapshot(&peek.payload) {
+            Ok(d) => d,
+            Err(e) => return self.err(&full, &format!("decode error after peek: {e}")),
+        };
+
+        let expected_val = if !v["expected_decoded"].is_null() && v.get("expected_decoded").is_some() {
+            &v["expected_decoded"]
+        } else {
+            &v["input"]
+        };
+        if !json_eq(&decoded, expected_val) {
+            return self.err(
+                &full,
+                &format!(
+                    "v1.2 decode mismatch\n    expected: {expected_val}\n    actual:   {decoded}"
+                ),
+            );
+        }
+
+        self.encode_passes += 1;
+        self.ok();
+    }
+
     // Delta vector: has `initial` and `initial_delta_hex`.
     // Level 1: decode initial_delta_hex → must equal initial.
     // Chain check: if expected_chain_bytes_hex present, decode_chain → expected_final.
@@ -289,9 +352,12 @@ fn main() {
         };
 
         let is_delta = rel.starts_with("deltas/");
+        let is_v12   = rel.starts_with("v1.2/");
 
         for v in &vectors {
-            if is_delta {
+            if is_v12 {
+                runner.run_v12_snapshot(&rel, v);
+            } else if is_delta {
                 runner.run_delta(&rel, v);
             } else {
                 runner.run_snapshot(&rel, v);

@@ -21,9 +21,13 @@ from weavepack_tensor import (
     encode_document_schemaful,
     apply_delta,
     schema_hash_hex,
+    iterate_tensors_schemaful,
     DTYPE,
     fp16_bits_to_f32,
     bf16_bits_to_f32,
+    wrap_payload,
+    peek_header,
+    PID,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -98,8 +102,109 @@ for vec_file in walk(VECTORS):
     with open(vec_file) as f:
         vectors = json.load(f)
 
+    is_v12       = rel_str.startswith("v1.2/") or rel_str.startswith("v1.2\\")
+    is_streaming = rel_str.startswith("streaming/") or rel_str.startswith("streaming\\")
+
     for v in vectors:
         name = v.get("name", "(unnamed)")
+
+        # ── streaming vectors ──────────────────────────────────────────────────
+        if is_streaming:
+            try:
+                schema = v["schema"]
+                schema_h = v["schema_hash_hex"]
+                if schema_hash_hex(schema) != schema_h:
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: schema hash mismatch")
+                    continue
+                registry = {schema_h: schema}
+                data = bytes.fromhex(v["bytes_hex"])
+                yielded = list(iterate_tensors_schemaful(data, registry))
+                expected = v["expected_tensors"]
+                if len(yielded) != len(expected):
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: tensor count mismatch: expected {len(expected)} got {len(yielded)}")
+                    continue
+                ok = True
+                for i, (got, exp) in enumerate(zip(yielded, expected)):
+                    if (got["name"] != exp["name"] or
+                            got["dtype"] != exp["dtype"] or
+                            got["shape"] != exp["shape"]):
+                        fails += 1
+                        failures.append(f"{rel_str} :: {name}: tensor[{i}] metadata mismatch")
+                        ok = False
+                        break
+                    # Compare data: fp32/qint8 need float comparison
+                    gd, ed = list(got["data"]), list(exp["data"])
+                    if len(gd) != len(ed):
+                        fails += 1
+                        failures.append(f"{rel_str} :: {name}: tensor[{i}] data length mismatch")
+                        ok = False
+                        break
+                    for j, (gv, ev) in enumerate(zip(gd, ed)):
+                        if isinstance(gv, float) or isinstance(ev, float):
+                            if abs(float(gv) - float(ev)) > 1e-6 * max(1.0, abs(float(ev))):
+                                fails += 1
+                                failures.append(f"{rel_str} :: {name}: tensor[{i}] data[{j}] mismatch: got {gv}, expected {ev}")
+                                ok = False
+                                break
+                        elif gv != ev:
+                            fails += 1
+                            failures.append(f"{rel_str} :: {name}: tensor[{i}] data[{j}] mismatch: got {gv}, expected {ev}")
+                            ok = False
+                            break
+                    if not ok:
+                        break
+                if ok:
+                    passes += 1
+            except Exception as e:
+                fails += 1
+                failures.append(f"{rel_str} :: {name}: streaming exception: {e}")
+            continue
+
+        # ── v1.2 envelope vectors ──────────────────────────────────────────────
+        if is_v12:
+            try:
+                hex_str = v.get("expected_bytes_hex", "")
+                if not hex_str:
+                    skips += 1
+                    continue
+                # Encode the inner payload and wrap with the v1.2 tensor header.
+                input_doc = parse_input(v["input"])
+                inner = encode_document(input_doc)
+                wrapped = wrap_payload(inner, PID["TENSOR"])
+                if wrapped.hex() != hex_str:
+                    fails += 1
+                    failures.append(
+                        f"{rel_str} :: {name}: v1.2 wrap mismatch\n"
+                        f"    expected: {hex_str}\n"
+                        f"    actual:   {wrapped.hex()}"
+                    )
+                    continue
+                # Decode by stripping the header then decoding the inner payload.
+                result = peek_header(bytes.fromhex(hex_str))
+                if result is None:
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: peek_header returned None for v1.2 bytes")
+                    continue
+                if result["profile_id"] != PID["TENSOR"]:
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: wrong profile_id: {result['profile_id']}")
+                    continue
+                decoded = decode_document(result["payload"])
+                # Verify tensor names round-trip.
+                expected_names = set(v["input"]["tensors"].keys())
+                actual_names = set(decoded["tensors"].keys())
+                if expected_names != actual_names:
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: tensor names mismatch")
+                    continue
+                passes += 1
+            except Exception as e:
+                fails += 1
+                failures.append(f"{rel_str} :: {name}: v1.2 exception: {e}")
+            continue
+
         if rel_str.startswith("deltas/"):
             # Two delta vector formats:
             #   1. initial + update + expected_chain_bytes_hex

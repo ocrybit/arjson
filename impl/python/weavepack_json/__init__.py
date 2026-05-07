@@ -26,6 +26,8 @@ Usage:
 
 from .decoder import decode, decode_chain, parse_chain
 from .encoder import encode
+from .dispatch import wrap_payload, peek_header, PID, VERSION_12
 
-__all__ = ["decode", "encode", "decode_chain", "parse_chain"]
+__all__ = ["decode", "encode", "decode_chain", "parse_chain",
+           "wrap_payload", "peek_header", "PID", "VERSION_12"]
 __version__ = "0.0.3"

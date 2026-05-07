@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from weavepack_json import decode, encode, decode_chain
+from weavepack_json import decode, encode, decode_chain, wrap_payload, peek_header, PID
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VECTORS = REPO_ROOT / "weavepack" / "profiles" / "json" / "test-vectors"
@@ -50,13 +50,61 @@ for vec_file in walk(VECTORS):
     with open(vec_file) as f:
         vectors = json.load(f)
 
+    is_v12 = rel_str.startswith("v1.2/") or rel_str.startswith("v1.2\\")
+
     for v in vectors:
         name = v.get("name", "(unnamed)")
         chain_hex = v.get("expected_chain_bytes_hex", "")
         hex_str = v.get("expected_bytes_hex", "")
 
+        # ── v1.2 envelope vectors ──────────────────────────────────────────────
+        if is_v12:
+            if not hex_str:
+                skips += 1
+                continue
+            try:
+                # Encode the inner payload and wrap with the v1.2 JSON header.
+                inner = encode(v["input"])
+                wrapped = wrap_payload(inner, PID["JSON"])
+                if wrapped.hex() != hex_str:
+                    fails += 1
+                    failures.append(
+                        f"{rel_str} :: {name}: v1.2 wrap mismatch\n"
+                        f"    expected: {hex_str}\n"
+                        f"    actual:   {wrapped.hex()}"
+                    )
+                    continue
+                # Decode by stripping the header then decoding the inner payload.
+                result = peek_header(bytes.fromhex(hex_str))
+                if result is None:
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: peek_header returned None for v1.2 bytes")
+                    continue
+                if result["profile_id"] != PID["JSON"]:
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: wrong profile_id: {result['profile_id']}")
+                    continue
+                decoded = decode(result["payload"])
+                target = v.get("expected_decoded")
+                if target is None:
+                    target = v.get("input")
+                if not values_equal(decoded, target):
+                    fails += 1
+                    failures.append(
+                        f"{rel_str} :: {name}: v1.2 decode mismatch\n"
+                        f"    expected: {target!r}\n"
+                        f"    actual:   {decoded!r}"
+                    )
+                    continue
+                encode_passes += 1
+                passes += 1
+            except Exception as e:
+                fails += 1
+                failures.append(f"{rel_str} :: {name}: v1.2 exception: {e}")
+            continue
+
+        # ── delta chain vectors ────────────────────────────────────────────────
         if chain_hex:
-            # Delta chain vector: decode the chain and compare to expected_final.
             try:
                 chain_data = bytes.fromhex(chain_hex)
                 decoded = decode_chain(chain_data)
