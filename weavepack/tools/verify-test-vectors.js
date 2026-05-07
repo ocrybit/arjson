@@ -23,9 +23,10 @@ import {
 import { wrapPayload, peekHeader, PID } from "../../sdk/src/dispatch.js"
 
 const __filename = fileURLToPath(import.meta.url)
-const TOOLS_DIR  = dirname(__filename)
+const TOOLS_DIR   = dirname(__filename)
 const JSON_ROOT   = join(TOOLS_DIR, "..", "profiles", "json",    "test-vectors")
 const TENSOR_ROOT = join(TOOLS_DIR, "..", "profiles", "tensor",  "test-vectors")
+const CORE_ROOT   = join(TOOLS_DIR, "..", "core",     "test-vectors")
 
 const toHex = bytes => Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")
 const equals = (a, b) => JSON.stringify(a) === JSON.stringify(b)
@@ -349,6 +350,53 @@ for (const path of walk(TENSOR_ROOT)) {
         pass++
       } catch (e) {
         record(prefix, v.name, "exception: " + e.message)
+      }
+    }
+  }
+}
+
+// ── weavepack-core security vectors ──────────────────────────────────────
+//
+// Each vector has:
+//   input_bytes_hex      — adversarial input to pass to dec()
+//   expected_behavior    — "refusal" (must throw) or "clean-decode" (must not throw)
+//   expected_error_class — semantic category matched against the JS error message
+
+const SECURITY_CLASS_PATTERNS = {
+  read_past_end:   ["read past end of buffer"],
+  invalid_mode:    ["invalid vflags mode", "invalid kflags mode", "invalid bools mode"],
+  runlength_bomb:  ["run-length exceeds", "run-length exceeds"],
+  column_overflow: ["length exceeds", "exceeds buffer", "exceeds remaining"],
+}
+
+const fromHex = h => new Uint8Array((h.match(/.{2}/g) || []).map(s => parseInt(s, 16)))
+
+const SECURITY_ROOT = join(CORE_ROOT, "security")
+
+for (const path of walk(SECURITY_ROOT)) {
+  const rel = "core/security/" + path.slice(SECURITY_ROOT.length + 1)
+  const vectors = JSON.parse(readFileSync(path, "utf8"))
+
+  for (const v of vectors) {
+    const bytes = fromHex(v.input_bytes_hex)
+    try {
+      const result = dec(bytes)
+      if (v.expected_behavior === "refusal") {
+        record(rel, v.name, `expected refusal but decoded to ${JSON.stringify(result)}`)
+      } else {
+        pass++
+      }
+    } catch (e) {
+      if (v.expected_behavior === "refusal") {
+        const pats = SECURITY_CLASS_PATTERNS[v.expected_error_class] || []
+        const matched = pats.length === 0 || pats.some(p => e.message.toLowerCase().includes(p.toLowerCase()))
+        if (matched) {
+          pass++
+        } else {
+          record(rel, v.name, `wrong error class (got "${e.message}", expected class ${v.expected_error_class})`)
+        }
+      } else {
+        record(rel, v.name, `unexpected exception: ${e.message}`)
       }
     }
   }

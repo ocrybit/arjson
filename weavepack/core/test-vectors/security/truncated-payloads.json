@@ -1,0 +1,23 @@
+[
+  {
+    "name": "truncated structured header — one byte",
+    "description": "A structured-mode payload whose columns demand more bits than available. Byte 0x0a is the first byte of enc({a:1}): it encodes mode=structured, len=1, vflags=mode-1 (all-refs), but the subsequent vrefs/krefs/keys/vtypes/nums columns require additional bytes that are absent. The decoder reads past the zero-extended buffer tail and throws.",
+    "input_bytes_hex": "0a",
+    "expected_behavior": "refusal",
+    "expected_error_class": "read_past_end"
+  },
+  {
+    "name": "truncated four-key object — one byte",
+    "description": "First byte of enc({a:1,b:2,c:3,d:4}) — structured mode, len=4, all columns truncated. The column data required to decode 4 entries far exceeds the 1-byte buffer; the decoder reads past the end.",
+    "input_bytes_hex": "31",
+    "expected_behavior": "refusal",
+    "expected_error_class": "read_past_end"
+  },
+  {
+    "name": "truncated four-key object — two bytes",
+    "description": "First two bytes of enc({a:1,b:2,c:3,d:4}). The vflags/vrefs columns demand more bits than the 2-byte buffer provides.",
+    "input_bytes_hex": "3169",
+    "expected_behavior": "refusal",
+    "expected_error_class": "read_past_end"
+  }
+]

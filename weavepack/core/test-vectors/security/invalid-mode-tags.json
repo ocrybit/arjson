@@ -1,0 +1,30 @@
+[
+  {
+    "name": "vflags reserved mode 3",
+    "description": "Byte 0x0e: structured mode (bit 7=0), short(len=1) consumes 4 bits, then vflags mode bits = 0b11 = 3 (reserved). The vflags column permits only modes 0 (all-zeros RLE), 1 (all-ones RLE), and 2 (literal bit-stream); mode 3 is an illegal tag that MUST cause refusal. Same for 0x0f (identical except the trailing padding bit is 1 instead of 0).",
+    "input_bytes_hex": "0e",
+    "expected_behavior": "refusal",
+    "expected_error_class": "invalid_mode"
+  },
+  {
+    "name": "vflags reserved mode 3 — alternate padding bit",
+    "description": "Identical to the previous vector except the low bit of byte 0 is 1 instead of 0. The outcome is identical: vflags mode = 3, which is reserved and must be refused.",
+    "input_bytes_hex": "0f",
+    "expected_behavior": "refusal",
+    "expected_error_class": "invalid_mode"
+  },
+  {
+    "name": "kflags reserved mode 3",
+    "description": "Derived from enc({a:1,b:2})=12d28b144d372042 by setting bits 4–3 of byte 1 to 11 (0xd2→0xde). In the structured payload for a 2-key object, byte 1 bits 4–3 are the kflags mode field; mode 3 is reserved.",
+    "input_bytes_hex": "12de8b144d372042",
+    "expected_behavior": "refusal",
+    "expected_error_class": "invalid_mode"
+  },
+  {
+    "name": "bools reserved mode 3",
+    "description": "Derived from enc({x:true,y:false})=12d28b1458e4dd00 by setting bits 6–5 of byte 6 to 11 (0xdd→0xdf). Byte 6 bits 6–5 fall in the bools-column mode field; mode 3 is reserved.",
+    "input_bytes_hex": "12d28b1458e4df00",
+    "expected_behavior": "refusal",
+    "expected_error_class": "invalid_mode"
+  }
+]

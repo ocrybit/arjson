@@ -1,0 +1,16 @@
+[
+  {
+    "name": "vrefs run-length count exceeds vflags length",
+    "description": "Two-byte crafted payload: structured mode, len=2, vflags=all-ones (both entries are composites), then vrefs RLE escape val=0 followed by short(5). The decoder reads the run count 5 and checks: 5 > (vflags.length − current_index) = 2 − 0 = 2. Since 5 > 2, this is a run-length bomb and MUST be refused. Bit layout: struct(1b) | short(2)=4b | vflags_mode=01(2b) | vrefs_n3=000(3b) | short(5)=01_101(5b) → padded to bytes 0x12 0x3a.",
+    "input_bytes_hex": "123a",
+    "expected_behavior": "refusal",
+    "expected_error_class": "runlength_bomb"
+  },
+  {
+    "name": "vtypes run-length count exceeds remaining slots",
+    "description": "Derived from enc({a:1,b:2})=12d28b144d372042 by setting bits 6–5 of byte 0 to 11 (0x12→0x32). In the structured payload, those two bits land inside the vtypes column and encode a run-length escape whose declared count exceeds the number of remaining vtype slots. The decoder MUST refuse before expanding the run.",
+    "input_bytes_hex": "32d28b144d372042",
+    "expected_behavior": "refusal",
+    "expected_error_class": "runlength_bomb"
+  }
+]

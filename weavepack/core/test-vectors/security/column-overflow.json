@@ -1,0 +1,16 @@
+[
+  {
+    "name": "vflags literal column length exceeds remaining buffer",
+    "description": "Byte 0x36: structured mode (bit 7=0), short(len=5) consumes 5 bits (x=1, n(3)=5), then vflags mode=10 (literal bit-stream, mode=2) takes 2 bits, exhausting the byte. The decoder calculates maxBits = 1×8 − 8 = 0 remaining bits, but needs len=5 flag bits. Since 5 > 0, it MUST refuse with a column-overflow error. Bit layout: struct(0) | short_x=01 | short_val=101 | vflags_mode=10.",
+    "input_bytes_hex": "36",
+    "expected_behavior": "refusal",
+    "expected_error_class": "column_overflow"
+  },
+  {
+    "name": "string length field exceeds buffer bounds",
+    "description": "Derived from enc({x:'hello'})=0ad4c58a6c2f4b2d00 by setting bits 1–0 of byte 4 to 11 (0x6c→0xec). Those two bits lie in a string-length sub-field; the corrupted value claims a string length larger than the remaining buffer, which MUST be refused.",
+    "input_bytes_hex": "0ad4c58aec2f4b2d00",
+    "expected_behavior": "refusal",
+    "expected_error_class": "column_overflow"
+  }
+]
