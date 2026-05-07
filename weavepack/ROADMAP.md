@@ -547,6 +547,23 @@ B.2 implementation deferred until an RFC redesigns the delta encoder to support
 nested-object mutations. Not a v0.1 regression; the existing bail-to-replace
 behavior is correct.
 
+- B.2 add-key-to-non-empty-array-element: ✓ COMPLETE — Four-file fix enabling
+  `diffArray` to emit "add" sub-ops for array-element objects when the element
+  already has at least one existing key (so the element is anchored in t1 and
+  the merged vref table preserves positional order). Root cause of the ordering
+  constraint: vref entries from t2 are appended after t1 entries in
+  `_mergeTables`; if an element has no t1 vrefs, later elements' t1 vrefs appear
+  first and the builder assigns them wrong positions. Changes:
+  (1) `diff.js`: allow "add" sub-ops only when `Object.keys(a[i]).length > 0`;
+  "remove" sub-ops always bail to replaceOp (delete markers break vref ordering).
+  (2) `builder.js`: `handleTerminalKey` for `ctype===0 && ntype===1` now calls
+  `set(k2, json.length)` before `json.push({})` to register the empty-object
+  sentinel in `init1`, preventing duplicate elements on re-entrant vrefs.
+  (3) `artable.js`: `delta()` parent kref fix — for map-type (numeric) path
+  segments `parentContainerKref = i`; for str-type segments `= i+1`; root `= 1`.
+  (4) `index.js`: `update()` null-checks `artable.delta()` and reanchors on null.
+  Test count: 2279/2279 pass; 196/196 conformance vectors pass.
+
 - PyO3 schemaful encode/decode bindings: ✓ DONE (see below).
 - PyO3 full conformance: ✓ COMPLETE — 97/97 vectors (was 61/93).
   test_conformance.py gains: float_to_fp8e5m2_bits (port of JS f32ToFp8e5m2);

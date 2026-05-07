@@ -457,7 +457,17 @@ class ARTable {
         const i = this.getIndex(paths)
         if (i === null) return null
         prev = u.dcount
-        pushPathStr(u, last, i)
+        // Compute the kref of the parent container so pushPathStr emits
+        // the correct klink.  For root (i===0) the container is kref 1.
+        // For a string-keyed entry (e.g. "a" whose value is an object),
+        // the container kref is i+1 (the map node one step below the key).
+        // For a map-type numeric entry (e.g. "[0]" which IS the map node),
+        // the container kref is i itself.
+        const parentPath = this.getPath(paths)
+        const parentContainerKref = parentPath === ''
+          ? 1
+          : (this.keymap[parentPath].type === 'str' ? i + 1 : i)
+        pushPathStr(u, last, parentContainerKref - 1)
       }
     }
     // ARJSON internal op codes are aligned with JSON Patch RFC 6902:

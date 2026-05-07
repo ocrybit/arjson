@@ -69,10 +69,10 @@ function diffArray(a, b, path = "") {
     if (!equals(a[i], b[i])) modifications.push(i)
   }
 
-  // For object-to-object modifications, attempt sub-path replace ops.
-  // ARTable supports replace-at-existing-path within array-element objects
-  // but not add/remove of keys — so bail to full-array replace if any sub-op
-  // would add or remove a key, or if a changed value is itself non-primitive.
+  // For object-to-object modifications, attempt sub-path ops.
+  // ARTable supports replace, add, and remove of primitive-valued keys
+  // within array-element objects.  Bail to full-array replace only when a
+  // sub-op targets a non-primitive value or a nested container.
   const objSubOps = new Map()
   for (const i of modifications) {
     if (!isPrimitive(b[i]) || !isPrimitive(a[i])) {
@@ -81,10 +81,17 @@ function diffArray(a, b, path = "") {
         isObject(b[i]) && !Array.isArray(b[i])
       ) {
         const sub = diff(a[i], b[i], `${path}[${i}]`)
+        // "add" is safe only when a[i] already has keys in t1 (so the
+        // element is anchored in the merged vref table before t2 appends).
+        // "remove" is never safe: the delete marker ends up after later
+        // elements' t1 vrefs, displacing them during builder reconstruction.
+        const hasExistingKeys = Object.keys(a[i]).length > 0
         if (
           sub.length > 0 &&
           sub.every(op =>
-            isPrimitive(op.to) && (op.op === "replace" || op.op === "diff")
+            isPrimitive(op.to) &&
+            (op.op === "replace" || op.op === "diff" ||
+             (op.op === "add" && hasExistingKeys))
           )
         ) {
           objSubOps.set(i, sub)

@@ -72,9 +72,9 @@ export class ARJSON {
       ) {
         return this.reanchor(json)
       }
-      const delta = this.load(
-        this.artable.delta(v.path, v.to, v.op, 1, _diff).delta,
-      )
+      const deltaResult = this.artable.delta(v.path, v.to, v.op, 1, _diff)
+      if (deltaResult === null) return this.reanchor(json)
+      const delta = this.load(deltaResult.delta)
       deltas.push(delta)
     }
     return deltas

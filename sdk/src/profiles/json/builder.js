@@ -336,6 +336,7 @@ const handleTerminalKey = (json, k, k2, val, obj, type, set, ex) => {
     }
   }
   if (ctype === 0 && ntype === 1) {
+    set(k2, json.length)
     json.push({})
     return json[json.length - 1]
   }
