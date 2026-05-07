@@ -233,21 +233,31 @@ before it's `Accepted`.
 After acceptance, changes require a new RFC that supersedes
 the old one. The old RFC is not edited.
 
+## Filed RFCs
+
+RFCs filed to date:
+
+- RFC 0001: fp16 and bf16 dtype support in weavepack-tensor —
+  **Accepted 2026-05-06**. Implementations shipped in JS + Rust +
+  Python; 20/20 conformance vectors pass.
+- RFC 0002: Explicit profile-id in the wire envelope (v1.2 magic
+  header) — **Discussion 2026-05-07**. Proposes a 4-byte `WP`
+  header for profile dispatch across JSON and tensor (and future)
+  profiles. See `weavepack/rfcs/0002-explicit-profile-id.md`.
+
 ## Examples (forward-looking)
 
-Hypothetical RFCs that would be expected:
+Hypothetical RFCs that are likely to come next:
 
-- RFC 0001: Schema evolution as delta chains (mentioned in
-  `weavepack-core/06-schemas.md` as deferred)
-- RFC 0002: Add region_replace + quant_change ops to
-  weavepack-tensor (mentioned in tensor 04-deltas.md as v0.1
-  partial coverage)
-- RFC 0003: weavepack-graph profile registration
-- RFC 0004: Adding fp16 / bf16 / int4 dtypes to
-  weavepack-tensor v0.2
+- RFC 0003: weavepack-graph profile registration (when a graph
+  profile spec + reference impl is ready)
+- RFC 0004: JSON schema sidecar (weavepack-json schemaful mode,
+  analogous to tensor 06-schemas.md)
+- RFC 0005: delta encoder v2 — nested-object key-add/remove
+  within array elements (B.2 in V0.2-PLANNING.md)
 
-The first real RFC will likely shake out gaps in this process
-doc. That's expected — the process is itself amendable via RFC.
+The first few RFCs will shake out gaps in this process doc.
+That's expected — the process is itself amendable via RFC.
 
 ## Number assignment
 

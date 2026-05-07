@@ -667,3 +667,12 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   extended: run_delta now also verifies expected_chain_bytes_hex → expected_final
   via decode_chain for all 25 chain vectors. 93/93 Rust conformance (all previously
   passing vectors still pass; 25 now have stronger chain-level verification).
+
+- C.3 / RFC 0002: explicit profile-id in wire envelope — Discussion (2026-05-07).
+  Filed `weavepack/rfcs/0002-explicit-profile-id.md`. Proposes a 4-byte magic
+  header `WP <ver> <pid>` (0x57 0x50 0x12 <profile-id>) prepended to all v1.2+
+  payloads. Backwards-compatible: payloads without the header are v1.x JSON.
+  Resolves open issue #1 in weavepack-core/07-extensions.md ("Profile-id
+  placement in v1.x") now that a second profile (tensor) has shipped. Also
+  updated weavepack/governance/01-rfc-process.md to replace stale forward-looking
+  RFC examples with accurate filed-RFCs list.
