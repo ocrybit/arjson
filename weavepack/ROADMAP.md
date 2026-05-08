@@ -784,5 +784,9 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   110/110 Python JSON conformance; 109/109 Python tensor conformance.
   See V0.2-PLANNING.md for full item list.
 
-- **v0.3 PLANNING** — Profile #3: weavepack-wire (protobuf-equivalent with
-  native delta chains). See V0.3-PLANNING.md for stage tracking.
+- **v0.3 COMPLETE (2026-05-08)** — Profile #3: weavepack-wire shipped.
+  Spec docs 00–07, JS + Rust + Python reference implementations, 74-vector
+  conformance corpus (all pass cross-language), benchmarks vs protobuf+brotli:
+  18.3× win on incremental API, 52.2× win on token streaming, snapshot within
+  111% of protobuf raw. All benchmark gates pass.
+  See V0.3-PLANNING.md for full item list.
