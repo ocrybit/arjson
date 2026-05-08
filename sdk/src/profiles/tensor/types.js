@@ -72,6 +72,11 @@ export const OP_BITS = 3
 export const PROFILE_ID = "tensor"
 export const PROFILE_VERSION = "0.1"
 
+// Maximum tensor data block size the decoder will allocate.  Larger tensors
+// require streaming or external storage; 256 MiB covers the largest single
+// parameter tensors seen in practice while preventing allocation bombs.
+const MAX_TENSOR_BYTES = 256 * 1024 * 1024
+
 // Compute data block size in bytes for a tensor with given dtype and shape.
 export function dataBytes(dtype, shape) {
   const bitsPerElem = DTYPE_BITS_PER_ELEM[dtype]
@@ -85,5 +90,9 @@ export function dataBytes(dtype, shape) {
   }
   if (elements === 0) return 0
   const totalBits = elements * bitsPerElem
-  return Math.ceil(totalBits / 8)
+  const totalBytes = Math.ceil(totalBits / 8)
+  if (totalBytes > MAX_TENSOR_BYTES) {
+    throw new Error(`tensor data (${totalBytes} bytes) exceeds 256 MiB limit; use streaming decode for large tensors`)
+  }
+  return totalBytes
 }

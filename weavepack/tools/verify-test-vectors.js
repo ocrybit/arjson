@@ -208,8 +208,10 @@ for (const path of walk(TENSOR_ROOT)) {
   const isDelta     = rel.startsWith("deltas/")
   const isStreaming = rel.startsWith("streaming/")
   const isV12       = rel.startsWith("v1.2/")
+  const isSecurity  = rel.startsWith("security/")
 
   for (const v of vectors) {
+    if (isSecurity) continue  // handled by the tensor security loop below
     if (isV12) {
       // v1.2 tensor vector: encode with wrapPayload, compare bytes, decode via peekHeader.
       try {
@@ -389,6 +391,49 @@ for (const path of walk(SECURITY_ROOT)) {
     } catch (e) {
       if (v.expected_behavior === "refusal") {
         const pats = SECURITY_CLASS_PATTERNS[v.expected_error_class] || []
+        const matched = pats.length === 0 || pats.some(p => e.message.toLowerCase().includes(p.toLowerCase()))
+        if (matched) {
+          pass++
+        } else {
+          record(rel, v.name, `wrong error class (got "${e.message}", expected class ${v.expected_error_class})`)
+        }
+      } else {
+        record(rel, v.name, `unexpected exception: ${e.message}`)
+      }
+    }
+  }
+}
+
+// ── weavepack-tensor security vectors ────────────────────────────────────
+//
+// Each vector has:
+//   input_bytes_hex      — adversarial input to pass to tensorDec()
+//   expected_behavior    — "refusal" (must throw) or "clean-decode" (must not throw)
+//   expected_error_class — semantic category matched against the JS error message
+
+const TENSOR_SECURITY_CLASS_PATTERNS = {
+  unknown_dtype:   ["unknown dtype"],
+  tensor_too_large: ["exceeds 256 mib", "exceeds maximum"],
+}
+
+const TENSOR_SECURITY_ROOT = join(TENSOR_ROOT, "security")
+
+for (const path of walk(TENSOR_SECURITY_ROOT)) {
+  const rel = "tensor:security/" + path.slice(TENSOR_SECURITY_ROOT.length + 1)
+  const vectors = JSON.parse(readFileSync(path, "utf8"))
+
+  for (const v of vectors) {
+    const bytes = fromHex(v.input_bytes_hex)
+    try {
+      const result = tensorDec(bytes)
+      if (v.expected_behavior === "refusal") {
+        record(rel, v.name, `expected refusal but decoded to ${JSON.stringify(Object.keys(result.tensors))}`)
+      } else {
+        pass++
+      }
+    } catch (e) {
+      if (v.expected_behavior === "refusal") {
+        const pats = TENSOR_SECURITY_CLASS_PATTERNS[v.expected_error_class] || []
         const matched = pats.length === 0 || pats.some(p => e.message.toLowerCase().includes(p.toLowerCase()))
         if (matched) {
           pass++

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "dtype-31-reserved",
+    "description": "Schemaless document with 1 tensor using dtype=31 (reserved; no entry in DTYPE_BITS_PER_ELEM). Decoder must refuse.",
+    "input_bytes_hex": "0045dfe0",
+    "expected_behavior": "refusal",
+    "expected_error_class": "unknown_dtype",
+    "notes": "Wire layout: doc=0, schemaless=0, tensorCount=1, nameLen=1, name='w', dtype=31 (5 bits = 11111), rank=0, shape=[]."
+  },
+  {
+    "name": "dtype-20-reserved",
+    "description": "Schemaless document with 1 tensor using dtype=20 (reserved range 19–27). Decoder must refuse.",
+    "input_bytes_hex": "00458680",
+    "expected_behavior": "refusal",
+    "expected_error_class": "unknown_dtype",
+    "notes": "Wire layout: doc=0, schemaless=0, tensorCount=1, nameLen=1, name='a', dtype=20 (5 bits = 10100), rank=0, shape=[]."
+  }
+]
