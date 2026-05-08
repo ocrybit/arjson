@@ -737,3 +737,23 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   Python conformance: security loop added after JSON vectors. 110/110 Python JSON
   conformance vectors pass (was 97/97; +13 security vectors).
   JS SDK and verify-test-vectors.js totals unchanged: 2298/2298 and 215/215.
+
+- Tensor profile security adversarial corpus: ✓ COMPLETE (2026-05-08) —
+  `weavepack/profiles/tensor/test-vectors/security/` with 4 adversarial vectors
+  across 2 files targeting the tensor wire-format decoder:
+  (1) invalid-dtypes.json (2 vectors): dtype=31 (reserved extension slot) and
+  dtype=20 (reserved range 19–27). The decoder's DTYPE_BITS_PER_ELEM guard
+  already throws "unknown dtype N" — these vectors document and lock that
+  behaviour; error_class: unknown_dtype.
+  (2) shape-overflow.json (2 vectors): FP32 shape=[2^28] (1 GiB) and FP64
+  shape=[16384,16384] (2 GiB). Without a guard, an adversarial LEB128-encoded
+  shape dimension forced O(elements × 8) readBit loop iterations over
+  zero-padded past-end bytes — a denial-of-service hang. Fix: dataBytes() in
+  sdk/src/profiles/tensor/types.js now throws "tensor data (N bytes) exceeds
+  256 MiB limit" before any Uint8Array allocation or readBits loop; error_class:
+  tensor_too_large.
+  verify-test-vectors.js: isSecurity flag added to main tensor loop (skips
+  security/ files); new TENSOR_SECURITY_ROOT + TENSOR_SECURITY_CLASS_PATTERNS
+  section mirrors the core security handler pattern.
+  219/219 conformance vectors pass (was 215/215; +4 tensor security vectors);
+  2298/2298 JS SDK tests unchanged.
