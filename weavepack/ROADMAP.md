@@ -772,3 +772,17 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   109/109 Rust tensor conformance (was 105/105; +4 security vectors).
   109/109 Python tensor conformance (was 105/105; +4 security vectors).
   JS SDK and verify-test-vectors.js totals unchanged: 2298/2298 and 219/219.
+
+- **v0.2 COMPLETE (2026-05-08)** — All Tier 1 ship-blocking items shipped:
+  fp16/bf16 (RFC 0001), quant_change, region_replace, delta-from-prior,
+  Rust JSON encoder, Python JSON encoder+decoder, Rust+Python tensor
+  delta encoder, security adversarial corpus (core + tensor, all 3 langs),
+  explicit profile-id in wire envelope (RFC 0002), streaming iterator (A.5),
+  sub-tensor skip-load (A.4), conformance CI workflow.
+  Final state: 2298/2298 JS SDK tests; 219/219 conformance vectors;
+  110/110 Rust JSON conformance; 109/109 Rust tensor conformance;
+  110/110 Python JSON conformance; 109/109 Python tensor conformance.
+  See V0.2-PLANNING.md for full item list.
+
+- **v0.3 PLANNING** — Profile #3: weavepack-wire (protobuf-equivalent with
+  native delta chains). See V0.3-PLANNING.md for stage tracking.
