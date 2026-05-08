@@ -757,3 +757,18 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   section mirrors the core security handler pattern.
   219/219 conformance vectors pass (was 215/215; +4 tensor security vectors);
   2298/2298 JS SDK tests unchanged.
+
+- Tensor security adversarial corpus — Rust + Python conformance: ✓ COMPLETE (2026-05-08) —
+  Rust and Python tensor decoders extended to test all 4 tensor security vectors.
+  One decoder bug fixed in Rust: `decode_document` in
+  `impl/rust/weavepack-tensor/src/decode.rs` now returns `Err("unknown dtype N")`
+  immediately after reading the 5-bit dtype field when `dtype_bits_per_elem(dtype)`
+  returns `None` (reserved slots 19–27 and 31). Previously `data_bytes` silently used
+  bpe=0 and the decoder "succeeded" with a 0-byte data block. Python already had the
+  equivalent guard (`raise ValueError(f"unknown dtype {dtype}")`). Rust conformance
+  binary extended: `run_security_tensor_vector` + `is_security` dispatch added to
+  `impl/rust/weavepack-tensor/src/bin/conformance.rs`. Python conformance extended:
+  `is_security` branch added to `impl/python/conformance_tensor.py`.
+  109/109 Rust tensor conformance (was 105/105; +4 security vectors).
+  109/109 Python tensor conformance (was 105/105; +4 security vectors).
+  JS SDK and verify-test-vectors.js totals unchanged: 2298/2298 and 219/219.
