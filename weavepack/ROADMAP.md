@@ -778,7 +778,9 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   Rust JSON encoder, Python JSON encoder+decoder, Rust+Python tensor
   delta encoder, security adversarial corpus (core + tensor, all 3 langs),
   explicit profile-id in wire envelope (RFC 0002), streaming iterator (A.5),
-  sub-tensor skip-load (A.4), conformance CI workflow.
+  sub-tensor skip-load (A.4). (Conformance CI workflow was added then
+  removed by maintainer — failing in hosted environment; local
+  cross-language-check.sh is the canonical verifier.)
   Final state: 2298/2298 JS SDK tests; 219/219 conformance vectors;
   110/110 Rust JSON conformance; 109/109 Rust tensor conformance;
   110/110 Python JSON conformance; 109/109 Python tensor conformance.

@@ -166,10 +166,9 @@ weavepack-tensor, and the protocol substrate).
 - 397 conformance vectors agreeing across 3 languages
   (JS / Rust / Python)
 - 4 chain unit tests in Rust core, 5 chain tests in Python
-- Cross-language CI runs on every push
-
-See `weavepack/tools/cross-language-check.sh` for the headline
-verification.
+- Local-only verification (no GitHub Actions workflow currently);
+  run `weavepack/tools/cross-language-check.sh` from the repo
+  root for the full sweep.
 
 ## Is this production-ready?
 
