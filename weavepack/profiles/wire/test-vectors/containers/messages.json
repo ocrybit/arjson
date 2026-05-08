@@ -1,0 +1,130 @@
+[
+  {
+    "name": "empty message",
+    "description": "zero-field message",
+    "input": [],
+    "expected_bytes_hex": "0000"
+  },
+  {
+    "name": "single scalar field",
+    "description": "one int32 field",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 42
+      }
+    ],
+    "expected_bytes_hex": "000101012a"
+  },
+  {
+    "name": "multiple scalar fields",
+    "description": "three scalar fields of different types",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "alice"
+      },
+      {
+        "num": 2,
+        "vtype": 1,
+        "value": 30
+      },
+      {
+        "num": 3,
+        "vtype": 0,
+        "value": true
+      }
+    ],
+    "expected_bytes_hex": "0003010905616c69636502011e030001"
+  },
+  {
+    "name": "nested message",
+    "description": "one level of nesting",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "outer"
+      },
+      {
+        "num": 2,
+        "message": [
+          {
+            "num": 1,
+            "vtype": 1,
+            "value": 99
+          },
+          {
+            "num": 2,
+            "vtype": 9,
+            "value": "inner"
+          }
+        ]
+      }
+    ],
+    "expected_bytes_hex": "00020109056f75746572021002010163020905696e6e6572"
+  },
+  {
+    "name": "doubly nested message",
+    "description": "two levels of nesting",
+    "input": [
+      {
+        "num": 1,
+        "message": [
+          {
+            "num": 1,
+            "message": [
+              {
+                "num": 1,
+                "vtype": 0,
+                "value": true
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "expected_bytes_hex": "0001011001011001010001"
+  },
+  {
+    "name": "field order canonicalized",
+    "description": "fields provided out-of-order but encoded in ascending field-number order",
+    "input": [
+      {
+        "num": 3,
+        "vtype": 1,
+        "value": 3
+      },
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 1
+      },
+      {
+        "num": 2,
+        "vtype": 1,
+        "value": 2
+      }
+    ],
+    "expected_bytes_hex": "0003010101020102030103",
+    "expected_decoded": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 1
+      },
+      {
+        "num": 2,
+        "vtype": 1,
+        "value": 2
+      },
+      {
+        "num": 3,
+        "vtype": 1,
+        "value": 3
+      }
+    ]
+  }
+]

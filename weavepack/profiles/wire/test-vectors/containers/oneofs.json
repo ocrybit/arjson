@@ -1,0 +1,44 @@
+[
+  {
+    "name": "oneof string case",
+    "input": [
+      {
+        "num": 1,
+        "oneof": {
+          "activeField": 1,
+          "valueType": 9,
+          "value": "hello"
+        }
+      }
+    ],
+    "expected_bytes_hex": "0001011301090568656c6c6f"
+  },
+  {
+    "name": "oneof int32 case",
+    "input": [
+      {
+        "num": 1,
+        "oneof": {
+          "activeField": 2,
+          "valueType": 1,
+          "value": 42
+        }
+      }
+    ],
+    "expected_bytes_hex": "0001011302012a"
+  },
+  {
+    "name": "oneof bool case",
+    "input": [
+      {
+        "num": 1,
+        "oneof": {
+          "activeField": 3,
+          "valueType": 0,
+          "value": true
+        }
+      }
+    ],
+    "expected_bytes_hex": "00010113030001"
+  }
+]

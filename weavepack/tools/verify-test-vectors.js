@@ -1,5 +1,5 @@
-// Verify the weavepack-json and weavepack-tensor conformance test vector
-// corpora against the JS reference implementation.
+// Verify the weavepack-json, weavepack-tensor, and weavepack-wire conformance
+// test vector corpora against the JS reference implementation.
 //
 // Run from the repo root:
 //   node weavepack/tools/verify-test-vectors.js
@@ -20,12 +20,21 @@ import {
   DTYPE,
   schemaHashHex,
 } from "../../sdk/src/profiles/tensor/index.js"
+import {
+  encodeDocument as wireEnc,
+  decodeDocument as wireDec,
+  encodeChain  as wireEncChain,
+  decodeChain  as wireDecChain,
+  applyChain   as wireApplyChain,
+  VTYPE as WIRE_VTYPE,
+} from "../../sdk/src/profiles/wire/index.js"
 import { wrapPayload, peekHeader, PID } from "../../sdk/src/dispatch.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const TOOLS_DIR   = dirname(__filename)
 const JSON_ROOT   = join(TOOLS_DIR, "..", "profiles", "json",    "test-vectors")
 const TENSOR_ROOT = join(TOOLS_DIR, "..", "profiles", "tensor",  "test-vectors")
+const WIRE_ROOT   = join(TOOLS_DIR, "..", "profiles", "wire",    "test-vectors")
 const CORE_ROOT   = join(TOOLS_DIR, "..", "core",     "test-vectors")
 
 const toHex = bytes => Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")
@@ -442,6 +451,192 @@ for (const path of walk(TENSOR_SECURITY_ROOT)) {
         }
       } else {
         record(rel, v.name, `unexpected exception: ${e.message}`)
+      }
+    }
+  }
+}
+
+// ── weavepack-wire vectors ────────────────────────────────────────────────
+//
+// Snapshot vector fields:
+//   input              — field array (BigInt values as strings, Uint8Array as {_bytes:[...]})
+//   expected_bytes_hex — hex of wireEnc(input)
+//
+// Delta vector fields:
+//   initial                  — field array
+//   ops                      — op array
+//   expected_chain_bytes_hex — hex of wireEncChain(ops)
+//   expected_final           — field array after applying ops
+
+const BIGINT_VTYPES_WIRE = new Set([
+  WIRE_VTYPE.INT64,
+  WIRE_VTYPE.UINT64,
+  WIRE_VTYPE.SINT64,
+])
+
+// Recursively restore BigInt and Uint8Array values from their JSON representations.
+function normalizeWireFields(fields) {
+  if (!Array.isArray(fields)) return fields
+  return fields.map(f => {
+    const out = Object.assign({}, f)
+    // Scalar BigInt
+    if (BIGINT_VTYPES_WIRE.has(f.vtype) && typeof f.value === "string") {
+      out.value = BigInt(f.value)
+    }
+    // Scalar Bytes
+    if (f.vtype === WIRE_VTYPE.BYTES && f.value && f.value._bytes !== undefined) {
+      out.value = new Uint8Array(f.value._bytes)
+    }
+    // Nested message
+    if (f.message !== undefined) out.message = normalizeWireFields(f.message)
+    // Repeated
+    if (f.repeated !== undefined) {
+      const { elemType, values } = f.repeated
+      out.repeated = {
+        elemType,
+        values: BIGINT_VTYPES_WIRE.has(elemType)
+          ? values.map(v => BigInt(v))
+          : elemType === WIRE_VTYPE.BYTES
+            ? values.map(v => v && v._bytes ? new Uint8Array(v._bytes) : v)
+            : values,
+      }
+    }
+    // Map entries
+    if (f.map !== undefined) {
+      const { keyType, valueType, entries } = f.map
+      out.map = {
+        keyType, valueType,
+        entries: entries.map(([k, v]) => [
+          k,
+          BIGINT_VTYPES_WIRE.has(valueType) ? BigInt(v)
+            : valueType === WIRE_VTYPE.BYTES && v && v._bytes ? new Uint8Array(v._bytes)
+            : v,
+        ]),
+      }
+    }
+    // Oneof
+    if (f.oneof !== undefined) {
+      const { activeField, valueType, value } = f.oneof
+      out.oneof = {
+        activeField, valueType,
+        value: BIGINT_VTYPES_WIRE.has(valueType) && typeof value === "string"
+          ? BigInt(value)
+          : valueType === WIRE_VTYPE.BYTES && value && value._bytes
+            ? new Uint8Array(value._bytes)
+            : value,
+      }
+    }
+    return out
+  })
+}
+
+// Normalize ops array (field_set/oneof_switch values may hold BigInt-as-string).
+function normalizeWireOps(ops) {
+  return ops.map(op => {
+    const out = Object.assign({}, op)
+    if (out.path) out.path = out.path.map(c => Object.assign({}, c))
+    if (op.value !== undefined) {
+      if (BIGINT_VTYPES_WIRE.has(op.value.vtype) && typeof op.value.value === "string") {
+        out.value = { ...op.value, value: BigInt(op.value.value) }
+      }
+      if (op.value.vtype === WIRE_VTYPE.BYTES && op.value.value && op.value.value._bytes) {
+        out.value = { ...op.value, value: new Uint8Array(op.value.value._bytes) }
+      }
+      if (op.value.message !== undefined) {
+        out.value = { ...op.value, message: normalizeWireFields(op.value.message) }
+      }
+    }
+    if (op.message !== undefined) out.message = normalizeWireFields(op.message)
+    if (op.elements !== undefined && BIGINT_VTYPES_WIRE.has(op.elements.elemType)) {
+      out.elements = { ...op.elements, values: op.elements.values.map(v => BigInt(v)) }
+    }
+    if (op.insertValues !== undefined && BIGINT_VTYPES_WIRE.has(op.elemType)) {
+      out.insertValues = op.insertValues.map(v => BigInt(v))
+    }
+    if (op.value !== undefined && BIGINT_VTYPES_WIRE.has(op.valueType) && typeof op.value === "string") {
+      out.value = BigInt(op.value)
+    }
+    return out
+  })
+}
+
+// Custom serializer for comparing decoded wire fields.
+// Handles BigInt (→ string) and Uint8Array (→ hex).
+function wireSerial(v) {
+  return JSON.stringify(v, (_k, val) => {
+    if (typeof val === "bigint") return `__BigInt__${val}`
+    if (val instanceof Uint8Array) return `__Bytes__${toHex(val)}`
+    return val
+  })
+}
+
+function wireEquals(a, b) { return wireSerial(a) === wireSerial(b) }
+
+for (const path of walk(WIRE_ROOT)) {
+  const rel    = path.slice(WIRE_ROOT.length + 1)
+  const prefix = "wire:" + rel
+  const vectors = JSON.parse(readFileSync(path, "utf8"))
+  const isDelta  = rel.startsWith("deltas/")
+  const isSchema = rel.startsWith("schemas/")
+
+  for (const v of vectors) {
+    // Pending placeholder vectors are skipped.
+    if (v.status === "pending") continue
+
+    if (isSchema) {
+      // Schema vectors placeholder — skip (schemaful encoding deferred to later revision).
+      continue
+    } else if (isDelta) {
+      // Delta chain vector: encode ops, compare hex, apply to initial, compare final.
+      try {
+        const initial = normalizeWireFields(v.initial)
+        const ops     = normalizeWireOps(v.ops)
+        const chainBytes = wireEncChain(ops)
+        const chainHex   = toHex(chainBytes)
+        if (chainHex !== v.expected_chain_bytes_hex) {
+          record(prefix, v.name, "chain bytes mismatch", v.expected_chain_bytes_hex, chainHex); continue
+        }
+        // Decode chain and verify round-trip.
+        const decodedOps = wireDecChain(chainBytes)
+        if (!wireEquals(decodedOps, ops)) {
+          record(prefix, v.name, "ops round-trip mismatch"); continue
+        }
+        // Apply chain to initial state, compare final.
+        const final    = wireApplyChain(initial, ops)
+        const expected = normalizeWireFields(v.expected_final)
+        if (!wireEquals(final, expected)) {
+          record(prefix, v.name, "final state mismatch", wireSerial(expected), wireSerial(final)); continue
+        }
+        // Snapshot round-trip: encode final state, decode, compare.
+        const snapBytes   = wireEnc(final)
+        const snapDecoded = wireDec(snapBytes)
+        if (!wireEquals(snapDecoded, final)) {
+          record(prefix, v.name, "snapshot round-trip mismatch"); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    } else {
+      // Snapshot vector: encode, compare hex, decode, compare.
+      // If expected_decoded is present, compare against it (e.g. for canonicalization tests).
+      try {
+        const input = normalizeWireFields(v.input)
+        const bytes  = wireEnc(input)
+        const hex    = toHex(bytes)
+        if (hex !== v.expected_bytes_hex) {
+          record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
+        }
+        const decoded  = wireDec(bytes)
+        const expected = v.expected_decoded !== undefined
+          ? normalizeWireFields(v.expected_decoded)
+          : input
+        if (!wireEquals(decoded, expected)) {
+          record(prefix, v.name, "decode round-trip mismatch", wireSerial(expected), wireSerial(decoded)); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
       }
     }
   }

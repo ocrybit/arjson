@@ -1,0 +1,245 @@
+[
+  {
+    "name": "map_set creates entry",
+    "description": "set a map entry in a map that doesn't exist yet",
+    "initial": [],
+    "ops": [
+      {
+        "op": 5,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "keyType": "string",
+        "key": "x",
+        "valueType": 1,
+        "value": 42
+      }
+    ],
+    "expected_chain_bytes_hex": "010105000103000178012a",
+    "expected_final": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 1,
+          "entries": [
+            [
+              "x",
+              42
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "map_set updates entry",
+    "description": "update an existing map entry",
+    "initial": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 1,
+          "entries": [
+            [
+              "x",
+              1
+            ],
+            [
+              "y",
+              2
+            ]
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 5,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "keyType": "string",
+        "key": "x",
+        "valueType": 1,
+        "value": 99
+      }
+    ],
+    "expected_chain_bytes_hex": "0101050001030001780163",
+    "expected_final": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 1,
+          "entries": [
+            [
+              "x",
+              99
+            ],
+            [
+              "y",
+              2
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "map_delete removes entry",
+    "description": "delete an existing entry from a map",
+    "initial": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 9,
+          "entries": [
+            [
+              "a",
+              "alpha"
+            ],
+            [
+              "b",
+              "beta"
+            ]
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 6,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "keyType": "string",
+        "key": "a"
+      }
+    ],
+    "expected_chain_bytes_hex": "010106000103000161",
+    "expected_final": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 9,
+          "entries": [
+            [
+              "b",
+              "beta"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "map_set with uint32 key",
+    "description": "integer-keyed map entry set",
+    "initial": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "uint32",
+          "valueType": 0,
+          "entries": [
+            [
+              1,
+              true
+            ]
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 5,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "keyType": "uint32",
+        "key": 2,
+        "valueType": 0,
+        "value": false
+      }
+    ],
+    "expected_chain_bytes_hex": "01010500010301020000",
+    "expected_final": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "uint32",
+          "valueType": 0,
+          "entries": [
+            [
+              1,
+              true
+            ],
+            [
+              2,
+              false
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "map_delete absent key is no-op",
+    "description": "deleting a key that is not in the map is a no-op",
+    "initial": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 1,
+          "entries": [
+            [
+              "x",
+              1
+            ]
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 6,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "keyType": "string",
+        "key": "z"
+      }
+    ],
+    "expected_chain_bytes_hex": "01010600010300017a",
+    "expected_final": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 1,
+          "entries": [
+            [
+              "x",
+              1
+            ]
+          ]
+        }
+      }
+    ]
+  }
+]

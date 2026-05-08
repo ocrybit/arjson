@@ -1,0 +1,100 @@
+[
+  {
+    "name": "empty repeated int32",
+    "input": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": []
+        }
+      }
+    ],
+    "expected_bytes_hex": "000101110100"
+  },
+  {
+    "name": "single element repeated",
+    "input": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 3,
+          "values": [
+            42
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "0001011103012a"
+  },
+  {
+    "name": "multi-element repeated int32",
+    "input": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "0001011101050102030405"
+  },
+  {
+    "name": "repeated bool",
+    "input": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 0,
+          "values": [
+            true,
+            false,
+            true
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "000101110003010001"
+  },
+  {
+    "name": "repeated string",
+    "input": [
+      {
+        "num": 2,
+        "repeated": {
+          "elemType": 9,
+          "values": [
+            "alpha",
+            "beta",
+            "gamma"
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "00010211090305616c70686104626574610567616d6d61"
+  },
+  {
+    "name": "repeated float32",
+    "input": [
+      {
+        "num": 3,
+        "repeated": {
+          "elemType": 7,
+          "values": [
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "0001031107030000803f0000004000004040"
+  }
+]

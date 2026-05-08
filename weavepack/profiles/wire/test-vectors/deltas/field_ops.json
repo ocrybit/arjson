@@ -1,0 +1,264 @@
+[
+  {
+    "name": "field_set scalar",
+    "description": "set field 1 to a new int32 value",
+    "initial": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 10
+      },
+      {
+        "num": 2,
+        "vtype": 9,
+        "value": "hello"
+      }
+    ],
+    "ops": [
+      {
+        "op": 0,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "value": {
+          "vtype": 1,
+          "value": 99
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "0101000001030163",
+    "expected_final": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 99
+      },
+      {
+        "num": 2,
+        "vtype": 9,
+        "value": "hello"
+      }
+    ]
+  },
+  {
+    "name": "field_set adds missing field",
+    "description": "set creates field if not present",
+    "initial": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "x"
+      }
+    ],
+    "ops": [
+      {
+        "op": 0,
+        "path": [
+          {
+            "field": 2
+          }
+        ],
+        "value": {
+          "vtype": 3,
+          "value": 777
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "010100000203038906",
+    "expected_final": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "x"
+      },
+      {
+        "num": 2,
+        "vtype": 3,
+        "value": 777
+      }
+    ]
+  },
+  {
+    "name": "field_delete removes field",
+    "description": "delete removes an existing field",
+    "initial": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 5
+      },
+      {
+        "num": 2,
+        "vtype": 0,
+        "value": true
+      }
+    ],
+    "ops": [
+      {
+        "op": 1,
+        "path": [
+          {
+            "field": 1
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010101000103",
+    "expected_final": [
+      {
+        "num": 2,
+        "vtype": 0,
+        "value": true
+      }
+    ]
+  },
+  {
+    "name": "field_delete absent field is no-op",
+    "description": "deleting a non-existent field is a no-op",
+    "initial": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 5
+      }
+    ],
+    "ops": [
+      {
+        "op": 1,
+        "path": [
+          {
+            "field": 99
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010101006303",
+    "expected_final": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 5
+      }
+    ]
+  },
+  {
+    "name": "message_replace root",
+    "description": "replace the entire root message",
+    "initial": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 1
+      },
+      {
+        "num": 2,
+        "vtype": 1,
+        "value": 2
+      }
+    ],
+    "ops": [
+      {
+        "op": 2,
+        "path": [],
+        "message": [
+          {
+            "num": 1,
+            "vtype": 9,
+            "value": "new"
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "01010203010109036e6577",
+    "expected_final": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "new"
+      }
+    ]
+  },
+  {
+    "name": "message_replace nested",
+    "description": "replace a nested sub-message",
+    "initial": [
+      {
+        "num": 1,
+        "message": [
+          {
+            "num": 1,
+            "vtype": 1,
+            "value": 1
+          }
+        ]
+      }
+    ],
+    "ops": [
+      {
+        "op": 2,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "message": [
+          {
+            "num": 1,
+            "vtype": 1,
+            "value": 99
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "01010200010301010163",
+    "expected_final": [
+      {
+        "num": 1,
+        "message": [
+          {
+            "num": 1,
+            "vtype": 1,
+            "value": 99
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "field_set then field_delete",
+    "description": "last-write-wins + delete composition",
+    "initial": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 1
+      }
+    ],
+    "ops": [
+      {
+        "op": 0,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "value": {
+          "vtype": 1,
+          "value": 2
+        }
+      },
+      {
+        "op": 1,
+        "path": [
+          {
+            "field": 1
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010200000103010201000103",
+    "expected_final": []
+  }
+]

@@ -1,0 +1,107 @@
+[
+  {
+    "name": "oneof_switch string to int32",
+    "description": "switch the active case from string to int32",
+    "initial": [
+      {
+        "num": 1,
+        "oneof": {
+          "activeField": 1,
+          "valueType": 9,
+          "value": "hello"
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 7,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "activeField": 2,
+        "valueType": 1,
+        "value": 42
+      }
+    ],
+    "expected_chain_bytes_hex": "01010700010302012a",
+    "expected_final": [
+      {
+        "num": 1,
+        "oneof": {
+          "activeField": 2,
+          "valueType": 1,
+          "value": 42
+        }
+      }
+    ]
+  },
+  {
+    "name": "oneof_switch creates oneof",
+    "description": "oneof_switch creates the oneof field if absent",
+    "initial": [],
+    "ops": [
+      {
+        "op": 7,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "activeField": 1,
+        "valueType": 0,
+        "value": true
+      }
+    ],
+    "expected_chain_bytes_hex": "010107000103010001",
+    "expected_final": [
+      {
+        "num": 1,
+        "oneof": {
+          "activeField": 1,
+          "valueType": 0,
+          "value": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "oneof_switch idempotent same case",
+    "description": "switching to the same case with a new value",
+    "initial": [
+      {
+        "num": 1,
+        "oneof": {
+          "activeField": 3,
+          "valueType": 7,
+          "value": 1
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 7,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "activeField": 3,
+        "valueType": 7,
+        "value": 2.5
+      }
+    ],
+    "expected_chain_bytes_hex": "010107000103030700002040",
+    "expected_final": [
+      {
+        "num": 1,
+        "oneof": {
+          "activeField": 3,
+          "valueType": 7,
+          "value": 2.5
+        }
+      }
+    ]
+  }
+]

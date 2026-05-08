@@ -1,0 +1,89 @@
+[
+  {
+    "name": "empty string",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": ""
+      }
+    ],
+    "expected_bytes_hex": "0001010900"
+  },
+  {
+    "name": "ascii string",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "hello"
+      }
+    ],
+    "expected_bytes_hex": "000101090568656c6c6f"
+  },
+  {
+    "name": "unicode BMP",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "héllo wörld"
+      }
+    ],
+    "expected_bytes_hex": "000101090d68c3a96c6c6f2077c3b6726c64"
+  },
+  {
+    "name": "emoji",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "hi 🎉 emoji"
+      }
+    ],
+    "expected_bytes_hex": "000101090d686920f09f8e8920656d6f6a69"
+  },
+  {
+    "name": "null byte string",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 9,
+        "value": "a\u0000b"
+      }
+    ],
+    "expected_bytes_hex": "0001010903610062"
+  },
+  {
+    "name": "empty bytes",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 10,
+        "value": {
+          "_bytes": []
+        }
+      }
+    ],
+    "expected_bytes_hex": "0001010a00"
+  },
+  {
+    "name": "bytes sequence",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 10,
+        "value": {
+          "_bytes": [
+            0,
+            1,
+            127,
+            128,
+            255
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "0001010a0500017f80ff"
+  }
+]

@@ -1,0 +1,112 @@
+[
+  {
+    "name": "empty string-key map",
+    "input": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 1,
+          "entries": []
+        }
+      }
+    ],
+    "expected_bytes_hex": "00010112000100"
+  },
+  {
+    "name": "string-key map single entry",
+    "input": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 1,
+          "entries": [
+            [
+              "score",
+              100
+            ]
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "000101120001010573636f726564"
+  },
+  {
+    "name": "string-key map multi entry",
+    "input": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "string",
+          "valueType": 9,
+          "entries": [
+            [
+              "a",
+              "alpha"
+            ],
+            [
+              "b",
+              "beta"
+            ],
+            [
+              "c",
+              "gamma"
+            ]
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "00010112000903016105616c7068610162046265746101630567616d6d61"
+  },
+  {
+    "name": "uint32-key map",
+    "input": [
+      {
+        "num": 1,
+        "map": {
+          "keyType": "uint32",
+          "valueType": 0,
+          "entries": [
+            [
+              1,
+              true
+            ],
+            [
+              2,
+              false
+            ],
+            [
+              3,
+              true
+            ]
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "00010112010003010102000301"
+  },
+  {
+    "name": "map with float64 values",
+    "input": [
+      {
+        "num": 2,
+        "map": {
+          "keyType": "string",
+          "valueType": 8,
+          "entries": [
+            [
+              "pi",
+              3.14159265358979
+            ],
+            [
+              "e",
+              2.71828182845904
+            ]
+          ]
+        }
+      }
+    ],
+    "expected_bytes_hex": "00010212000802027069112d4454fb21094001655e57148b0abf0540"
+  }
+]

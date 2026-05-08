@@ -1,0 +1,233 @@
+[
+  {
+    "name": "repeated_append to empty",
+    "description": "append creates the repeated field if absent",
+    "initial": [],
+    "ops": [
+      {
+        "op": 3,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "elements": {
+          "elemType": 1,
+          "values": [
+            10,
+            20,
+            30
+          ]
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "01010300010301030a141e",
+    "expected_final": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": [
+            10,
+            20,
+            30
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "repeated_append to existing",
+    "description": "appends to an existing repeated field",
+    "initial": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": [
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 3,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "elements": {
+          "elemType": 1,
+          "values": [
+            4,
+            5
+          ]
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "01010300010301020405",
+    "expected_final": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "repeated_splice delete middle",
+    "description": "delete 2 elements from the middle",
+    "initial": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 3,
+          "values": [
+            10,
+            20,
+            30,
+            40,
+            50
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 4,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "index": 1,
+        "deleteCount": 2,
+        "elemType": 3,
+        "insertValues": []
+      }
+    ],
+    "expected_chain_bytes_hex": "01010400010301020300",
+    "expected_final": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 3,
+          "values": [
+            10,
+            40,
+            50
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "repeated_splice insert at head",
+    "description": "insert at position 0",
+    "initial": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": [
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 4,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "index": 0,
+        "deleteCount": 0,
+        "elemType": 1,
+        "insertValues": [
+          1,
+          2
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010104000103000001020102",
+    "expected_final": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "repeated_splice replace element",
+    "description": "delete 1 and insert 1 at same position",
+    "initial": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": [
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    ],
+    "ops": [
+      {
+        "op": 4,
+        "path": [
+          {
+            "field": 1
+          }
+        ],
+        "index": 1,
+        "deleteCount": 1,
+        "elemType": 1,
+        "insertValues": [
+          99
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "0101040001030101010163",
+    "expected_final": [
+      {
+        "num": 1,
+        "repeated": {
+          "elemType": 1,
+          "values": [
+            1,
+            99,
+            3
+          ]
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,326 @@
+[
+  {
+    "name": "bool false",
+    "description": "single bool false",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 0,
+        "value": false
+      }
+    ],
+    "expected_bytes_hex": "0001010000"
+  },
+  {
+    "name": "bool true",
+    "description": "single bool true",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 0,
+        "value": true
+      }
+    ],
+    "expected_bytes_hex": "0001010001"
+  },
+  {
+    "name": "int32 zero",
+    "description": "int32 zero",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 0
+      }
+    ],
+    "expected_bytes_hex": "0001010100"
+  },
+  {
+    "name": "int32 pos",
+    "description": "int32 positive",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 300
+      }
+    ],
+    "expected_bytes_hex": "00010101ac02"
+  },
+  {
+    "name": "int32 neg",
+    "description": "int32 negative",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": -1
+      }
+    ],
+    "expected_bytes_hex": "00010101ffffffff0f"
+  },
+  {
+    "name": "int32 min",
+    "description": "int32 min",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": -2147483648
+      }
+    ],
+    "expected_bytes_hex": "000101018080808008"
+  },
+  {
+    "name": "int32 max",
+    "description": "int32 max",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 1,
+        "value": 2147483647
+      }
+    ],
+    "expected_bytes_hex": "00010101ffffffff07"
+  },
+  {
+    "name": "uint32 zero",
+    "description": "uint32 zero",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 3,
+        "value": 0
+      }
+    ],
+    "expected_bytes_hex": "0001010300"
+  },
+  {
+    "name": "uint32 max",
+    "description": "uint32 max",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 3,
+        "value": 4294967295
+      }
+    ],
+    "expected_bytes_hex": "00010103ffffffff0f"
+  },
+  {
+    "name": "sint32 zero",
+    "description": "sint32 zero",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 5,
+        "value": 0
+      }
+    ],
+    "expected_bytes_hex": "0001010500"
+  },
+  {
+    "name": "sint32 pos",
+    "description": "sint32 positive",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 5,
+        "value": 1
+      }
+    ],
+    "expected_bytes_hex": "0001010502"
+  },
+  {
+    "name": "sint32 neg",
+    "description": "sint32 negative",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 5,
+        "value": -1
+      }
+    ],
+    "expected_bytes_hex": "0001010501"
+  },
+  {
+    "name": "int64 zero",
+    "description": "int64 zero",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 2,
+        "value": "0"
+      }
+    ],
+    "expected_bytes_hex": "0001010200"
+  },
+  {
+    "name": "int64 large",
+    "description": "int64 large pos",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 2,
+        "value": "9007199254740992"
+      }
+    ],
+    "expected_bytes_hex": "000101028080808080808010"
+  },
+  {
+    "name": "int64 neg",
+    "description": "int64 negative",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 2,
+        "value": "-1"
+      }
+    ],
+    "expected_bytes_hex": "00010102ffffffffffffffffff01"
+  },
+  {
+    "name": "uint64 zero",
+    "description": "uint64 zero",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 4,
+        "value": "0"
+      }
+    ],
+    "expected_bytes_hex": "0001010400"
+  },
+  {
+    "name": "uint64 large",
+    "description": "uint64 large",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 4,
+        "value": "18446744073709551615"
+      }
+    ],
+    "expected_bytes_hex": "00010104ffffffffffffffffff01"
+  },
+  {
+    "name": "sint64 zero",
+    "description": "sint64 zero",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 6,
+        "value": "0"
+      }
+    ],
+    "expected_bytes_hex": "0001010600"
+  },
+  {
+    "name": "sint64 neg",
+    "description": "sint64 negative",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 6,
+        "value": "-1"
+      }
+    ],
+    "expected_bytes_hex": "0001010601"
+  },
+  {
+    "name": "float32 zero",
+    "description": "float32 zero",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 7,
+        "value": 0
+      }
+    ],
+    "expected_bytes_hex": "0001010700000000"
+  },
+  {
+    "name": "float32 pi",
+    "description": "float32 pi",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 7,
+        "value": 3.141590118408203
+      }
+    ],
+    "expected_bytes_hex": "00010107d00f4940"
+  },
+  {
+    "name": "float32 neg",
+    "description": "float32 negative",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 7,
+        "value": -1.5
+      }
+    ],
+    "expected_bytes_hex": "000101070000c0bf"
+  },
+  {
+    "name": "float64 zero",
+    "description": "float64 zero",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 8,
+        "value": 0
+      }
+    ],
+    "expected_bytes_hex": "000101080000000000000000"
+  },
+  {
+    "name": "float64 pi",
+    "description": "float64 pi",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 8,
+        "value": 3.141592653589793
+      }
+    ],
+    "expected_bytes_hex": "00010108182d4454fb210940"
+  },
+  {
+    "name": "float64 neg",
+    "description": "float64 negative",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 8,
+        "value": -1e+100
+      }
+    ],
+    "expected_bytes_hex": "000101087dc39425ad49b2d4"
+  },
+  {
+    "name": "enum zero",
+    "description": "enum value 0",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 11,
+        "value": 0
+      }
+    ],
+    "expected_bytes_hex": "0001010b00"
+  },
+  {
+    "name": "enum positive",
+    "description": "enum value 3",
+    "input": [
+      {
+        "num": 1,
+        "vtype": 11,
+        "value": 3
+      }
+    ],
+    "expected_bytes_hex": "0001010b03"
+  }
+]
