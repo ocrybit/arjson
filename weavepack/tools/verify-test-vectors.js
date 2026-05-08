@@ -1,5 +1,6 @@
-// Verify the weavepack-json, weavepack-tensor, and weavepack-wire conformance
-// test vector corpora against the JS reference implementation.
+// Verify the weavepack-json, weavepack-tensor, weavepack-wire, and
+// weavepack-tabular conformance test vector corpora against the JS reference
+// implementation.
 //
 // Run from the repo root:
 //   node weavepack/tools/verify-test-vectors.js
@@ -28,14 +29,24 @@ import {
   applyChain   as wireApplyChain,
   VTYPE as WIRE_VTYPE,
 } from "../../sdk/src/profiles/wire/index.js"
+import {
+  encodeFrame  as tabEncFrame,
+  decodeFrame  as tabDecFrame,
+  encodeChain  as tabEncChain,
+  decodeChain  as tabDecChain,
+  applyChain   as tabApplyChain,
+  CTYPE as TAB_CTYPE,
+  OP    as TAB_OP,
+} from "../../sdk/src/profiles/tabular/index.js"
 import { wrapPayload, peekHeader, PID } from "../../sdk/src/dispatch.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const TOOLS_DIR   = dirname(__filename)
 const JSON_ROOT   = join(TOOLS_DIR, "..", "profiles", "json",    "test-vectors")
 const TENSOR_ROOT = join(TOOLS_DIR, "..", "profiles", "tensor",  "test-vectors")
-const WIRE_ROOT   = join(TOOLS_DIR, "..", "profiles", "wire",    "test-vectors")
-const CORE_ROOT   = join(TOOLS_DIR, "..", "core",     "test-vectors")
+const WIRE_ROOT     = join(TOOLS_DIR, "..", "profiles", "wire",    "test-vectors")
+const TABULAR_ROOT  = join(TOOLS_DIR, "..", "profiles", "tabular", "test-vectors")
+const CORE_ROOT     = join(TOOLS_DIR, "..", "core",     "test-vectors")
 
 const toHex = bytes => Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")
 const equals = (a, b) => JSON.stringify(a) === JSON.stringify(b)
@@ -633,6 +644,142 @@ for (const path of walk(WIRE_ROOT)) {
           : input
         if (!wireEquals(decoded, expected)) {
           record(prefix, v.name, "decode round-trip mismatch", wireSerial(expected), wireSerial(decoded)); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    }
+  }
+}
+
+// ── weavepack-tabular vectors ─────────────────────────────────────────────
+//
+// Snapshot vector fields:
+//   input              — { rowIds: string[], columns: [...] }
+//   expected_bytes_hex — hex of tabEncFrame(input)
+//
+// Delta vector fields:
+//   initial                  — frame spec
+//   ops                      — op array (rowIds as string[], BigInt ctypes as string values)
+//   expected_chain_bytes_hex — hex of tabEncChain(ops)
+//   expected_final           — frame spec after applying ops
+
+const BIGINT_CTYPES_TAB = new Set([TAB_CTYPE.INT64, TAB_CTYPE.UINT64, TAB_CTYPE.TIMESTAMP64])
+
+function tabSpecValToJs(ctype, v) {
+  if (v === null || v === undefined) return null
+  if (typeof v === "object" && v._bytes !== undefined) return new Uint8Array(v._bytes)
+  if (BIGINT_CTYPES_TAB.has(ctype) && typeof v === "string") return BigInt(v)
+  return v
+}
+
+function tabSpecToFrame(spec) {
+  return {
+    rowIds: (spec.rowIds || []).map(r => BigInt(r)),
+    columns: (spec.columns || []).map(col => ({
+      colId: col.colId,
+      ctype: col.ctype,
+      nullable: col.nullable,
+      values: col.values.map(v => tabSpecValToJs(col.ctype, v)),
+      ...(col.name ? { name: col.name } : {}),
+    })),
+  }
+}
+
+function tabSpecToOps(ops) {
+  return ops.map(op => {
+    const o = { ...op }
+    if (o.rowIds) o.rowIds = o.rowIds.map(r => BigInt(r))
+    if (o.columns) o.columns = o.columns.map(col => ({
+      ...col,
+      values: col.values.map(v => tabSpecValToJs(col.ctype, v)),
+    }))
+    if (o.defaultValue !== undefined && o.hasDefault) {
+      o.defaultValue = tabSpecValToJs(o.ctype, o.defaultValue)
+    }
+    return o
+  })
+}
+
+function tabJsValToSpec(ctype, v) {
+  if (v === null || v === undefined) return null
+  if (v instanceof Uint8Array) return { _bytes: Array.from(v) }
+  if (typeof v === "bigint") return String(v)
+  return v
+}
+
+function tabFrameToSpec(frame) {
+  return {
+    rowIds: frame.rowIds.map(r => String(r)),
+    columns: frame.columns.map(col => ({
+      colId: col.colId,
+      ctype: col.ctype,
+      nullable: col.nullable,
+      values: col.values.map(v => tabJsValToSpec(col.ctype, v)),
+      ...(col.name ? { name: col.name } : {}),
+    })),
+  }
+}
+
+function tabEquals(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+for (const path of walk(TABULAR_ROOT)) {
+  const rel     = path.slice(TABULAR_ROOT.length + 1)
+  const prefix  = "tabular:" + rel
+  const vectors = JSON.parse(readFileSync(path, "utf8"))
+  const isDelta = rel.startsWith("deltas/")
+
+  for (const v of vectors) {
+    if (v.status === "pending") continue
+
+    if (isDelta) {
+      try {
+        const initialJs = tabSpecToFrame(v.initial)
+        const opsJs     = tabSpecToOps(v.ops)
+
+        // Encode chain, compare hex.
+        const chainBytes = tabEncChain({ ops: opsJs })
+        const chainHex   = toHex(chainBytes)
+        if (chainHex !== v.expected_chain_bytes_hex) {
+          record(prefix, v.name, "chain bytes mismatch", v.expected_chain_bytes_hex, chainHex); continue
+        }
+
+        // Decode chain, verify op round-trip (re-encode).
+        const { ops: decodedOps } = tabDecChain(chainBytes)
+        const reencBytes = tabEncChain({ ops: decodedOps })
+        if (toHex(reencBytes) !== chainHex) {
+          record(prefix, v.name, "chain decode+re-encode mismatch"); continue
+        }
+
+        // Apply chain to initial state; compare final.
+        const initial     = tabDecFrame(tabEncFrame(initialJs))
+        const finalState  = tabApplyChain(initial, opsJs)
+        const finalSpec   = tabFrameToSpec(finalState)
+        if (!tabEquals(finalSpec, v.expected_final)) {
+          record(prefix, v.name, "final state mismatch",
+            JSON.stringify(v.expected_final), JSON.stringify(finalSpec)); continue
+        }
+
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    } else {
+      // Snapshot vector: encode, compare hex, decode, re-encode (round-trip).
+      try {
+        const inputJs = tabSpecToFrame(v.input)
+        const bytes   = tabEncFrame(inputJs)
+        const hex     = toHex(bytes)
+        if (hex !== v.expected_bytes_hex) {
+          record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
+        }
+        const decoded  = tabDecFrame(bytes)
+        const reencHex = toHex(tabEncFrame(decoded))
+        if (reencHex !== hex) {
+          record(prefix, v.name, "decode+re-encode round-trip mismatch"); continue
         }
         pass++
       } catch (e) {

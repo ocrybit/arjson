@@ -1,0 +1,266 @@
+[
+  {
+    "name": "column_add nullable no default",
+    "description": "add nullable string column; existing rows get NULL",
+    "initial": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 3,
+        "colId": 1,
+        "ctype": 11,
+        "nullable": true,
+        "hasDefault": false
+      }
+    ],
+    "expected_chain_bytes_hex": "0100000000000000000000000000000000000000000000000000000000000000000103011b00",
+    "expected_final": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ]
+        },
+        {
+          "colId": 1,
+          "ctype": 11,
+          "nullable": true,
+          "values": [
+            null,
+            null
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "column_add non-nullable with default",
+    "description": "add non-nullable int32 column with default 42",
+    "initial": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 3,
+        "colId": 1,
+        "ctype": 3,
+        "nullable": false,
+        "hasDefault": true,
+        "defaultValue": 42
+      }
+    ],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000001030103012a000000",
+    "expected_final": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ]
+        },
+        {
+          "colId": 1,
+          "ctype": 3,
+          "nullable": false,
+          "values": [
+            42,
+            42
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "column_drop",
+    "description": "drop col_id=1 from a 2-column frame",
+    "initial": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ]
+        },
+        {
+          "colId": 1,
+          "ctype": 11,
+          "nullable": true,
+          "values": [
+            "a",
+            null
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 4,
+        "colId": 1
+      }
+    ],
+    "expected_chain_bytes_hex": "010000000000000000000000000000000000000000000000000000000000000000010401",
+    "expected_final": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "column_rename",
+    "description": "rename col_id=0 to 'user_id'",
+    "initial": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 5,
+        "colId": 0,
+        "name": "user_id"
+      }
+    ],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000001050007757365725f6964",
+    "expected_final": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ],
+          "name": "user_id"
+        }
+      ]
+    }
+  },
+  {
+    "name": "column_add then column_drop net-zero",
+    "description": "add col_id=1 then drop it; final frame unchanged",
+    "initial": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 0,
+          "nullable": false,
+          "values": [
+            true
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 3,
+        "colId": 1,
+        "ctype": 3,
+        "nullable": true,
+        "hasDefault": false
+      },
+      {
+        "op": 4,
+        "colId": 1
+      }
+    ],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000002030113000401",
+    "expected_final": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 0,
+          "nullable": false,
+          "values": [
+            true
+          ]
+        }
+      ]
+    }
+  }
+]

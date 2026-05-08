@@ -1,0 +1,531 @@
+[
+  {
+    "name": "bool false",
+    "description": "single-row round-trip for ctype 0",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 0,
+          "nullable": false,
+          "values": [
+            false
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000000"
+  },
+  {
+    "name": "bool true",
+    "description": "single-row round-trip for ctype 0",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 0,
+          "nullable": false,
+          "values": [
+            true
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000080"
+  },
+  {
+    "name": "int8 min",
+    "description": "single-row round-trip for ctype 1",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 1,
+          "nullable": false,
+          "values": [
+            -128
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000180"
+  },
+  {
+    "name": "int8 max",
+    "description": "single-row round-trip for ctype 1",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 1,
+          "nullable": false,
+          "values": [
+            127
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000001010000017f"
+  },
+  {
+    "name": "int16 min",
+    "description": "single-row round-trip for ctype 2",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 2,
+          "nullable": false,
+          "values": [
+            -32768
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000001010000020080"
+  },
+  {
+    "name": "int16 max",
+    "description": "single-row round-trip for ctype 2",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 2,
+          "nullable": false,
+          "values": [
+            32767
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000101000002ff7f"
+  },
+  {
+    "name": "int32 min",
+    "description": "single-row round-trip for ctype 3",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 3,
+          "nullable": false,
+          "values": [
+            -2147483648
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000300000080"
+  },
+  {
+    "name": "int32 max",
+    "description": "single-row round-trip for ctype 3",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 3,
+          "nullable": false,
+          "values": [
+            2147483647
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000101000003ffffff7f"
+  },
+  {
+    "name": "int64 large",
+    "description": "single-row round-trip for ctype 4",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 4,
+          "nullable": false,
+          "values": [
+            "9007199254740992"
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000001010000040000000000002000"
+  },
+  {
+    "name": "int64 negative",
+    "description": "single-row round-trip for ctype 4",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 4,
+          "nullable": false,
+          "values": [
+            "-1"
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000101000004ffffffffffffffff"
+  },
+  {
+    "name": "uint8 max",
+    "description": "single-row round-trip for ctype 5",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 5,
+          "nullable": false,
+          "values": [
+            255
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000101000005ff"
+  },
+  {
+    "name": "uint16 max",
+    "description": "single-row round-trip for ctype 6",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 6,
+          "nullable": false,
+          "values": [
+            65535
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000101000006ffff"
+  },
+  {
+    "name": "uint32 max",
+    "description": "single-row round-trip for ctype 7",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            4294967295
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000101000007ffffffff"
+  },
+  {
+    "name": "uint64 max",
+    "description": "single-row round-trip for ctype 8",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 8,
+          "nullable": false,
+          "values": [
+            "18446744073709551615"
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000101000008ffffffffffffffff"
+  },
+  {
+    "name": "float32 pi",
+    "description": "single-row round-trip for ctype 9",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 9,
+          "nullable": false,
+          "values": [
+            3.14
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000101000009c3f54840"
+  },
+  {
+    "name": "float32 neg",
+    "description": "single-row round-trip for ctype 9",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 9,
+          "nullable": false,
+          "values": [
+            -1.5
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000001010000090000c0bf"
+  },
+  {
+    "name": "float64 e",
+    "description": "single-row round-trip for ctype 10",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 10,
+          "nullable": false,
+          "values": [
+            2.718281828459045
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000a6957148b0abf0540"
+  },
+  {
+    "name": "string hello",
+    "description": "single-row round-trip for ctype 11",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 11,
+          "nullable": false,
+          "values": [
+            "hello"
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000b0568656c6c6f"
+  },
+  {
+    "name": "string empty",
+    "description": "single-row round-trip for ctype 11",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 11,
+          "nullable": false,
+          "values": [
+            ""
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000b00"
+  },
+  {
+    "name": "string unicode",
+    "description": "single-row round-trip for ctype 11",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 11,
+          "nullable": false,
+          "values": [
+            "世界"
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000b06e4b896e7958c"
+  },
+  {
+    "name": "bytes deadbeef",
+    "description": "single-row round-trip for ctype 12",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 12,
+          "nullable": false,
+          "values": [
+            {
+              "_bytes": [
+                222,
+                173,
+                190,
+                239
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000c04deadbeef"
+  },
+  {
+    "name": "bytes empty",
+    "description": "single-row round-trip for ctype 12",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 12,
+          "nullable": false,
+          "values": [
+            {
+              "_bytes": []
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000c00"
+  },
+  {
+    "name": "date32 epoch",
+    "description": "single-row round-trip for ctype 13",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 13,
+          "nullable": false,
+          "values": [
+            0
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000d00000000"
+  },
+  {
+    "name": "date32 2022-01-01",
+    "description": "single-row round-trip for ctype 13",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 13,
+          "nullable": false,
+          "values": [
+            18993
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000d314a0000"
+  },
+  {
+    "name": "timestamp64 epoch",
+    "description": "single-row round-trip for ctype 14",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 14,
+          "nullable": false,
+          "values": [
+            "0"
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000e0000000000000000"
+  },
+  {
+    "name": "timestamp64 modern",
+    "description": "single-row round-trip for ctype 14",
+    "input": {
+      "rowIds": [
+        "0"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 14,
+          "nullable": false,
+          "values": [
+            "1746700000000000"
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010100000e007807499d340600"
+  }
+]

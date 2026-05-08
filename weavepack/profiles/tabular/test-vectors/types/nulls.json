@@ -1,0 +1,125 @@
+[
+  {
+    "name": "nullable bool partial",
+    "description": "3-row bool column with one NULL in the middle",
+    "input": {
+      "rowIds": [
+        "0",
+        "1",
+        "2"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 0,
+          "nullable": true,
+          "values": [
+            true,
+            null,
+            false
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000030100010100104080"
+  },
+  {
+    "name": "nullable string trailing null",
+    "description": "2-row string column; second row is NULL",
+    "input": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 11,
+          "nullable": true,
+          "values": [
+            "hello",
+            null
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000002010001001b400568656c6c6f"
+  },
+  {
+    "name": "all-null int32",
+    "description": "2-row int32 column where all rows are NULL",
+    "input": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 3,
+          "nullable": true,
+          "values": [
+            null,
+            null
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000020100010013c0"
+  },
+  {
+    "name": "nullable int64 flanking nulls",
+    "description": "3-row int64 nullable; first and last NULL, middle value 42",
+    "input": {
+      "rowIds": [
+        "0",
+        "1",
+        "2"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 4,
+          "nullable": true,
+          "values": [
+            null,
+            "42",
+            null
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000003010001010014a02a00000000000000"
+  },
+  {
+    "name": "mixed nullable and non-nullable",
+    "description": "2-row frame: col 0 non-nullable uint32, col 1 nullable string",
+    "input": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2
+          ]
+        },
+        {
+          "colId": 1,
+          "ctype": 11,
+          "nullable": true,
+          "values": [
+            "a",
+            null
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000202000100070100000002000000011b400161"
+  }
+]

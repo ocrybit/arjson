@@ -1,0 +1,125 @@
+[
+  {
+    "name": "empty frame",
+    "description": "zero rows, zero columns",
+    "input": {
+      "rowIds": [],
+      "columns": []
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "name": "zero-row one-column frame",
+    "description": "schema column declared, no rows",
+    "input": {
+      "rowIds": [],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 3,
+          "nullable": false,
+          "values": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000000010003"
+  },
+  {
+    "name": "two-column uint32+string",
+    "description": "3-row, 2-column frame",
+    "input": {
+      "rowIds": [
+        "0",
+        "1",
+        "2"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "colId": 1,
+          "ctype": 11,
+          "nullable": false,
+          "values": [
+            "alice",
+            "bob",
+            "carol"
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000003020001010007010000000200000003000000010b05616c69636503626f62056361726f6c"
+  },
+  {
+    "name": "sparse row_ids",
+    "description": "row_ids 0,5,100 — delta-coded LEB128",
+    "input": {
+      "rowIds": [
+        "0",
+        "5",
+        "100"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 10,
+          "nullable": false,
+          "values": [
+            1.1,
+            2.2,
+            3.3
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000030100055f000a9a9999999999f13f9a999999999901406666666666660a40"
+  },
+  {
+    "name": "three-column mixed types",
+    "description": "bool, nullable int32, float32 columns",
+    "input": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 0,
+          "nullable": false,
+          "values": [
+            true,
+            false
+          ]
+        },
+        {
+          "colId": 1,
+          "ctype": 3,
+          "nullable": true,
+          "values": [
+            42,
+            null
+          ]
+        },
+        {
+          "colId": 2,
+          "ctype": 9,
+          "nullable": false,
+          "values": [
+            0.5,
+            -1
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000020300010000800113402a00000002090000003f000080bf"
+  }
+]

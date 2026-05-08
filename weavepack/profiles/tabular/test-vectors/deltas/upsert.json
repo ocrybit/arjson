@@ -1,0 +1,294 @@
+[
+  {
+    "name": "batch_upsert mixed update and insert",
+    "description": "row_id=1 exists → updated; row_id=2 is new → inserted",
+    "initial": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            10,
+            20
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 6,
+        "rowIds": [
+          "1",
+          "2"
+        ],
+        "columns": [
+          {
+            "colId": 0,
+            "ctype": 7,
+            "nullable": false,
+            "values": [
+              99,
+              30
+            ]
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "0100000000000000000000000000000000000000000000000000000000000000000106020101010007630000001e000000",
+    "expected_final": {
+      "rowIds": [
+        "0",
+        "1",
+        "2"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            10,
+            99,
+            30
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "batch_upsert idempotent",
+    "description": "upsert same values; final state unchanged",
+    "initial": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            10,
+            20
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 6,
+        "rowIds": [
+          "0",
+          "1"
+        ],
+        "columns": [
+          {
+            "colId": 0,
+            "ctype": 7,
+            "nullable": false,
+            "values": [
+              10,
+              20
+            ]
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000001060200010100070a00000014000000",
+    "expected_final": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            10,
+            20
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "batch_upsert into empty frame",
+    "description": "upsert 2 rows into an empty frame; both become inserts",
+    "initial": {
+      "rowIds": [],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 11,
+          "nullable": false,
+          "values": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 6,
+        "rowIds": [
+          "0",
+          "1"
+        ],
+        "columns": [
+          {
+            "colId": 0,
+            "ctype": 11,
+            "nullable": false,
+            "values": [
+              "x",
+              "y"
+            ]
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010000000000000000000000000000000000000000000000000000000000000000010602000101000b01780179",
+    "expected_final": {
+      "rowIds": [
+        "0",
+        "1"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 11,
+          "nullable": false,
+          "values": [
+            "x",
+            "y"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "batch_upsert CDC two-event chain",
+    "description": "two sequential upserts on a 3-column table; models a CDC stream",
+    "initial": {
+      "rowIds": [
+        "0",
+        "1",
+        "2"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "colId": 1,
+          "ctype": 11,
+          "nullable": true,
+          "values": [
+            "a",
+            "b",
+            "c"
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 6,
+        "rowIds": [
+          "1",
+          "3"
+        ],
+        "columns": [
+          {
+            "colId": 0,
+            "ctype": 7,
+            "nullable": false,
+            "values": [
+              22,
+              4
+            ]
+          },
+          {
+            "colId": 1,
+            "ctype": 11,
+            "nullable": true,
+            "values": [
+              "B",
+              "d"
+            ]
+          }
+        ]
+      },
+      {
+        "op": 6,
+        "rowIds": [
+          "0"
+        ],
+        "columns": [
+          {
+            "colId": 0,
+            "ctype": 7,
+            "nullable": false,
+            "values": [
+              11
+            ]
+          },
+          {
+            "colId": 1,
+            "ctype": 11,
+            "nullable": true,
+            "values": [
+              null
+            ]
+          }
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000002060201020200071600000004000000011b00014201640601000200070b000000011b80",
+    "expected_final": {
+      "rowIds": [
+        "0",
+        "1",
+        "2",
+        "3"
+      ],
+      "columns": [
+        {
+          "colId": 0,
+          "ctype": 7,
+          "nullable": false,
+          "values": [
+            11,
+            22,
+            3,
+            4
+          ]
+        },
+        {
+          "colId": 1,
+          "ctype": 11,
+          "nullable": true,
+          "values": [
+            null,
+            "B",
+            "c",
+            "d"
+          ]
+        }
+      ]
+    }
+  }
+]
