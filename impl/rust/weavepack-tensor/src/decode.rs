@@ -1,7 +1,7 @@
 // weavepack-tensor decoder (schemaless and schemaful).
 
 use crate::bits::BitReader;
-use crate::types::{data_bytes, SchemaEntry, DTYPE_BITS};
+use crate::types::{data_bytes, dtype_bits_per_elem, SchemaEntry, DTYPE_BITS};
 use crate::TensorData;
 use std::collections::BTreeMap;
 
@@ -56,6 +56,9 @@ pub fn decode_document(bytes: &[u8]) -> Result<Vec<(String, TensorData)>, String
             .map_err(|e| format!("tensor name UTF-8 error: {e}"))?;
 
         let dtype = r.read(DTYPE_BITS as usize)? as u8;
+        if dtype_bits_per_elem(dtype).is_none() {
+            return Err(format!("unknown dtype {dtype}"));
+        }
         let rank = r.short()? as usize;
         let mut shape = Vec::with_capacity(rank);
         for _ in 0..rank {

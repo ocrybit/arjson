@@ -482,6 +482,36 @@ impl Runner {
         self.failures.push(format!("  {label}\n    reason: {reason}"));
     }
 
+    fn run_security_tensor_vector(&mut self, label: &str, v: &Value) {
+        let name = v["name"].as_str().unwrap_or("?");
+        let full = format!("{label} :: {name}");
+        let hex = match v["input_bytes_hex"].as_str() {
+            Some(h) => h,
+            None => return self.err(&full, "input_bytes_hex missing"),
+        };
+        let bytes = match from_hex(hex) {
+            Ok(b) => b,
+            Err(e) => return self.err(&full, &format!("hex parse error: {e}")),
+        };
+        let expected = v["expected_behavior"].as_str().unwrap_or("refusal");
+        match decode_document(&bytes) {
+            Ok(_) => {
+                if expected == "refusal" {
+                    self.err(&full, "expected refusal but decoded successfully");
+                } else {
+                    self.ok();
+                }
+            }
+            Err(_) => {
+                if expected == "refusal" {
+                    self.ok();
+                } else {
+                    self.err(&full, "unexpected decode error");
+                }
+            }
+        }
+    }
+
     fn run_document_vector(&mut self, label: &str, v: &Value) {
         let name = v["name"].as_str().unwrap_or("?");
         let full = format!("{label} :: {name}");
@@ -925,9 +955,12 @@ fn main() {
         let is_delta     = rel.starts_with("deltas/");
         let is_v12       = rel.starts_with("v1.2/");
         let is_streaming = rel.starts_with("streaming/");
+        let is_security  = rel.starts_with("security/");
 
         for v in &vectors {
-            if is_v12 {
+            if is_security {
+                runner.run_security_tensor_vector(&rel, v);
+            } else if is_v12 {
                 runner.run_v12_document_vector(&rel, v);
             } else if is_streaming {
                 runner.run_streaming_vector(&rel, v);

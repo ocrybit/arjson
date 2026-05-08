@@ -104,9 +104,32 @@ for vec_file in walk(VECTORS):
 
     is_v12       = rel_str.startswith("v1.2/") or rel_str.startswith("v1.2\\")
     is_streaming = rel_str.startswith("streaming/") or rel_str.startswith("streaming\\")
+    is_security  = rel_str.startswith("security/") or rel_str.startswith("security\\")
 
     for v in vectors:
         name = v.get("name", "(unnamed)")
+
+        # ── tensor security adversarial vectors ────────────────────────────────
+        if is_security:
+            hex_str = v.get("input_bytes_hex", "")
+            expected = v.get("expected_behavior", "refusal")
+            if not hex_str:
+                skips += 1
+                continue
+            try:
+                decode_document(bytes.fromhex(hex_str))
+                if expected == "refusal":
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: expected refusal but decoded successfully")
+                else:
+                    passes += 1
+            except Exception:
+                if expected == "refusal":
+                    passes += 1
+                else:
+                    fails += 1
+                    failures.append(f"{rel_str} :: {name}: unexpected decode error")
+            continue
 
         # ── streaming vectors ──────────────────────────────────────────────────
         if is_streaming:
