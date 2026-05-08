@@ -213,8 +213,10 @@ protocol-level properties.
 - `weavepack/tla+/Core.tla` (optional) — TLA+ model of delta chain
   convergence and schema evolution compatibility
 
-**Gate:** Property suite runs in CI on every PR. Any regression in
-algebraic laws blocks merge.
+**Gate:** Property suite runs locally via `npm run properties` from
+`sdk/`. (Was CI-gated; the workflow has since been removed — see
+V0.2-PLANNING.md E.3.) Any regression in algebraic laws blocks
+merge by maintainer review.
 
 **Explicitly out of scope:** Lean formalization. The cost is
 disproportionate to the value for weavepack's market. If a high-assurance
