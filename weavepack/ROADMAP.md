@@ -790,3 +790,13 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   18.3× win on incremental API, 52.2× win on token streaming, snapshot within
   111% of protobuf raw. All benchmark gates pass.
   See V0.3-PLANNING.md for full item list.
+
+- **v0.4 IN PROGRESS (started 2026-05-08)** — Profile #4: weavepack-tabular.
+  Column-store format with native row-level delta chains targeting CDC streams,
+  append pipelines, and in-band schema evolution. Differentiates from Parquet
+  and Arrow IPC on `row_update` deltas (changed columns only) and wire-level
+  `column_add`/`column_drop`/`column_rename` ops.
+  T.1 complete: spec docs 00–04 written (00-overview, 01-types, 02-containers,
+  03-paths, 04-deltas). V0.4-PLANNING.md covers T.1–T.6 plan and benchmark gates.
+  2345/2345 JS SDK tests pass; 293/293 conformance vectors pass.
+  See V0.4-PLANNING.md for full item list.
