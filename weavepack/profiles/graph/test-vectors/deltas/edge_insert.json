@@ -1,0 +1,274 @@
+[
+  {
+    "name": "insert one edge",
+    "description": "edge_insert adds follows edge between two existing nodes",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 2,
+        "block": {
+          "type": "edge",
+          "label": "follows",
+          "eids": [
+            "10"
+          ],
+          "srcs": [
+            "1"
+          ],
+          "dsts": [
+            "2"
+          ],
+          "columns": []
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001020107666f6c6c6f7773000a01000000000000000200000000000000",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": [
+        {
+          "eid": "10",
+          "src": "1",
+          "dst": "2",
+          "label": "follows",
+          "props": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "append edges",
+    "description": "edge_insert appends two more edges to existing edge block",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": []
+        },
+        {
+          "type": "edge",
+          "eids": [
+            "10"
+          ],
+          "srcs": [
+            "1"
+          ],
+          "dsts": [
+            "2"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 2,
+        "block": {
+          "type": "edge",
+          "eids": [
+            "11",
+            "12"
+          ],
+          "srcs": [
+            "2",
+            "3"
+          ],
+          "dsts": [
+            "3",
+            "1"
+          ],
+          "columns": []
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001020200000b010200000000000000030000000000000003000000000000000100000000000000",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "3",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": [
+        {
+          "eid": "10",
+          "src": "1",
+          "dst": "2",
+          "label": null,
+          "props": []
+        },
+        {
+          "eid": "11",
+          "src": "2",
+          "dst": "3",
+          "label": null,
+          "props": []
+        },
+        {
+          "eid": "12",
+          "src": "3",
+          "dst": "1",
+          "label": null,
+          "props": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "edge inserts with properties",
+    "description": "two edge_insert ops adding rated edges with float scores",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 2,
+        "block": {
+          "type": "edge",
+          "label": "rated",
+          "eids": [
+            "1"
+          ],
+          "srcs": [
+            "1"
+          ],
+          "dsts": [
+            "2"
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 9,
+              "nullable": false,
+              "values": [
+                5
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "op": 2,
+        "block": {
+          "type": "edge",
+          "label": "rated",
+          "eids": [
+            "2"
+          ],
+          "srcs": [
+            "2"
+          ],
+          "dsts": [
+            "3"
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 9,
+              "nullable": false,
+              "values": [
+                3.5
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000002020105726174656401040901010000000000000002000000000000000000a0400201057261746564010409020200000000000000030000000000000000006040",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "3",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": [
+        {
+          "eid": "1",
+          "src": "1",
+          "dst": "2",
+          "label": "rated",
+          "props": [
+            {
+              "colId": 4,
+              "ctype": 9,
+              "value": 5
+            }
+          ]
+        },
+        {
+          "eid": "2",
+          "src": "2",
+          "dst": "3",
+          "label": "rated",
+          "props": [
+            {
+              "colId": 4,
+              "ctype": 9,
+              "value": 3.5
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

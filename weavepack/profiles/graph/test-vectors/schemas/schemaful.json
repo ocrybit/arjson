@@ -1,0 +1,221 @@
+[
+  {
+    "name": "node block with schema hash",
+    "description": "Person node block with non-zero schema_hash[0]=1, [31]=255",
+    "input": {
+      "schemaHash": {
+        "_bytes": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          255
+        ]
+      },
+      "blocks": [
+        {
+          "type": "node",
+          "label": "Person",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "Alice",
+                "Bob"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010601000000000000000000000000000000000000000000000000000000000000ff01000206506572736f6e01020b010105416c69636503426f62"
+  },
+  {
+    "name": "graph with schema hash 0xAB*32",
+    "description": "User+follows graph with all-0xAB schema hash",
+    "input": {
+      "schemaHash": {
+        "_bytes": [
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171,
+          171
+        ]
+      },
+      "blocks": [
+        {
+          "type": "node",
+          "label": "User",
+          "nids": [
+            "1"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "alice"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "edge",
+          "label": "follows",
+          "eids": [
+            "10"
+          ],
+          "srcs": [
+            "1"
+          ],
+          "dsts": [
+            "1"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "0106abababababababababababababababababababababababababababababababab020001045573657201020b0105616c696365010107666f6c6c6f7773000a01000000000000000100000000000000"
+  },
+  {
+    "name": "delta against schemaful snapshot",
+    "description": "node_insert chain applied to initial graph with non-zero schema hash",
+    "initial": {
+      "schemaHash": {
+        "_bytes": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          255
+        ]
+      },
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "nids": [
+            "2"
+          ],
+          "columns": []
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "01060000000000000000000000000000000000000000000000000000000000000000010001000002",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": []
+    }
+  }
+]

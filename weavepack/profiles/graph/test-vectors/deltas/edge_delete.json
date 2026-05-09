@@ -1,0 +1,166 @@
+[
+  {
+    "name": "delete one edge",
+    "description": "edge_delete removes eid=11 from three-edge graph",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": []
+        },
+        {
+          "type": "edge",
+          "eids": [
+            "10",
+            "11",
+            "12"
+          ],
+          "srcs": [
+            "1",
+            "2",
+            "1"
+          ],
+          "dsts": [
+            "2",
+            "3",
+            "3"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 3,
+        "eids": [
+          "11"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000103010b",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "3",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": [
+        {
+          "eid": "10",
+          "src": "1",
+          "dst": "2",
+          "label": null,
+          "props": []
+        },
+        {
+          "eid": "12",
+          "src": "1",
+          "dst": "3",
+          "label": null,
+          "props": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "delete multiple edges",
+    "description": "edge_delete removes eid=1 and eid=3",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": []
+        },
+        {
+          "type": "edge",
+          "eids": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "srcs": [
+            "1",
+            "2",
+            "3",
+            "1"
+          ],
+          "dsts": [
+            "2",
+            "3",
+            "1",
+            "3"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 3,
+        "eids": [
+          "1",
+          "3"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000103020103",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "3",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": [
+        {
+          "eid": "2",
+          "src": "2",
+          "dst": "3",
+          "label": null,
+          "props": []
+        },
+        {
+          "eid": "4",
+          "src": "1",
+          "dst": "3",
+          "label": null,
+          "props": []
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,138 @@
+[
+  {
+    "name": "delete middle node",
+    "description": "remove nid=2 from three-node graph",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 1,
+        "nids": [
+          "2"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001010102",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "3",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": []
+    }
+  },
+  {
+    "name": "node delete cascades edges",
+    "description": "delete nid=2 implicitly removes incident edges eid=10 and eid=11",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": []
+        },
+        {
+          "type": "edge",
+          "eids": [
+            "10",
+            "11"
+          ],
+          "srcs": [
+            "1",
+            "2"
+          ],
+          "dsts": [
+            "2",
+            "3"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 1,
+        "nids": [
+          "2"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001010102",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "3",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": []
+    }
+  },
+  {
+    "name": "delete multiple nodes",
+    "description": "delete nid=1 and nid=3 in one op",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "label": "Person",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 1,
+        "nids": [
+          "1",
+          "3"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000101020103",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "2",
+          "label": "Person",
+          "props": []
+        }
+      ],
+      "edges": []
+    }
+  }
+]

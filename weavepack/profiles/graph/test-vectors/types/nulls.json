@@ -1,0 +1,150 @@
+[
+  {
+    "name": "all-null int32",
+    "description": "one-node nullable int32 column with null value",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 3,
+              "nullable": true,
+              "values": [
+                null
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "01060000000000000000000000000000000000000000000000000000000000000000010001000102130180"
+  },
+  {
+    "name": "mixed null int32",
+    "description": "three-node nullable int32: null, 42, null",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 3,
+              "nullable": true,
+              "values": [
+                null,
+                42,
+                null
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001000300010213010101a02a000000"
+  },
+  {
+    "name": "mixed null string",
+    "description": "four-node nullable string: hello, null, world, null",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": true,
+              "values": [
+                "hello",
+                null,
+                "world",
+                null
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000100040001021b01010101500568656c6c6f05776f726c64"
+  },
+  {
+    "name": "nullable node_id",
+    "description": "two-node nullable node_id: null, 99",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 15,
+              "nullable": true,
+              "values": [
+                null,
+                "99"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000100020001021f0101806300000000000000"
+  },
+  {
+    "name": "two cols one nullable",
+    "description": "non-nullable int32 + nullable string, two nodes",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 3,
+              "nullable": false,
+              "values": [
+                10,
+                20
+              ]
+            },
+            {
+              "colId": 3,
+              "ctype": 11,
+              "nullable": true,
+              "values": [
+                "ok",
+                null
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001000200020203031b01010a0000001400000040026f6b"
+  }
+]

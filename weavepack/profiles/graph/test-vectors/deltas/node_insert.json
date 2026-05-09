@@ -1,0 +1,181 @@
+[
+  {
+    "name": "insert one node",
+    "description": "node_insert into empty graph",
+    "initial": {
+      "blocks": []
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "label": "Person",
+          "nids": [
+            "1"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "Alice"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001000106506572736f6e01020b0105416c696365",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": "Person",
+          "props": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "value": "Alice"
+            }
+          ]
+        }
+      ],
+      "edges": []
+    }
+  },
+  {
+    "name": "append two nodes",
+    "description": "node_insert appends two more Person nodes",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "label": "Person",
+          "nids": [
+            "1"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "Alice"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "label": "Person",
+          "nids": [
+            "2",
+            "3"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "Bob",
+                "Carol"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001000206506572736f6e01020b020103426f62054361726f6c",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": "Person",
+          "props": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "value": "Alice"
+            }
+          ]
+        },
+        {
+          "nid": "2",
+          "label": "Person",
+          "props": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "value": "Bob"
+            }
+          ]
+        },
+        {
+          "nid": "3",
+          "label": "Person",
+          "props": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "value": "Carol"
+            }
+          ]
+        }
+      ],
+      "edges": []
+    }
+  },
+  {
+    "name": "two sequential inserts",
+    "description": "two node_insert ops in one chain",
+    "initial": {
+      "blocks": []
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "nids": [
+            "1"
+          ],
+          "columns": []
+        }
+      },
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "nids": [
+            "2"
+          ],
+          "columns": []
+        }
+      }
+    ],
+    "expected_chain_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000200010000010001000002",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": []
+    }
+  }
+]

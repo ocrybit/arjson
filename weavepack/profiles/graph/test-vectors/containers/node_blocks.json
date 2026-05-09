@@ -1,0 +1,135 @@
+[
+  {
+    "name": "empty node block",
+    "description": "node block with zero nodes and no columns",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000100000000"
+  },
+  {
+    "name": "single node no label",
+    "description": "one node, no label, no property columns",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "01060000000000000000000000000000000000000000000000000000000000000000010001000001"
+  },
+  {
+    "name": "labeled node block",
+    "description": "Person nodes: three nodes with name + age columns",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "label": "Person",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "Alice",
+                "Bob",
+                "Carol"
+              ]
+            },
+            {
+              "colId": 3,
+              "ctype": 7,
+              "nullable": false,
+              "values": [
+                30,
+                25,
+                35
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001000306506572736f6e02020b030701010105416c69636503426f62054361726f6c1e0000001900000023000000"
+  },
+  {
+    "name": "two labeled node blocks",
+    "description": "User and Product blocks in one document",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "label": "User",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "alice",
+                "bob"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "label": "Product",
+          "nids": [
+            "100"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "widget"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "01060000000000000000000000000000000000000000000000000000000000000000020002045573657201020b010105616c69636503626f6200010750726f6475637401020b6406776964676574"
+  },
+  {
+    "name": "large nid values",
+    "description": "nids with large gaps to exercise LEB128 delta encoding",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1000000",
+            "2000000",
+            "3000000"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000100030000c0843dc0843dc0843d"
+  }
+]

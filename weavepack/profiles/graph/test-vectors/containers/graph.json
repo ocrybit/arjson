@@ -1,0 +1,136 @@
+[
+  {
+    "name": "empty graph",
+    "description": "graph document with zero blocks",
+    "input": {
+      "blocks": []
+    },
+    "expected_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "name": "social graph snapshot",
+    "description": "Person nodes + follows edges in one document",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "label": "Person",
+          "nids": [
+            "1",
+            "2",
+            "3"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "Alice",
+                "Bob",
+                "Carol"
+              ]
+            },
+            {
+              "colId": 3,
+              "ctype": 7,
+              "nullable": false,
+              "values": [
+                30,
+                25,
+                35
+              ]
+            }
+          ]
+        },
+        {
+          "type": "edge",
+          "label": "follows",
+          "eids": [
+            "10",
+            "11",
+            "12"
+          ],
+          "srcs": [
+            "1",
+            "2",
+            "1"
+          ],
+          "dsts": [
+            "2",
+            "3",
+            "3"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000002000306506572736f6e02020b030701010105416c69636503426f62054361726f6c1e0000001900000023000000010307666f6c6c6f7773000a0101010000000000000002000000000000000100000000000000020000000000000003000000000000000300000000000000"
+  },
+  {
+    "name": "multi-label graph",
+    "description": "User+Product nodes with bought edge and date property",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "label": "User",
+          "nids": [
+            "1"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "alice"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "label": "Product",
+          "nids": [
+            "100"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "widget"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "edge",
+          "label": "bought",
+          "eids": [
+            "200"
+          ],
+          "srcs": [
+            "1"
+          ],
+          "dsts": [
+            "100"
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 13,
+              "nullable": false,
+              "values": [
+                19845
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "01060000000000000000000000000000000000000000000000000000000000000000030001045573657201020b0105616c696365000107 50726f6475637401020b6406776964676574010106626f7567687401040dc80101000000000000006400000000000000854d0000"
+  }
+]

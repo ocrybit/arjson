@@ -1,0 +1,249 @@
+[
+  {
+    "name": "prop_set node string",
+    "description": "update Bob's name to Robert via NODE_COL path",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "Alice",
+                "Bob"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 4,
+        "path": {
+          "kind": 1,
+          "nid": "2",
+          "colId": 2
+        },
+        "ctype": 11,
+        "nullable": false,
+        "value": "Robert"
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001041002020b0006526f62657274",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "value": "Alice"
+            }
+          ]
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "value": "Robert"
+            }
+          ]
+        }
+      ],
+      "edges": []
+    }
+  },
+  {
+    "name": "prop_set edge float",
+    "description": "update edge rating from 3.0 to 5.0 via EDGE_COL path",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "columns": []
+        },
+        {
+          "type": "edge",
+          "eids": [
+            "10"
+          ],
+          "srcs": [
+            "1"
+          ],
+          "dsts": [
+            "2"
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 9,
+              "nullable": false,
+              "values": [
+                3
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 4,
+        "path": {
+          "kind": 3,
+          "eid": "10",
+          "colId": 4
+        },
+        "ctype": 9,
+        "nullable": false,
+        "value": 5
+      }
+    ],
+    "expected_chain_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000104300a0409000000a040",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "label": null,
+          "props": []
+        }
+      ],
+      "edges": [
+        {
+          "eid": "10",
+          "src": "1",
+          "dst": "2",
+          "label": null,
+          "props": [
+            {
+              "colId": 4,
+              "ctype": 9,
+              "value": 5
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "prop_set to null",
+    "description": "erase nullable string property (compliance/GDPR use case)",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1"
+          ],
+          "columns": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "nullable": true,
+              "values": [
+                "sensitive"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 4,
+        "path": {
+          "kind": 1,
+          "nid": "1",
+          "colId": 2
+        },
+        "ctype": 11,
+        "nullable": true,
+        "value": null
+      }
+    ],
+    "expected_chain_bytes_hex": "0106000000000000000000000000000000000000000000000000000000000000000001041001020b03",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": [
+            {
+              "colId": 2,
+              "ctype": 11,
+              "value": null
+            }
+          ]
+        }
+      ],
+      "edges": []
+    }
+  },
+  {
+    "name": "prop_set named prop",
+    "description": "set named prop 'status' on node via NODE_PROP path",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "nids": [
+            "1"
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 4,
+        "path": {
+          "kind": 13,
+          "nid": "1",
+          "prop": "status"
+        },
+        "ctype": 11,
+        "nullable": false,
+        "value": "active"
+      }
+    ],
+    "expected_chain_bytes_hex": "010600000000000000000000000000000000000000000000000000000000000000000104d001067374617475730b0006616374697665",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "label": null,
+          "props": [
+            {
+              "colId": "status",
+              "ctype": 11,
+              "value": "active"
+            }
+          ]
+        }
+      ],
+      "edges": []
+    }
+  }
+]
