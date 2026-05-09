@@ -1,0 +1,26 @@
+[
+  {
+    "name": "batch with schema hash",
+    "description": "two-event batch with non-zero schema_hash",
+    "input": {
+      "schemaHash": {"_bytes": [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255]},
+      "seqs": ["0", "1"],
+      "tss": ["1000000", "1000001"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2, 3]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["ping", "latency"]}
+      ]
+    },
+    "expected_bytes_hex": "0001000000000000000000000000000000000000000000000000000000000000ff02000180897a010202101a030b0470696e67076c6174656e6379"
+  },
+  {
+    "name": "schemaless batch",
+    "description": "batch with all-zero schema_hash (schemaless mode)",
+    "input": {
+      "seqs": ["0"],
+      "tss": ["0"],
+      "columns": [{"colId": 2, "ctype": 11, "nullable": false, "values": ["hello"]}]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000001000001020b0568656c6c6f"
+  }
+]

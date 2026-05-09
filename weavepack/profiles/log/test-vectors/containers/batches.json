@@ -1,0 +1,65 @@
+[
+  {
+    "name": "empty batch",
+    "description": "zero-event batch with no columns",
+    "input": {"seqs": [], "tss": [], "columns": []},
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "name": "single event two columns",
+    "description": "one event with level and message columns",
+    "input": {
+      "seqs": ["0"],
+      "tss": ["1715000000000000"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["started"]}
+      ]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010080c0d1dc91f28b0602021002030b0773746172746564"
+  },
+  {
+    "name": "five events three columns",
+    "description": "five HTTP log events: level, message, status_code",
+    "input": {
+      "seqs": ["100", "101", "102", "103", "104"],
+      "tss": ["1715000000000000", "1715000000001000", "1715000000002000", "1715000000003000", "1715000000004000"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2, 2, 3, 2, 4]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["req", "resp", "slow", "req", "timeout"]},
+        {"colId": 4, "ctype": 6, "nullable": false, "values": [200, 200, 200, 201, 500]}
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000005640101010180c0d1dc91f28b06e807e807e807e807030210d244030b03726571047265737004736c6f77037265710774696d656f75740406c800c800c800c900f401"
+  },
+  {
+    "name": "non-contiguous seqs",
+    "description": "batch with seq gaps: 0, 5, 10",
+    "input": {
+      "seqs": ["0", "5", "10"],
+      "tss": ["1000000", "1000000", "1000000"],
+      "columns": [{"colId": 2, "ctype": 7, "nullable": false, "values": [1, 2, 3]}]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000300050580897a0000010207010000000200000003000000"
+  },
+  {
+    "name": "negative timestamp",
+    "description": "batch with pre-epoch timestamps",
+    "input": {
+      "seqs": ["0", "1"],
+      "tss": ["-1000000", "-500000"],
+      "columns": [{"colId": 2, "ctype": 5, "nullable": false, "values": [1, 2]}]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000020001ff887aa0c21e0102050102"
+  },
+  {
+    "name": "all level values",
+    "description": "six events covering all 6 level values",
+    "input": {
+      "seqs": ["0", "1", "2", "3", "4", "5"],
+      "tss": ["0", "1", "2", "3", "4", "5"],
+      "columns": [{"colId": 2, "ctype": 16, "nullable": false, "values": [0, 1, 2, 3, 4, 5]}]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000600010101010100010101010101021088c602"
+  }
+]

@@ -1,0 +1,55 @@
+[
+  {
+    "name": "all-null int32",
+    "description": "one-event nullable column with null value",
+    "input": {
+      "seqs": ["0"],
+      "tss": ["1000000"],
+      "columns": [{"colId": 2, "ctype": 3, "nullable": true, "values": [null]}]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000010080897a01022380"
+  },
+  {
+    "name": "mixed null int32",
+    "description": "three-event nullable column: null, 42, null",
+    "input": {
+      "seqs": ["0", "1", "2"],
+      "tss": ["1000000", "1000001", "1000002"],
+      "columns": [{"colId": 2, "ctype": 3, "nullable": true, "values": [null, 42, null]}]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000300010180897a0101010223a02a000000"
+  },
+  {
+    "name": "mixed null string",
+    "description": "four-event nullable string: hello, null, world, null",
+    "input": {
+      "seqs": ["0", "1", "2", "3"],
+      "tss": ["1000000", "1000001", "1000002", "1000003"],
+      "columns": [{"colId": 2, "ctype": 11, "nullable": true, "values": ["hello", null, "world", null]}]
+    },
+    "expected_bytes_hex": "000000000000000000000000000000000000000000000000000000000000000000040001010180897a01010101022b500568656c6c6f05776f726c64"
+  },
+  {
+    "name": "nullable level",
+    "description": "nullable level column: INFO, null, ERROR",
+    "input": {
+      "seqs": ["0", "1", "2"],
+      "tss": ["1000000", "1000001", "1000002"],
+      "columns": [{"colId": 2, "ctype": 16, "nullable": true, "values": [2, null, 4]}]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000300010180897a01010102304022"
+  },
+  {
+    "name": "two cols one nullable",
+    "description": "two-column batch: non-nullable int32, nullable string",
+    "input": {
+      "seqs": ["0", "1"],
+      "tss": ["1000000", "1000001"],
+      "columns": [
+        {"colId": 2, "ctype": 3, "nullable": false, "values": [10, 20]},
+        {"colId": 3, "ctype": 11, "nullable": true, "values": ["ok", null]}
+      ]
+    },
+    "expected_bytes_hex": "00000000000000000000000000000000000000000000000000000000000000000002000180897a010202030a00000014000000032b40026f6b"
+  }
+]

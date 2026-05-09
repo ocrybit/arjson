@@ -1,0 +1,59 @@
+[
+  {
+    "name": "cursor at last seq",
+    "description": "checkpoint analytics-pipeline at seq=2",
+    "initial": {
+      "seqs": ["0", "1", "2"],
+      "tss": ["0", "1", "2"],
+      "columns": [{"colId": 2, "ctype": 5, "nullable": false, "values": [1, 2, 3]}]
+    },
+    "ops": [{"op": 4, "seq": "2", "name": "analytics-pipeline"}],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000001040212616e616c79746963732d706970656c696e65",
+    "expected_final": {
+      "seqs": ["0", "1", "2"],
+      "tss": ["0", "1", "2"],
+      "columns": [{"colId": 2, "ctype": 5, "nullable": false, "values": [1, 2, 3]}],
+      "cursors": {"analytics-pipeline": "2"}
+    }
+  },
+  {
+    "name": "two cursors",
+    "description": "checkpoint two different consumers at different positions",
+    "initial": {
+      "seqs": ["0", "1", "2", "3", "4"],
+      "tss": ["0", "1", "2", "3", "4"],
+      "columns": [{"colId": 2, "ctype": 5, "nullable": false, "values": [1, 2, 3, 4, 5]}]
+    },
+    "ops": [
+      {"op": 4, "seq": "2", "name": "pipeline-a"},
+      {"op": 4, "seq": "4", "name": "pipeline-b"}
+    ],
+    "expected_chain_bytes_hex": "0100000000000000000000000000000000000000000000000000000000000000000204020a706970656c696e652d6104040a706970656c696e652d62",
+    "expected_final": {
+      "seqs": ["0", "1", "2", "3", "4"],
+      "tss": ["0", "1", "2", "3", "4"],
+      "columns": [{"colId": 2, "ctype": 5, "nullable": false, "values": [1, 2, 3, 4, 5]}],
+      "cursors": {"pipeline-a": "2", "pipeline-b": "4"}
+    }
+  },
+  {
+    "name": "idempotent cursor checkpoint",
+    "description": "same cursor checkpointed twice is idempotent",
+    "initial": {
+      "seqs": ["0", "1"],
+      "tss": ["0", "1"],
+      "columns": [{"colId": 2, "ctype": 5, "nullable": false, "values": [1, 2]}]
+    },
+    "ops": [
+      {"op": 4, "seq": "1", "name": "reader"},
+      {"op": 4, "seq": "1", "name": "reader"}
+    ],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000002040106726561646572040106726561646572",
+    "expected_final": {
+      "seqs": ["0", "1"],
+      "tss": ["0", "1"],
+      "columns": [{"colId": 2, "ctype": 5, "nullable": false, "values": [1, 2]}],
+      "cursors": {"reader": "1"}
+    }
+  }
+]

@@ -1,0 +1,33 @@
+[
+  {
+    "name": "basic stream header",
+    "description": "stream header with source and zero schema hash",
+    "input": {
+      "streamId": {"_bytes": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+      "source": "my-service",
+      "seqStart": "0"
+    },
+    "expected_bytes_hex": "02000000000000000000000000000000000a6d792d73657276696365000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "name": "full stream header",
+    "description": "stream header with UUID, source, non-zero schema hash, seqStart",
+    "input": {
+      "streamId": {"_bytes": [1,35,69,103,137,171,205,239,254,220,186,152,118,84,50,16]},
+      "source": "analytics-pipeline",
+      "schemaHash": {"_bytes": [171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171]},
+      "seqStart": "50000"
+    },
+    "expected_bytes_hex": "020123456789abcdeffedcba987654321012616e616c79746963732d706970656c696e65ababababababababababababababababababababababababababababababababd08603"
+  },
+  {
+    "name": "anonymous stream header",
+    "description": "stream header with empty source",
+    "input": {
+      "streamId": {"_bytes": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+      "source": "",
+      "seqStart": "999"
+    },
+    "expected_bytes_hex": "0200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e707"
+  }
+]

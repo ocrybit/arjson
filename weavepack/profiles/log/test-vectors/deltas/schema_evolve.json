@@ -1,0 +1,57 @@
+[
+  {
+    "name": "column_add",
+    "description": "add 'level' column to schema",
+    "initial": {"seqs": [], "tss": [], "columns": []},
+    "ops": [{"op": 3, "subOp": 0, "colId": 2, "ctype": 16, "nullable": false, "name": "level"}],
+    "expected_chain_bytes_hex": "0100000000000000000000000000000000000000000000000000000000000000000103000210056c6576656c",
+    "expected_final": {
+      "seqs": [], "tss": [], "columns": [],
+      "schema": [{"colId": 2, "ctype": 16, "nullable": false, "name": "level"}]
+    }
+  },
+  {
+    "name": "column_add then drop",
+    "description": "add 'host' column then drop it",
+    "initial": {"seqs": [], "tss": [], "columns": []},
+    "ops": [
+      {"op": 3, "subOp": 0, "colId": 2, "ctype": 11, "nullable": false, "name": "host"},
+      {"op": 3, "subOp": 1, "colId": 2}
+    ],
+    "expected_chain_bytes_hex": "010000000000000000000000000000000000000000000000000000000000000000020300020b04686f7374030102",
+    "expected_final": {"seqs": [], "tss": [], "columns": []}
+  },
+  {
+    "name": "column rename",
+    "description": "rename 'status' to 'http_status'",
+    "initial": {"seqs": [], "tss": [], "columns": []},
+    "ops": [
+      {"op": 3, "subOp": 0, "colId": 2, "ctype": 6, "nullable": false, "name": "status"},
+      {"op": 3, "subOp": 2, "colId": 2, "name": "http_status"}
+    ],
+    "expected_chain_bytes_hex": "0100000000000000000000000000000000000000000000000000000000000000000203000206067374617475730302020b687474705f737461747573",
+    "expected_final": {
+      "seqs": [], "tss": [], "columns": [],
+      "schema": [{"colId": 2, "ctype": 6, "nullable": false, "name": "http_status"}]
+    }
+  },
+  {
+    "name": "add three columns",
+    "description": "add level, service, and nullable trace_id to schema",
+    "initial": {"seqs": [], "tss": [], "columns": []},
+    "ops": [
+      {"op": 3, "subOp": 0, "colId": 2, "ctype": 16, "nullable": false, "name": "level"},
+      {"op": 3, "subOp": 0, "colId": 3, "ctype": 11, "nullable": false, "name": "service"},
+      {"op": 3, "subOp": 0, "colId": 4, "ctype": 11, "nullable": true, "name": "trace_id"}
+    ],
+    "expected_chain_bytes_hex": "0100000000000000000000000000000000000000000000000000000000000000000303000210056c6576656c0300030b07736572766963650300042b0874726163655f6964",
+    "expected_final": {
+      "seqs": [], "tss": [], "columns": [],
+      "schema": [
+        {"colId": 2, "ctype": 16, "nullable": false, "name": "level"},
+        {"colId": 3, "ctype": 11, "nullable": false, "name": "service"},
+        {"colId": 4, "ctype": 11, "nullable": true, "name": "trace_id"}
+      ]
+    }
+  }
+]

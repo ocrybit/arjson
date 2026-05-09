@@ -1,0 +1,70 @@
+[
+  {
+    "name": "append to empty stream",
+    "description": "append one event to an empty batch",
+    "initial": {"seqs": [], "tss": [], "columns": []},
+    "ops": [{
+      "op": 0,
+      "seqs": ["0"],
+      "tss": ["1000000"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["started"]}
+      ]
+    }],
+    "expected_chain_bytes_hex": "0100000000000000000000000000000000000000000000000000000000000000000100010080897a02021002030b0773746172746564",
+    "expected_final": {
+      "seqs": ["0"],
+      "tss": ["1000000"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["started"]}
+      ]
+    }
+  },
+  {
+    "name": "append two events",
+    "description": "append two events to a one-event batch",
+    "initial": {
+      "seqs": ["0"],
+      "tss": ["1000000"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["a"]}
+      ]
+    },
+    "ops": [{
+      "op": 0,
+      "seqs": ["1", "2"],
+      "tss": ["1000001", "1000002"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [3, 4]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["b", "c"]}
+      ]
+    }],
+    "expected_chain_bytes_hex": "010000000000000000000000000000000000000000000000000000000000000000010002010182897a0102021023030b01620163",
+    "expected_final": {
+      "seqs": ["0", "1", "2"],
+      "tss": ["1000000", "1000001", "1000002"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2, 3, 4]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["a", "b", "c"]}
+      ]
+    }
+  },
+  {
+    "name": "two sequential appends",
+    "description": "two event_append ops in a single chain",
+    "initial": {"seqs": [], "tss": [], "columns": []},
+    "ops": [
+      {"op": 0, "seqs": ["0"], "tss": ["0"], "columns": [{"colId": 2, "ctype": 7, "nullable": false, "values": [10]}]},
+      {"op": 0, "seqs": ["1"], "tss": ["1"], "columns": [{"colId": 2, "ctype": 7, "nullable": false, "values": [20]}]}
+    ],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000002000100000102070a0000000001010201020714000000",
+    "expected_final": {
+      "seqs": ["0", "1"],
+      "tss": ["0", "1"],
+      "columns": [{"colId": 2, "ctype": 7, "nullable": false, "values": [10, 20]}]
+    }
+  }
+]

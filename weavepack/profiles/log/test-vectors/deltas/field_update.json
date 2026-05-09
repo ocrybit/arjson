@@ -1,0 +1,77 @@
+[
+  {
+    "name": "update string field",
+    "description": "redact string field at seq=1",
+    "initial": {
+      "seqs": ["0", "1"],
+      "tss": ["1000000", "1000001"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2, 2]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["hello", "world"]}
+      ]
+    },
+    "ops": [{
+      "op": 1,
+      "seq": "1",
+      "columns": [{"colId": 3, "ctype": 11, "hasValue": true, "value": "REDACTED"}]
+    }],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000001010101032b085245444143544544",
+    "expected_final": {
+      "seqs": ["0", "1"],
+      "tss": ["1000000", "1000001"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [2, 2]},
+        {"colId": 3, "ctype": 11, "nullable": false, "values": ["hello", "REDACTED"]}
+      ]
+    }
+  },
+  {
+    "name": "update two fields",
+    "description": "update level and status at seq=0",
+    "initial": {
+      "seqs": ["0"],
+      "tss": ["1000000"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [3]},
+        {"colId": 3, "ctype": 6, "nullable": false, "values": [503]}
+      ]
+    },
+    "ops": [{
+      "op": 1,
+      "seq": "0",
+      "columns": [
+        {"colId": 2, "ctype": 16, "hasValue": true, "value": 4},
+        {"colId": 3, "ctype": 6, "hasValue": true, "value": 500}
+      ]
+    }],
+    "expected_chain_bytes_hex": "010000000000000000000000000000000000000000000000000000000000000000010100020230040326f401",
+    "expected_final": {
+      "seqs": ["0"],
+      "tss": ["1000000"],
+      "columns": [
+        {"colId": 2, "ctype": 16, "nullable": false, "values": [4]},
+        {"colId": 3, "ctype": 6, "nullable": false, "values": [500]}
+      ]
+    }
+  },
+  {
+    "name": "field update to null",
+    "description": "set nullable field to null at seq=0 (compliance erase)",
+    "initial": {
+      "seqs": ["0", "1"],
+      "tss": ["1000000", "1000001"],
+      "columns": [{"colId": 2, "ctype": 11, "nullable": true, "values": ["sensitive", "public"]}]
+    },
+    "ops": [{
+      "op": 1,
+      "seq": "0",
+      "columns": [{"colId": 2, "ctype": 11, "hasValue": false, "value": null}]
+    }],
+    "expected_chain_bytes_hex": "01000000000000000000000000000000000000000000000000000000000000000001010001020b",
+    "expected_final": {
+      "seqs": ["0", "1"],
+      "tss": ["1000000", "1000001"],
+      "columns": [{"colId": 2, "ctype": 11, "nullable": true, "values": [null, "public"]}]
+    }
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "mixed schema stream",
+    "description": "6 events of 3 types (HTTP/DB/CACHE) via schema_id col; col 2=uint8 schema_id, col 3=level, col 4=service, col 5=nullable url, col 6=nullable query",
+    "input": {
+      "seqs": ["0", "1", "2", "3", "4", "5"],
+      "tss": ["1000000", "1000001", "1000002", "1000003", "1000004", "1000005"],
+      "columns": [
+        {"colId": 2, "ctype": 5, "nullable": false, "values": [0, 1, 2, 0, 1, 2]},
+        {"colId": 3, "ctype": 16, "nullable": false, "values": [2, 2, 2, 3, 4, 2]},
+        {"colId": 4, "ctype": 11, "nullable": false, "values": ["web", "web", "web", "web", "web", "web"]},
+        {"colId": 5, "ctype": 11, "nullable": true, "values": ["/index", null, null, "/login", null, null]},
+        {"colId": 6, "ctype": 11, "nullable": true, "values": [null, "SELECT 1", null, null, "SELECT users", null]}
+      ]
+    },
+    "expected_bytes_hex": "0000000000000000000000000000000000000000000000000000000000000000000600010101010180897a01010101010502050001020001020310924601040b037765620377656203776562037765620377656203776562052b6c062f696e646578062f6c6f67696e062bb40853454c45435420310c53454c454354207573657273"
+  }
+]
