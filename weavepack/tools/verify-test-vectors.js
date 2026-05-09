@@ -1,6 +1,6 @@
-// Verify the weavepack-json, weavepack-tensor, weavepack-wire, and
-// weavepack-tabular conformance test vector corpora against the JS reference
-// implementation.
+// Verify the weavepack-json, weavepack-tensor, weavepack-wire,
+// weavepack-tabular, and weavepack-log conformance test vector corpora
+// against the JS reference implementation.
 //
 // Run from the repo root:
 //   node weavepack/tools/verify-test-vectors.js
@@ -38,6 +38,17 @@ import {
   CTYPE as TAB_CTYPE,
   OP    as TAB_OP,
 } from "../../sdk/src/profiles/tabular/index.js"
+import {
+  encodeBatch     as logEncBatch,
+  decodeBatch     as logDecBatch,
+  encodeChain     as logEncChain,
+  decodeChain     as logDecChain,
+  encodeStreamHeader as logEncHeader,
+  decodeStreamHeader as logDecHeader,
+  initState       as logInitState,
+  applyChain      as logApplyChain,
+  CTYPE           as LOG_CTYPE,
+} from "../../sdk/src/profiles/log/index.js"
 import { wrapPayload, peekHeader, PID } from "../../sdk/src/dispatch.js"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -46,6 +57,7 @@ const JSON_ROOT   = join(TOOLS_DIR, "..", "profiles", "json",    "test-vectors")
 const TENSOR_ROOT = join(TOOLS_DIR, "..", "profiles", "tensor",  "test-vectors")
 const WIRE_ROOT     = join(TOOLS_DIR, "..", "profiles", "wire",    "test-vectors")
 const TABULAR_ROOT  = join(TOOLS_DIR, "..", "profiles", "tabular", "test-vectors")
+const LOG_ROOT      = join(TOOLS_DIR, "..", "profiles", "log",     "test-vectors")
 const CORE_ROOT     = join(TOOLS_DIR, "..", "core",     "test-vectors")
 
 const toHex = bytes => Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")
@@ -778,6 +790,183 @@ for (const path of walk(TABULAR_ROOT)) {
         }
         const decoded  = tabDecFrame(bytes)
         const reencHex = toHex(tabEncFrame(decoded))
+        if (reencHex !== hex) {
+          record(prefix, v.name, "decode+re-encode round-trip mismatch"); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    }
+  }
+}
+
+// ── weavepack-log vectors ─────────────────────────────────────────────────
+//
+// Snapshot vector fields (types/, containers/batches.json, containers/schema.json):
+//   input              — { seqs: string[], tss: string[], columns: [...] }
+//   expected_bytes_hex — hex of logEncBatch(input)
+//
+// Stream header vector fields (containers/stream_header.json):
+//   input              — { streamId: {_bytes:[...]}, source, schemaHash?, seqStart: string }
+//   expected_bytes_hex — hex of logEncHeader(input)
+//
+// Delta vector fields (deltas/):
+//   initial                  — batch spec (seqs/tss as strings)
+//   ops                      — op array
+//   expected_chain_bytes_hex — hex of logEncChain({ ops })
+//   expected_final           — batch spec + optional schema/expired/cursors after applying ops
+
+const LOG_BIGINT_CTYPES = new Set([LOG_CTYPE.INT64, LOG_CTYPE.UINT64, LOG_CTYPE.TIMESTAMP64])
+
+function logSpecValToJs(ctype, v) {
+  if (v === null || v === undefined) return null
+  if (typeof v === "object" && v._bytes !== undefined) return new Uint8Array(v._bytes)
+  if (LOG_BIGINT_CTYPES.has(ctype) && typeof v === "string") return BigInt(v)
+  return v
+}
+
+function logSpecToBatch(spec) {
+  return {
+    schemaHash: spec.schemaHash ? new Uint8Array(spec.schemaHash._bytes) : undefined,
+    seqs: (spec.seqs || []).map(s => BigInt(s)),
+    tss:  (spec.tss  || []).map(s => BigInt(s)),
+    columns: (spec.columns || []).map(col => ({
+      colId:    col.colId,
+      ctype:    col.ctype,
+      nullable: col.nullable,
+      values:   col.values.map(v => logSpecValToJs(col.ctype, v)),
+    })),
+  }
+}
+
+function logSpecToOps(ops) {
+  return ops.map(op => {
+    const o = { ...op }
+    if (o.seqs) o.seqs = o.seqs.map(s => BigInt(s))
+    if (o.tss)  o.tss  = o.tss.map(s => BigInt(s))
+    if (o.seq !== undefined)   o.seq   = BigInt(o.seq)
+    if (o.seqLo !== undefined) o.seqLo = BigInt(o.seqLo)
+    if (o.seqHi !== undefined) o.seqHi = BigInt(o.seqHi)
+    if (o.columns) o.columns = o.columns.map(col => {
+      const c = { ...col }
+      if (c.values) c.values = c.values.map(v => logSpecValToJs(c.ctype, v))
+      if (c.value !== undefined) c.value = logSpecValToJs(c.ctype, c.value)
+      return c
+    })
+    return o
+  })
+}
+
+function logJsValToSpec(ctype, v) {
+  if (v === null || v === undefined) return null
+  if (v instanceof Uint8Array) return { _bytes: Array.from(v) }
+  if (typeof v === "bigint") return v.toString()
+  return v
+}
+
+function logStateToSpec(state) {
+  const spec = {
+    seqs: state.seqs.map(s => s.toString()),
+    tss:  state.tss.map(s => s.toString()),
+    columns: state.columns.map(col => ({
+      colId:    col.colId,
+      ctype:    col.ctype,
+      nullable: col.nullable,
+      values:   col.values.map(v => logJsValToSpec(col.ctype, v)),
+    })),
+  }
+  if (state.schema && state.schema.length > 0) spec.schema = state.schema
+  if (state.expired && state.expired.size > 0)
+    spec.expired = Array.from(state.expired).sort()
+  if (state.cursors && state.cursors.size > 0)
+    spec.cursors = Object.fromEntries(
+      Array.from(state.cursors.entries()).map(([k, v]) => [k, v.toString()])
+    )
+  return spec
+}
+
+for (const path of walk(LOG_ROOT)) {
+  const rel     = path.slice(LOG_ROOT.length + 1)
+  const prefix  = "log:" + rel
+  const vectors = JSON.parse(readFileSync(path, "utf8"))
+  const isDelta  = rel.startsWith("deltas/")
+  const isHeader = rel === "containers/stream_header.json"
+
+  for (const v of vectors) {
+    if (v.status === "pending") continue
+
+    if (isHeader) {
+      // Stream header vector.
+      try {
+        const inp = v.input
+        const header = {
+          streamId:   new Uint8Array(inp.streamId._bytes),
+          source:     inp.source ?? "",
+          schemaHash: inp.schemaHash ? new Uint8Array(inp.schemaHash._bytes) : undefined,
+          seqStart:   BigInt(inp.seqStart ?? "0"),
+        }
+        const bytes = logEncHeader(header)
+        const hex   = toHex(bytes)
+        if (hex !== v.expected_bytes_hex) {
+          record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
+        }
+        // Round-trip: decode and compare key fields.
+        const decoded = logDecHeader(bytes)
+        if (decoded.source !== header.source) {
+          record(prefix, v.name, "header source mismatch", header.source, decoded.source); continue
+        }
+        if (decoded.seqStart !== header.seqStart) {
+          record(prefix, v.name, "header seqStart mismatch", header.seqStart.toString(), decoded.seqStart.toString()); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    } else if (isDelta) {
+      // Delta chain vector.
+      try {
+        const opsJs      = logSpecToOps(v.ops)
+        const chainBytes = logEncChain({ ops: opsJs })
+        const chainHex   = toHex(chainBytes)
+        if (chainHex !== v.expected_chain_bytes_hex) {
+          record(prefix, v.name, "chain bytes mismatch", v.expected_chain_bytes_hex, chainHex); continue
+        }
+
+        // Decode chain, re-encode to verify op round-trip.
+        const { ops: decodedOps } = logDecChain(chainBytes)
+        const reencBytes = logEncChain({ ops: decodedOps })
+        if (toHex(reencBytes) !== chainHex) {
+          record(prefix, v.name, "chain decode+re-encode mismatch"); continue
+        }
+
+        // Apply chain to initial state; compare final.
+        const initialBatch = logSpecToBatch(v.initial)
+        const initialBytes = logEncBatch(initialBatch)
+        const initialDec   = logDecBatch(initialBytes)
+        const state        = logInitState(initialDec)
+        const finalState   = logApplyChain(state, opsJs)
+        const finalSpec    = logStateToSpec(finalState)
+        if (!equals(finalSpec, v.expected_final)) {
+          record(prefix, v.name, "final state mismatch",
+            JSON.stringify(v.expected_final), JSON.stringify(finalSpec)); continue
+        }
+
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    } else {
+      // Snapshot batch vector: encode, compare hex, decode, re-encode.
+      try {
+        const batchJs = logSpecToBatch(v.input)
+        const bytes   = logEncBatch(batchJs)
+        const hex     = toHex(bytes)
+        if (hex !== v.expected_bytes_hex) {
+          record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
+        }
+        const decoded  = logDecBatch(bytes)
+        const reencHex = toHex(logEncBatch(decoded))
         if (reencHex !== hex) {
           record(prefix, v.name, "decode+re-encode round-trip mismatch"); continue
         }
