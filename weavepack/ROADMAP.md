@@ -806,7 +806,11 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   All benchmark gates pass. 2402/2402 JS SDK tests; 345/345 conformance vectors.
   See V0.4-PLANNING.md for full item list.
 
-- **v0.5 IN PROGRESS (started 2026-05-09)** — Profile #5: weavepack-log.
+- **v0.5 COMPLETE (2026-05-09)** — Profile #5: weavepack-log.
   Structured event-stream format with column encoding, delta chains, and
-  cursor-checkpoint semantics. L.0 complete: planning document written.
+  cursor-checkpoint semantics. Spec docs 00–07, JS + Rust + Python reference
+  implementations, 77-vector conformance corpus (all pass cross-language),
+  benchmarks vs JSON Lines + gzip: 363.8× win on streaming append,
+  2.88× win on multi-schema stream, 2.49× win on high-repetition batch.
+  All benchmark gates pass. 2466/2466 JS SDK tests; 422/422 conformance vectors.
   See V0.5-PLANNING.md for full item list.
