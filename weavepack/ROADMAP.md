@@ -805,3 +805,8 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   439× win on append stream, snapshot within 102.1% of NaiveColStore raw.
   All benchmark gates pass. 2402/2402 JS SDK tests; 345/345 conformance vectors.
   See V0.4-PLANNING.md for full item list.
+
+- **v0.5 IN PROGRESS (started 2026-05-09)** — Profile #5: weavepack-log.
+  Structured event-stream format with column encoding, delta chains, and
+  cursor-checkpoint semantics. L.0 complete: planning document written.
+  See V0.5-PLANNING.md for full item list.
