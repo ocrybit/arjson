@@ -1,6 +1,6 @@
 // Verify the weavepack-json, weavepack-tensor, weavepack-wire,
-// weavepack-tabular, and weavepack-log conformance test vector corpora
-// against the JS reference implementation.
+// weavepack-tabular, weavepack-log, and weavepack-graph conformance test
+// vector corpora against the JS reference implementation.
 //
 // Run from the repo root:
 //   node weavepack/tools/verify-test-vectors.js
@@ -49,6 +49,17 @@ import {
   applyChain      as logApplyChain,
   CTYPE           as LOG_CTYPE,
 } from "../../sdk/src/profiles/log/index.js"
+import {
+  encodeGraph     as graphEncGraph,
+  decodeGraph     as graphDecGraph,
+  encodeChain     as graphEncChain,
+  decodeChain     as graphDecChain,
+  initState       as graphInitState,
+  applyChain      as graphApplyChain,
+  CTYPE           as GRAPH_CTYPE,
+  OP              as GRAPH_OP,
+  PATH_KIND       as GRAPH_PATH_KIND,
+} from "../../sdk/src/profiles/graph/index.js"
 import { wrapPayload, peekHeader, PID } from "../../sdk/src/dispatch.js"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -58,6 +69,7 @@ const TENSOR_ROOT = join(TOOLS_DIR, "..", "profiles", "tensor",  "test-vectors")
 const WIRE_ROOT     = join(TOOLS_DIR, "..", "profiles", "wire",    "test-vectors")
 const TABULAR_ROOT  = join(TOOLS_DIR, "..", "profiles", "tabular", "test-vectors")
 const LOG_ROOT      = join(TOOLS_DIR, "..", "profiles", "log",     "test-vectors")
+const GRAPH_ROOT    = join(TOOLS_DIR, "..", "profiles", "graph",   "test-vectors")
 const CORE_ROOT     = join(TOOLS_DIR, "..", "core",     "test-vectors")
 
 const toHex = bytes => Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")
@@ -967,6 +979,188 @@ for (const path of walk(LOG_ROOT)) {
         }
         const decoded  = logDecBatch(bytes)
         const reencHex = toHex(logEncBatch(decoded))
+        if (reencHex !== hex) {
+          record(prefix, v.name, "decode+re-encode round-trip mismatch"); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    }
+  }
+}
+
+// ── weavepack-graph vectors ───────────────────────────────────────────────
+//
+// Snapshot vector fields:
+//   input              — { schemaHash?, blocks: [...] }
+//   expected_bytes_hex — hex of graphEncGraph(input)
+//
+// Delta vector fields:
+//   initial                  — graph spec
+//   ops                      — op array
+//   expected_chain_bytes_hex — hex of graphEncChain({ ops })
+//   expected_final           — { nodes: [...], edges: [...] } after applying ops
+
+const GRAPH_BIGINT_CTYPES = new Set([
+  GRAPH_CTYPE.INT64, GRAPH_CTYPE.UINT64, GRAPH_CTYPE.TIMESTAMP64, GRAPH_CTYPE.NODE_ID,
+])
+
+function graphSpecValToJs(ctype, v) {
+  if (v === null || v === undefined) return null
+  if (typeof v === "object" && v._bytes !== undefined) return new Uint8Array(v._bytes)
+  if (GRAPH_BIGINT_CTYPES.has(ctype) && typeof v === "string") return BigInt(v)
+  return v
+}
+
+function graphSpecToBlock(blk) {
+  if (blk.type === "node") {
+    return {
+      type: "node",
+      label: blk.label ?? null,
+      nids: (blk.nids || []).map(n => BigInt(n)),
+      columns: (blk.columns || []).map(col => ({
+        colId: col.colId, ctype: col.ctype, nullable: col.nullable,
+        values: col.values.map(v => graphSpecValToJs(col.ctype, v)),
+      })),
+    }
+  } else {
+    return {
+      type: "edge",
+      label: blk.label ?? null,
+      eids: (blk.eids || []).map(e => BigInt(e)),
+      srcs: (blk.srcs || []).map(s => BigInt(s)),
+      dsts: (blk.dsts || []).map(d => BigInt(d)),
+      columns: (blk.columns || []).map(col => ({
+        colId: col.colId, ctype: col.ctype, nullable: col.nullable,
+        values: col.values.map(v => graphSpecValToJs(col.ctype, v)),
+      })),
+    }
+  }
+}
+
+function graphSpecToGraph(spec) {
+  return {
+    schemaHash: spec.schemaHash ? new Uint8Array(spec.schemaHash._bytes) : undefined,
+    blocks: (spec.blocks || []).map(graphSpecToBlock),
+  }
+}
+
+function graphSpecToPath(p) {
+  const out = { kind: p.kind }
+  if (p.nid !== undefined) out.nid = BigInt(p.nid)
+  if (p.eid !== undefined) out.eid = BigInt(p.eid)
+  if (p.colId !== undefined) out.colId = p.colId
+  if (p.label !== undefined) out.label = p.label
+  if (p.prop !== undefined) out.prop = p.prop
+  return out
+}
+
+function graphSpecToOp(op) {
+  const o = { op: op.op }
+  switch (op.op) {
+    case GRAPH_OP.NODE_INSERT:      o.block = graphSpecToBlock(op.block); break
+    case GRAPH_OP.NODE_DELETE:      o.nids  = (op.nids || []).map(n => BigInt(n)); break
+    case GRAPH_OP.EDGE_INSERT:      o.block = graphSpecToBlock(op.block); break
+    case GRAPH_OP.EDGE_DELETE:      o.eids  = (op.eids || []).map(e => BigInt(e)); break
+    case GRAPH_OP.PROP_SET:
+      o.path     = graphSpecToPath(op.path)
+      o.ctype    = op.ctype
+      o.nullable = op.nullable
+      o.value    = op.value != null ? graphSpecValToJs(op.ctype, op.value) : null
+      break
+    case GRAPH_OP.SUBGRAPH_REPLACE:
+      o.label     = op.label ?? null
+      if (op.nodeBlock) o.nodeBlock = graphSpecToBlock(op.nodeBlock)
+      if (op.edgeBlock) o.edgeBlock = graphSpecToBlock(op.edgeBlock)
+      break
+  }
+  return o
+}
+
+function graphJsValToSpec(ctype, v) {
+  if (v === null || v === undefined) return null
+  if (v instanceof Uint8Array) return { _bytes: Array.from(v) }
+  if (typeof v === "bigint") return v.toString()
+  return v
+}
+
+function graphStateToSpec(state) {
+  const sortBig = ([a], [b]) => BigInt(a) < BigInt(b) ? -1 : 1
+  const sortCol = ([a], [b]) => typeof a === typeof b
+    ? (typeof a === "number" ? a - b : String(a).localeCompare(String(b)))
+    : typeof a === "number" ? -1 : 1
+  const nodes = Array.from(state.nodes.entries()).sort(sortBig)
+    .map(([nid, node]) => ({
+      nid,
+      label: node.label,
+      props: Array.from(node.props.entries()).sort(sortCol)
+        .map(([colId, { ctype, value }]) => ({ colId, ctype, value: graphJsValToSpec(ctype, value) })),
+    }))
+  const edges = Array.from(state.edges.entries()).sort(sortBig)
+    .map(([eid, edge]) => ({
+      eid,
+      src: edge.src.toString(),
+      dst: edge.dst.toString(),
+      label: edge.label,
+      props: Array.from(edge.props.entries()).sort(sortCol)
+        .map(([colId, { ctype, value }]) => ({ colId, ctype, value: graphJsValToSpec(ctype, value) })),
+    }))
+  return { nodes, edges }
+}
+
+for (const path of walk(GRAPH_ROOT)) {
+  const rel     = path.slice(GRAPH_ROOT.length + 1)
+  const prefix  = "graph:" + rel
+  const vectors = JSON.parse(readFileSync(path, "utf8"))
+  const isDelta = rel.startsWith("deltas/") || (rel.startsWith("schemas/") && vectors.some(v => v.expected_chain_bytes_hex))
+
+  for (const v of vectors) {
+    if (v.status === "pending") continue
+
+    if (v.expected_chain_bytes_hex) {
+      // Delta chain vector.
+      try {
+        const jsOps      = (v.ops || []).map(graphSpecToOp)
+        const chainBytes = graphEncChain({ ops: jsOps })
+        const chainHex   = toHex(chainBytes)
+        if (chainHex !== v.expected_chain_bytes_hex) {
+          record(prefix, v.name, "chain bytes mismatch", v.expected_chain_bytes_hex, chainHex); continue
+        }
+
+        // Decode chain; re-encode with extracted schema hash to verify op round-trip.
+        const { schemaHash: chainHash, ops: decodedOps } = graphDecChain(chainBytes)
+        const reencBytes = graphEncChain({ schemaHash: chainHash, ops: decodedOps })
+        if (toHex(reencBytes) !== chainHex) {
+          record(prefix, v.name, "chain decode+re-encode mismatch"); continue
+        }
+
+        // Apply chain to initial state; compare final.
+        const initialGraph = graphSpecToGraph(v.initial)
+        const initialDec   = graphDecGraph(graphEncGraph(initialGraph))
+        const state        = graphInitState(initialDec)
+        const finalState   = graphApplyChain(state, jsOps)
+        const finalSpec    = graphStateToSpec(finalState)
+        if (!equals(finalSpec, v.expected_final)) {
+          record(prefix, v.name, "final state mismatch",
+            JSON.stringify(v.expected_final), JSON.stringify(finalSpec)); continue
+        }
+
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    } else if (v.expected_bytes_hex) {
+      // Snapshot graph vector.
+      try {
+        const graphJs = graphSpecToGraph(v.input)
+        const bytes   = graphEncGraph(graphJs)
+        const hex     = toHex(bytes)
+        if (hex !== v.expected_bytes_hex) {
+          record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
+        }
+        const decoded  = graphDecGraph(bytes)
+        const reencHex = toHex(graphEncGraph(decoded))
         if (reencHex !== hex) {
           record(prefix, v.name, "decode+re-encode round-trip mismatch"); continue
         }
