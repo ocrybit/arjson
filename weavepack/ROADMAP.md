@@ -814,3 +814,8 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   2.88× win on multi-schema stream, 2.49× win on high-repetition batch.
   All benchmark gates pass. 2466/2466 JS SDK tests; 422/422 conformance vectors.
   See V0.5-PLANNING.md for full item list.
+
+- **v0.6 IN PROGRESS (2026-05-09)** — Profile #6: weavepack-graph.
+  Labeled property-graph format with native node/edge delta chains.
+  G.1 complete: V0.6-PLANNING.md + spec docs 00–04 (overview, types,
+  containers, paths, deltas). See V0.6-PLANNING.md for full item list.
