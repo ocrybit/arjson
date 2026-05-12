@@ -1,0 +1,907 @@
+[
+  {
+    "name": "bool false",
+    "description": "ctype 0: bool false as user prop",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Leaf",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 0,
+              "nullable": false,
+              "values": [
+                false
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100044c6561660101040001800000"
+  },
+  {
+    "name": "bool true",
+    "description": "ctype 0: bool true as user prop",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Leaf",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 0,
+              "nullable": false,
+              "values": [
+                true
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100044c6561660101040001800001"
+  },
+  {
+    "name": "int8 min",
+    "description": "ctype 1: int8 -128",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 1,
+              "nullable": false,
+              "values": [
+                -128
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040101800080"
+  },
+  {
+    "name": "int8 zero",
+    "description": "ctype 1: int8 zero",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 1,
+              "nullable": false,
+              "values": [
+                0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040101800000"
+  },
+  {
+    "name": "int8 max",
+    "description": "ctype 1: int8 127",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 1,
+              "nullable": false,
+              "values": [
+                127
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e010104010180007f"
+  },
+  {
+    "name": "int16 min",
+    "description": "ctype 2: int16 -32768",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 2,
+              "nullable": false,
+              "values": [
+                -32768
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e010104020180000080"
+  },
+  {
+    "name": "int16 max",
+    "description": "ctype 2: int16 32767",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 2,
+              "nullable": false,
+              "values": [
+                32767
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e01010402018000ff7f"
+  },
+  {
+    "name": "int32 min",
+    "description": "ctype 3: int32 -2147483648",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 3,
+              "nullable": false,
+              "values": [
+                -2147483648
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040301800000000080"
+  },
+  {
+    "name": "int32 max",
+    "description": "ctype 3: int32 2147483647",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 3,
+              "nullable": false,
+              "values": [
+                2147483647
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e01010403018000ffffff7f"
+  },
+  {
+    "name": "int64 min",
+    "description": "ctype 4: int64 -9223372036854775808",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 4,
+              "nullable": false,
+              "values": [
+                "-9223372036854775808"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e010104040180000000000000000080"
+  },
+  {
+    "name": "int64 max",
+    "description": "ctype 4: int64 9223372036854775807",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 4,
+              "nullable": false,
+              "values": [
+                "9223372036854775807"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e01010404018000ffffffffffffff7f"
+  },
+  {
+    "name": "uint8 zero",
+    "description": "ctype 5: uint8 0",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 5,
+              "nullable": false,
+              "values": [
+                0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040501800000"
+  },
+  {
+    "name": "uint8 max",
+    "description": "ctype 5: uint8 255",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 5,
+              "nullable": false,
+              "values": [
+                255
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e01010405018000ff"
+  },
+  {
+    "name": "uint16 max",
+    "description": "ctype 6: uint16 65535",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 6,
+              "nullable": false,
+              "values": [
+                65535
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e01010406018000ffff"
+  },
+  {
+    "name": "uint32 max",
+    "description": "ctype 7: uint32 4294967295",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 7,
+              "nullable": false,
+              "values": [
+                4294967295
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e01010407018000ffffffff"
+  },
+  {
+    "name": "uint64 max",
+    "description": "ctype 8: uint64 18446744073709551615",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 8,
+              "nullable": false,
+              "values": [
+                "18446744073709551615"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e01010408018000ffffffffffffffff"
+  },
+  {
+    "name": "float32",
+    "description": "ctype 9: float32 3.14",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 9,
+              "nullable": false,
+              "values": [
+                3.140000104904175
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e01010409018000c3f54840"
+  },
+  {
+    "name": "float64",
+    "description": "ctype 10: float64 3.141592653589793",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 10,
+              "nullable": false,
+              "values": [
+                3.141592653589793
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040a018000182d4454fb210940"
+  },
+  {
+    "name": "string ascii",
+    "description": "ctype 11: ASCII string",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "hello"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001000a4964656e7469666965720101040b0180000568656c6c6f"
+  },
+  {
+    "name": "string utf8",
+    "description": "ctype 11: UTF-8 string with multibyte",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "café"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001000a4964656e7469666965720101040b01800005636166c3a9"
+  },
+  {
+    "name": "string empty",
+    "description": "ctype 11: empty string",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                ""
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040b01800000"
+  },
+  {
+    "name": "bytes empty",
+    "description": "ctype 12: empty bytes",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 12,
+              "nullable": false,
+              "values": [
+                {
+                  "_bytes": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040c01800000"
+  },
+  {
+    "name": "bytes non-empty",
+    "description": "ctype 12: bytes [0xde, 0xad, 0xbe, 0xef]",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 12,
+              "nullable": false,
+              "values": [
+                {
+                  "_bytes": [
+                    222,
+                    173,
+                    190,
+                    239
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040c01800004deadbeef"
+  },
+  {
+    "name": "date32 zero",
+    "description": "ctype 13: date32 0 (1970-01-01)",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 13,
+              "nullable": false,
+              "values": [
+                0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040d01800000000000"
+  },
+  {
+    "name": "date32 positive",
+    "description": "ctype 13: date32 19000 (2022-01-05)",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 13,
+              "nullable": false,
+              "values": [
+                19000
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040d018000384a0000"
+  },
+  {
+    "name": "timestamp64 zero",
+    "description": "ctype 14: timestamp64 0 (epoch)",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 14,
+              "nullable": false,
+              "values": [
+                "0"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040e0180000000000000000000"
+  },
+  {
+    "name": "timestamp64 positive",
+    "description": "ctype 14: timestamp64 1000000 microseconds",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 14,
+              "nullable": false,
+              "values": [
+                "1000000"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040e01800040420f0000000000"
+  },
+  {
+    "name": "node_id ref",
+    "description": "ctype 15: node_id reference",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 15,
+              "nullable": false,
+              "values": [
+                "42"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101040f0180002a00000000000000"
+  }
+]

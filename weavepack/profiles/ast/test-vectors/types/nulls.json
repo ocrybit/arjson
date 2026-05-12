@@ -1,0 +1,215 @@
+[
+  {
+    "name": "root node null parent",
+    "description": "root node has null parentNid",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001000750726f6772616d0100018000"
+  },
+  {
+    "name": "non-root node",
+    "description": "non-root node with non-null parentNid",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "parentNids": [
+            null,
+            "1"
+          ],
+          "childIndices": [
+            0,
+            0
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001000a4964656e746966696572020001018001000000000000000000"
+  },
+  {
+    "name": "nullable string prop null",
+    "description": "nullable string prop with null value",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Literal",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": true,
+              "values": [
+                null
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100074c69746572616c0101041b01800080"
+  },
+  {
+    "name": "nullable string prop present",
+    "description": "nullable string prop with non-null value",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Literal",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": true,
+              "values": [
+                "hello"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100074c69746572616c0101041b018000000568656c6c6f"
+  },
+  {
+    "name": "mixed nullable",
+    "description": "two nodes: first has null prop, second has value",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Literal",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "parentNids": [
+            null,
+            "1"
+          ],
+          "childIndices": [
+            0,
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": true,
+              "values": [
+                null,
+                "world"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100074c69746572616c0201041b010180010000000000000000008005776f726c64"
+  },
+  {
+    "name": "nullable uint64 prop null",
+    "description": "nullable node_id with null",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 15,
+              "nullable": true,
+              "values": [
+                null
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101041f01800080"
+  },
+  {
+    "name": "nullable uint64 prop present",
+    "description": "nullable node_id with value",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "N",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 15,
+              "nullable": true,
+              "values": [
+                "99"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100014e0101041f018000006300000000000000"
+  }
+]
