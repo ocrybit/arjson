@@ -836,6 +836,7 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   deltas/node_insert, node_delete, node_move, prop_set, kind_rename,
   subtree_replace, schemas/schemaful); verify-test-vectors.js extended.
   575/575 conformance vectors; 2586/2586 JS SDK tests.
-  Next: AS.4 — Rust crate weavepack-ast (types.rs, encode.rs, decode.rs,
-  apply.rs, src/bin/conformance.rs).
+  AS.4 complete 2026-05-12: Rust crate weavepack-ast (types.rs, encode.rs,
+  decode.rs, apply.rs, src/bin/conformance.rs) — 80/80 conformance.
+  Next: AS.5 — Python implementation (impl/python/weavepack_ast/).
   See V0.7-PLANNING.md for full item list.
