@@ -227,7 +227,7 @@ bytes per edit vs O(full_tree) re-serialisation.
 **What it is:**
 Protocol-level governance: RFC process, profile registry, versioning
 policy, conformance certification, implementation registry, spec
-interpretation rules, and implementors' guide.
+interpretation rules, and implementors’ guide.
 
 **Key documents:**
 * `weavepack/governance/00-overview.md` — governance rationale and structure
@@ -268,4 +268,8 @@ feature_delete, geometry_replace, prop_set, prop_delete, collection_replace.
   containers/feature_blocks, fid_kinds; deltas/feature_insert, feature_delete,
   geometry_replace, prop_ops; schemas/schemaful); verify-test-vectors.js
   extended with geo handler. 617/617 conformance vectors pass.
+  GE.4 complete 2026-05-12: Rust crate weavepack-geo (types.rs, encode.rs,
+  decode.rs, apply.rs, src/bin/conformance.rs) — 42/42 conformance.
+  JS decoder.js added to sdk/src/profiles/geo/ (required for round-trip
+  verification in verify-test-vectors.js). 617/617 vectors pass.
   See V0.8-PLANNING.md for full item list.
