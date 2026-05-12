@@ -815,7 +815,11 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   All benchmark gates pass. 2466/2466 JS SDK tests; 422/422 conformance vectors.
   See V0.5-PLANNING.md for full item list.
 
-- **v0.6 IN PROGRESS (2026-05-09)** — Profile #6: weavepack-graph.
+- **v0.6 COMPLETE (2026-05-12)** — Profile #6: weavepack-graph.
   Labeled property-graph format with native node/edge delta chains.
-  G.1 complete: V0.6-PLANNING.md + spec docs 00–04 (overview, types,
-  containers, paths, deltas). See V0.6-PLANNING.md for full item list.
+  Spec docs 00–07, JS + Rust + Python reference implementations, 73-vector
+  conformance corpus (all pass cross-language), benchmarks vs GraphML + gzip
+  and JSON-LD + gzip: 306× win on incremental edge stream, 240× win on mixed
+  CDC, snapshot within 0.53× of GraphML raw (1.9× smaller). All benchmark gates
+  pass. 2526/2526 JS SDK tests; 495/495 conformance vectors.
+  See V0.6-PLANNING.md for full item list.
