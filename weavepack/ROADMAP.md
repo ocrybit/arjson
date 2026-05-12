@@ -823,3 +823,11 @@ Cross-language total: JS 177+14 tensor + 93 JSON = 284; Rust 97 tensor
   CDC, snapshot within 0.53× of GraphML raw (1.9× smaller). All benchmark gates
   pass. 2526/2526 JS SDK tests; 495/495 conformance vectors.
   See V0.6-PLANNING.md for full item list.
+
+- **v0.7 IN PROGRESS (2026-05-12)** — Profile #7: weavepack-ast.
+  Code/syntax-tree format with native subtree-delta chains. Tree-specific ops:
+  node_move (cut-paste O(1) frame), kind_rename (rename all nodes of a kind
+  in one frame), subtree_replace (atomic subtree swap). Differentiates from
+  ESTree JSON + gzip and tree-sitter binary on delta efficiency: O(changed_nodes)
+  bytes per edit vs O(full_tree) re-serialisation.
+  See V0.7-PLANNING.md for full item list.
