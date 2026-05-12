@@ -1,6 +1,6 @@
 # weavepack Governance — Profile Registry
 
-**Status:** Draft. Phase 7 of the weavepack roadmap.
+**Status:** Active. Phase 7 of the weavepack roadmap.
 
 ## Profile-id allocation
 
@@ -22,10 +22,15 @@ weight track).
 
 | ID | Name | Status | Wire spec | Reference impl |
 |---|---|---|---|---|
-| 0 | weavepack-json | Stable | `weavepack/profiles/json/` | `sdk/src/profiles/json/` (JS), `impl/rust/weavepack-json/` (Rust, partial) |
-| 1 | weavepack-tensor | v0.1 | `weavepack/profiles/tensor/` | `sdk/src/profiles/tensor/` (JS), `impl/rust/weavepack-tensor/` (Rust) |
+| 0 | weavepack-json | Stable | `weavepack/profiles/json/` | `sdk/src/profiles/json/` (JS), `impl/rust/weavepack-json/` (Rust), `impl/python/weavepack_json/` (Python) |
+| 1 | weavepack-tensor | v0.3 | `weavepack/profiles/tensor/` | `sdk/src/profiles/tensor/` (JS), `impl/rust/weavepack-tensor/` (Rust), `impl/python/weavepack_tensor/` (Python) |
 | 2 | weavepack-null | Test | `sdk/src/profiles/null/` (impl-only; no spec) | `sdk/src/profiles/null/` |
-| 3..15 | reserved | — | — | — |
+| 3 | weavepack-wire | v0.1 | `weavepack/profiles/wire/` | `sdk/src/profiles/wire/` (JS), `impl/rust/weavepack-wire/` (Rust), `impl/python/weavepack_wire/` (Python) |
+| 4 | weavepack-tabular | v0.1 | `weavepack/profiles/tabular/` | `sdk/src/profiles/tabular/` (JS), `impl/rust/weavepack-tabular/` (Rust), `impl/python/weavepack_tabular/` (Python) |
+| 5 | weavepack-log | v0.1 | `weavepack/profiles/log/` | `sdk/src/profiles/log/` (JS), `impl/rust/weavepack-log/` (Rust), `impl/python/weavepack_log/` (Python) |
+| 6 | weavepack-graph | v0.1 | `weavepack/profiles/graph/` | `sdk/src/profiles/graph/` (JS), `impl/rust/weavepack-graph/` (Rust), `impl/python/weavepack_graph/` (Python) |
+| 7 | weavepack-ast | v0.1 | `weavepack/profiles/ast/` | `sdk/src/profiles/ast/` (JS), `impl/rust/weavepack-ast/` (Rust), `impl/python/weavepack_ast/` (Python) |
+| 8..15 | reserved | — | — | — |
 
 The null profile (id 2) is a boundary-validation test profile
 (see Phase 3.8 in the roadmap). It demonstrates the
@@ -34,18 +39,15 @@ doesn't depend on JSON-specific code. It is not intended for
 production use; consumers should not encode anything as
 weavepack-null in real payloads.
 
-## Reserved IDs (v1.x)
+## Reserved IDs
 
-These are reserved for plausible v1.x additions but unallocated
+These are reserved for plausible additions but unallocated
 pending an RFC:
 
-- 4: weavepack-cbor (binary blobs, tags — adds to JSON profile)
-- 5: weavepack-tabular (parquet-equivalent for analytics)
-- 6: weavepack-graph (RDF / property-graph)
-- 7: weavepack-wire (RPC, protobuf-equivalent)
-- 8: weavepack-log (structured event streams)
-- 9: weavepack-ast (compressed code/syntax storage)
-- 10..15: open
+- 9: weavepack-geo (GeoJSON-compatible)
+- 10: weavepack-time-series (high-rate sensor / metric data)
+- 11: weavepack-document (hierarchical doc, Markdown/HTML)
+- 12..15: open
 
 If you want to register one of these, follow the profile-author
 RFC track. The reservation is just a placeholder so id allocation

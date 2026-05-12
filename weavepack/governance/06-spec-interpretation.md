@@ -1,6 +1,6 @@
 # weavepack Governance — Spec Interpretation Disputes
 
-**Status:** Draft. Phase 7 of the weavepack roadmap.
+**Status:** Active. Phase 7 of the weavepack roadmap.
 
 ## When this matters
 

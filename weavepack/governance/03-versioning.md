@@ -1,6 +1,6 @@
 # weavepack Governance — Versioning
 
-**Status:** Draft. Phase 7 of the weavepack roadmap.
+**Status:** Active. Phase 7 of the weavepack roadmap.
 
 ## Three independent version axes
 
@@ -112,12 +112,8 @@ Example for the JS reference:
 
 ```
 weavepack-json support:    protocol v1.1, profile v1.1, conformance level 3
-weavepack-tensor support:  protocol v1.1, profile v0.1, conformance level 2
+weavepack-tensor support:  protocol v1.1, profile v0.3, conformance level 3
 ```
-
-Note: tensor profile in JS reference might be Level 2 because
-it doesn't pass byte-exact against itself in some edge cases
-(check the cloud-agent results for current claim).
 
 ## Breaking change policy
 
@@ -164,7 +160,7 @@ A profile is graduated to 1.0 when:
 3. ≥ 1 production user has adopted it
 
 weavepack-json is at v1.1 (graduated from arjson lineage).
-weavepack-tensor is at v0.1 (pre-1.0, not yet stable).
+weavepack-tensor is at v0.3 (pre-1.0, not yet stable).
 
 ## What about Rust crate versions
 

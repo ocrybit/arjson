@@ -1,6 +1,6 @@
 # weavepack Governance — Conformance Certification
 
-**Status:** Draft. Phase 7 of the weavepack roadmap.
+**Status:** Active. Phase 7 of the weavepack roadmap.
 
 ## Purpose
 

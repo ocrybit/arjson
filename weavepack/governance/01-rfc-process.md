@@ -1,6 +1,6 @@
 # weavepack Governance — RFC Process
 
-**Status:** Draft. Phase 7 of the weavepack roadmap.
+**Status:** Active. Phase 7 of the weavepack roadmap.
 
 ## When an RFC is required
 
@@ -241,20 +241,19 @@ RFCs filed to date:
   **Accepted 2026-05-06**. Implementations shipped in JS + Rust +
   Python; 20/20 conformance vectors pass.
 - RFC 0002: Explicit profile-id in the wire envelope (v1.2 magic
-  header) — **Discussion 2026-05-07**. Proposes a 4-byte `WP`
-  header for profile dispatch across JSON and tensor (and future)
-  profiles. See `weavepack/rfcs/0002-explicit-profile-id.md`.
+  header) — **Accepted 2026-05-12**. 4-byte `WP` magic header
+  for profile dispatch across all profiles. Implemented in JS +
+  Rust + Python; test vectors in all profile test-vectors/v1.2/
+  directories. See `weavepack/rfcs/0002-explicit-profile-id.md`.
 
 ## Examples (forward-looking)
 
 Hypothetical RFCs that are likely to come next:
 
-- RFC 0003: weavepack-graph profile registration (when a graph
-  profile spec + reference impl is ready)
-- RFC 0004: JSON schema sidecar (weavepack-json schemaful mode,
+- RFC 0003: weavepack-geo profile registration
+- RFC 0004: weavepack-time-series profile registration
+- RFC 0005: JSON schema sidecar (weavepack-json schemaful mode,
   analogous to tensor 06-schemas.md)
-- RFC 0005: delta encoder v2 — nested-object key-add/remove
-  within array elements (B.2 in V0.2-PLANNING.md)
 
 The first few RFCs will shake out gaps in this process doc.
 That's expected — the process is itself amendable via RFC.
