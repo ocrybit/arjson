@@ -43,7 +43,7 @@ be specified and implemented.
 | 4 | json | ✅ v0.5 | Self-describing JSON |
 | 5 | graph | ✅ v0.6 | Node+edge property graph |
 | 6 | (reserved) | 📋 | TBD |
-| 7 | ast | 🔄 v0.7 | Code/syntax-tree + delta chains |
+| 7 | ast | ✅ v0.7 | Code/syntax-tree + delta chains |
 | 8 | geo | 📋 | GeoJSON-compatible |
 | 9 | time-series | 📋 | High-rate sensor / metric data |
 | 10 | document | 📋 | Hierarchical doc (Markdown/HTML) |
@@ -196,7 +196,7 @@ and similar use cases.
 
 ## v0.7 — Profile 7: ast
 
-**Status:** 🔄 In progress (started 2026-05-12)
+**Status:** ✅ Complete (2026-05-12)
 
 **What it is:**
 Code / syntax-tree format with native subtree-delta chains. Tree-specific ops:
@@ -214,6 +214,6 @@ bytes per edit vs O(full_tree) re-serialisation.
   decode.rs, apply.rs, src/bin/conformance.rs) — 80/80 conformance.
   AS.5 complete 2026-05-12: Python package weavepack_ast (types.py, encoder.py,
   decoder.py, apply.py, __init__.py) + conformance_ast.py — 80/80 conformance.
-  Next: AS.6 — Benchmarks (weavepack/tools/benchmark-ast.js +
-  weavepack/profiles/ast/07-benchmarks.md).
+  AS.6 complete 2026-05-12: benchmark-ast.js + 07-benchmarks.md — all 3 gates
+  pass (snapshot 1.37×, rename 25.4×, edit-stream 17.3×). v0.7 ship gates met.
   See V0.7-PLANNING.md for full item list.
