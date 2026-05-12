@@ -1,35 +1,41 @@
 """weavepack-ast — pure-Python encoder (AST documents + delta chains).
 
-Profile isolation: imports only from .types. No other profile code.
+Profile isolation: imports only from .types.
 
-Wire layout:
+Wire format:
   AST document (snapshot):
-    ast_version   : LEB128 uint32 = 1
-    profile_id    : LEB128 uint32 = 7
-    schema_hash   : 32 bytes
-    num_blocks    : LEB128 uint32
-    block[*]      : 1-byte block_type (0=node_block, 1=mixed_block) + payload
+    ast_version  : LEB128 uint32 = 1
+    profile_id   : LEB128 uint32 = 7
+    schema_hash  : 32 bytes
+    num_blocks   : LEB128 uint32
+    block[*]     : 1-byte block_type (0=node_block, 1=mixed_block) + payload
 
   Delta chain:
-    ast_version   : LEB128 uint32 = 1
-    profile_id    : LEB128 uint32 = 7
-    schema_hash   : 32 bytes
-    num_ops       : LEB128 uint32
-    op[*]         : 1-byte op_code + op-specific payload
+    ast_version  : LEB128 uint32 = 1
+    profile_id   : LEB128 uint32 = 7
+    schema_hash  : 32 bytes
+    num_ops      : LEB128 uint32
+    op[*]        : 1-byte (op_code & 0x7) + op-specific payload
 
-  node_block payload:
-    kind_len      : LEB128 (block-level kind string length; >0 for node_block)
-    kind          : UTF-8 bytes
-    num_nodes     : LEB128
-    num_user_cols : LEB128 (col_id >= 4 only)
-    user_col[*]   : LEB128 col_id + 1-byte type_byte ((nullable<<4)|ctype)
-    nid col       : delta-packed LEB128 (monotone uint64)
-    parent_nid col: null_bitmap + plain uint64 LE per non-null value
-    child_index col: LEB128 per value (uint32)
-    user col data[*]: [null_bitmap if nullable] + values
+Node block payload:
+  kind_len  : LEB128 (0 = mixed_block)
+  kind      : UTF-8 bytes (kind_len bytes)
+  num_nodes : LEB128
+  num_cols  : LEB128
+  col schemas: [LEB128 col_id, 1-byte (nullable<<4)|ctype] × num_cols
+  nid_col   : delta-packed LEB128 uint64
+  parent_nid: MSB-first null bitmap + plain LE uint64 per non-null
+  child_idx : LEB128 uint32 per value
+  (mixed only) kind_col: [LEB128 len + UTF-8] per row
+  user_cols : data per schema
 
-  mixed_block payload: same as node_block but kind_len=0, then after child_index:
-    kind col      : LEB128-prefixed UTF-8 per row
+Op encoding:
+  node_insert   : op_byte + block_type + block_payload
+  node_delete   : op_byte + LEB128(count) + [LEB128 nid] (NOT delta-packed)
+  node_move     : op_byte + LEB128(nid) + LEB128(new_parent_nid) + LEB128(new_child_index)
+  prop_set      : op_byte + path + ctype_byte + flags_byte + [value]
+  kind_rename   : op_byte + LEB128(old_len) + old_kind + LEB128(new_len) + new_kind
+  subtree_replace: op_byte + LEB128(root_nid) + block_type + block_payload
 """
 
 import struct
@@ -147,6 +153,14 @@ def _write_null_bitmap(w: _ByteWriter, values: list, num_elems: int):
     w.write_bytes(buf)
 
 
+def _write_parent_nid_null_bitmap(w: _ByteWriter, parent_nids: list, num_elems: int):
+    buf = bytearray(null_bitmap_bytes(num_elems))
+    for i in range(num_elems):
+        if parent_nids[i] is None:
+            set_null_bit(buf, i)
+    w.write_bytes(buf)
+
+
 def _write_value_column(w: _ByteWriter, ctype: int, values: list):
     non_null = [v for v in values if v is not None]
     if ctype == CTYPE.BOOL:
@@ -156,7 +170,7 @@ def _write_value_column(w: _ByteWriter, ctype: int, values: list):
             _write_value(w, ctype, v)
 
 
-def _write_user_col_schema(w: _ByteWriter, col: dict):
+def _write_prop_col_schema(w: _ByteWriter, col: dict):
     col_id = col["colId"]
     ctype = col["ctype"]
     nullable = bool(col.get("nullable", False))
@@ -168,7 +182,7 @@ def _write_user_col_schema(w: _ByteWriter, col: dict):
     w.write_byte(((1 if nullable else 0) << 4) | (ctype & 0xF))
 
 
-def _write_user_col_data(w: _ByteWriter, col: dict, num_elems: int):
+def _write_prop_col_data(w: _ByteWriter, col: dict, num_elems: int):
     values = col["values"]
     if len(values) != num_elems:
         raise ValueError(
@@ -191,20 +205,14 @@ def _write_nid_delta_column(w: _ByteWriter, nids: list):
         delta = cur - prev
         if delta < 1:
             raise ValueError(
-                f"duplicate_element_id: nid delta must be >=1; got {delta} at index {i}"
+                f"duplicate_element_id: nid delta must be >=1 at index {i}"
             )
         w.write_leb128_big(delta)
         prev = cur
 
 
 def _write_parent_nid_column(w: _ByteWriter, parent_nids: list):
-    # null bitmap (MSB-first) + plain uint64 LE per non-null value
-    n = len(parent_nids)
-    buf = bytearray(null_bitmap_bytes(n))
-    for i, p in enumerate(parent_nids):
-        if p is None:
-            set_null_bit(buf, i)
-    w.write_bytes(buf)
+    _write_parent_nid_null_bitmap(w, parent_nids, len(parent_nids))
     for p in parent_nids:
         if p is not None:
             w.write_uint64_le(int(p))
@@ -212,7 +220,7 @@ def _write_parent_nid_column(w: _ByteWriter, parent_nids: list):
 
 def _write_child_index_column(w: _ByteWriter, child_indices: list):
     for ci in child_indices:
-        w.write_leb128(int(ci) & 0xFFFFFFFF)
+        w.write_leb128(int(ci))
 
 
 def _write_kind_column(w: _ByteWriter, kinds: list):
@@ -222,8 +230,59 @@ def _write_kind_column(w: _ByteWriter, kinds: list):
         w.write_bytes(b)
 
 
+def _write_node_block_payload(w: _ByteWriter, block: dict):
+    kind = block.get("kind", "")
+    kind_bytes = kind.encode("utf-8") if kind else b""
+    w.write_leb128(len(kind_bytes))
+    if kind_bytes:
+        w.write_bytes(kind_bytes)
+
+    nids = block.get("nids") or []
+    parent_nids = block.get("parentNids") or []
+    child_indices = block.get("childIndices") or []
+    cols = block.get("columns") or []
+    num_nodes = len(nids)
+
+    w.write_leb128(num_nodes)
+    w.write_leb128(len(cols))
+    for col in cols:
+        _write_prop_col_schema(w, col)
+
+    _write_nid_delta_column(w, nids)
+    _write_parent_nid_column(w, parent_nids)
+    _write_child_index_column(w, child_indices)
+
+    for col in cols:
+        _write_prop_col_data(w, col, num_nodes)
+
+
+def _write_mixed_block_payload(w: _ByteWriter, block: dict):
+    # kind_len = 0 for mixed
+    w.write_leb128(0)
+
+    nids = block.get("nids") or []
+    parent_nids = block.get("parentNids") or []
+    child_indices = block.get("childIndices") or []
+    kinds = block.get("kinds") or []
+    cols = block.get("columns") or []
+    num_nodes = len(nids)
+
+    w.write_leb128(num_nodes)
+    w.write_leb128(len(cols))
+    for col in cols:
+        _write_prop_col_schema(w, col)
+
+    _write_nid_delta_column(w, nids)
+    _write_parent_nid_column(w, parent_nids)
+    _write_child_index_column(w, child_indices)
+    _write_kind_column(w, kinds)
+
+    for col in cols:
+        _write_prop_col_data(w, col, num_nodes)
+
+
 def _write_block(w: _ByteWriter, block: dict):
-    btype = block.get("type", "node")
+    btype = block.get("type")
     if btype == "node":
         w.write_byte(BLOCK_TYPE_NODE)
         _write_node_block_payload(w, block)
@@ -232,49 +291,6 @@ def _write_block(w: _ByteWriter, block: dict):
         _write_mixed_block_payload(w, block)
     else:
         raise ValueError(f"unknown block type: {btype}")
-
-
-def _write_node_block_payload(w: _ByteWriter, block: dict):
-    kind_bytes = (block.get("kind") or "").encode("utf-8")
-    w.write_leb128(len(kind_bytes))
-    w.write_bytes(kind_bytes)
-
-    nids = block.get("nids") or []
-    cols = block.get("columns") or []
-    num_nodes = len(nids)
-    w.write_leb128(num_nodes)
-    w.write_leb128(len(cols))
-    for col in cols:
-        _write_user_col_schema(w, col)
-
-    _write_nid_delta_column(w, nids)
-    _write_parent_nid_column(w, block.get("parentNids") or [None] * num_nodes)
-    _write_child_index_column(w, block.get("childIndices") or [0] * num_nodes)
-
-    for col in cols:
-        _write_user_col_data(w, col, num_nodes)
-
-
-def _write_mixed_block_payload(w: _ByteWriter, block: dict):
-    # kind_len = 0 marks a mixed block
-    w.write_leb128(0)
-
-    nids = block.get("nids") or []
-    cols = block.get("columns") or []
-    kinds = block.get("kinds") or []
-    num_nodes = len(nids)
-    w.write_leb128(num_nodes)
-    w.write_leb128(len(cols))
-    for col in cols:
-        _write_user_col_schema(w, col)
-
-    _write_nid_delta_column(w, nids)
-    _write_parent_nid_column(w, block.get("parentNids") or [None] * num_nodes)
-    _write_child_index_column(w, block.get("childIndices") or [0] * num_nodes)
-    _write_kind_column(w, kinds)
-
-    for col in cols:
-        _write_user_col_data(w, col, num_nodes)
 
 
 def _write_doc_header(w: _ByteWriter, schema_hash):
@@ -287,13 +303,31 @@ def _write_doc_header(w: _ByteWriter, schema_hash):
     w.write_bytes(schema_hash)
 
 
-# ── Path encoding ───────────────────────────────────────────────────
+# ── Public: AST document (snapshot) ─────────────────────────────────────────────
+
+
+def encode_tree(doc: dict) -> bytes:
+    """Encode an AST document (snapshot).
+
+    doc = {
+        'schemaHash': bytes (32 bytes; omit -> all-zero),
+        'blocks': [{'type': 'node'|'mixed', ...block fields}, ...],
+    }
+    """
+    w = _ByteWriter()
+    blocks = doc.get("blocks") or []
+    _write_doc_header(w, doc.get("schemaHash"))
+    w.write_leb128(len(blocks))
+    for blk in blocks:
+        _write_block(w, blk)
+    return w.to_bytes()
+
+
+# ── Path encoding ──────────────────────────────────────────────────────────
 
 
 def _write_path(w: _ByteWriter, path: dict):
     kind = path["kind"]
-    if kind >= 8:
-        raise ValueError(f"unknown_path_kind: path kind {kind} is reserved (must be 0-7)")
     w.write_byte((kind & 0xF) << 4)
 
     if kind == PATH_KIND.NODE:
@@ -313,16 +347,14 @@ def _write_path(w: _ByteWriter, path: dict):
         w.write_leb128(len(b))
         w.write_bytes(b)
     else:
-        raise ValueError(f"unknown_path_kind: path kind {kind}")
+        raise ValueError(f"unknown_path_kind: path kind {kind} is reserved (must be 0-7)")
 
 
-# ── Op encoding ─────────────────────────────────────────────────────
+# ── Op encoding ────────────────────────────────────────────────────────────
 
 
 def _write_op(w: _ByteWriter, op: dict):
     op_code = op["op"]
-    if op_code > 5:
-        raise ValueError(f"unknown_delta_op: op code {op_code} is reserved (must be 0-5)")
     w.write_byte(op_code & 0x7)
 
     if op_code == OP.NODE_INSERT:
@@ -334,8 +366,9 @@ def _write_op(w: _ByteWriter, op: dict):
             w.write_leb128_big(int(nid))
     elif op_code == OP.NODE_MOVE:
         w.write_leb128_big(int(op["nid"]))
-        w.write_leb128_big(int(op["newParentNid"]))
-        w.write_leb128(int(op["newChildIndex"]) & 0xFFFFFFFF)
+        new_parent = op.get("newParentNid")
+        w.write_leb128_big(int(new_parent) if new_parent is not None else 0)
+        w.write_leb128(int(op.get("newChildIndex", 0)))
     elif op_code == OP.PROP_SET:
         _write_path(w, op["path"])
         ctype = op["ctype"]
@@ -344,43 +377,23 @@ def _write_op(w: _ByteWriter, op: dict):
         value = op.get("value")
         is_null = (value is None) and nullable
         w.write_byte((1 if nullable else 0) | ((1 if is_null else 0) << 1))
-        if not is_null:
+        if not is_null and value is not None:
             _write_value(w, ctype, value)
     elif op_code == OP.KIND_RENAME:
         old_b = (op.get("oldKind") or "").encode("utf-8")
-        new_b = (op.get("newKind") or "").encode("utf-8")
         w.write_leb128(len(old_b))
         w.write_bytes(old_b)
+        new_b = (op.get("newKind") or "").encode("utf-8")
         w.write_leb128(len(new_b))
         w.write_bytes(new_b)
     elif op_code == OP.SUBTREE_REPLACE:
         w.write_leb128_big(int(op["rootNid"]))
         _write_block(w, op["block"])
     else:
-        raise ValueError(f"unknown_delta_op: op code {op_code}")
+        raise ValueError(f"unknown_delta_op: op code {op_code} is reserved (must be 0-5)")
 
 
-# ── Public: AST document (snapshot) ──────────────────────────────────────────────
-
-
-def encode_tree(tree: dict) -> bytes:
-    """Encode an AST document (snapshot).
-
-    tree = {
-        'schemaHash': bytes (32 bytes; omit -> all-zero),
-        'blocks': [{'type': 'node'|'mixed', ...block fields}, ...],
-    }
-    """
-    w = _ByteWriter()
-    blocks = tree.get("blocks") or []
-    _write_doc_header(w, tree.get("schemaHash"))
-    w.write_leb128(len(blocks))
-    for blk in blocks:
-        _write_block(w, blk)
-    return w.to_bytes()
-
-
-# ── Public: delta chain ───────────────────────────────────────────────────
+# ── Public: delta chain ─────────────────────────────────────────────────────
 
 
 def encode_chain(schema_hash: bytes, ops: list) -> bytes:

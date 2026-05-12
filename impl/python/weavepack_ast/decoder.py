@@ -1,6 +1,6 @@
 """weavepack-ast — pure-Python decoder (AST documents + delta chains).
 
-Profile isolation: imports only from .types. No other profile code.
+Profile isolation: imports only from .types.
 """
 
 import struct
@@ -17,9 +17,6 @@ class _ByteReader:
     def __init__(self, buf: bytes):
         self._buf = bytes(buf)
         self._pos = 0
-
-    def eof(self) -> bool:
-        return self._pos >= len(self._buf)
 
     def read_byte(self) -> int:
         if self._pos >= len(self._buf):
@@ -155,32 +152,26 @@ def _read_nid_delta_column(r: _ByteReader, count: int) -> list:
     if count == 0:
         return []
     first = r.read_leb128_big()
-    nids = [first]
+    ids = [first]
     prev = first
     for _ in range(1, count):
         delta = r.read_leb128_big()
         if delta < 1:
             raise ValueError("duplicate_element_id: nid delta must be >=1")
         prev = prev + delta
-        nids.append(prev)
-    return nids
+        ids.append(prev)
+    return ids
 
 
-def _read_parent_nid_column(r: _ByteReader, count: int) -> list:
-    # null bitmap (MSB-first) + plain uint64 LE per non-null value
-    n_bytes = null_bitmap_bytes(count)
-    raw = r.read_bytes(n_bytes)
-    null_flags = [get_null_bit(raw, i) for i in range(count)]
-    non_null_count = sum(1 for b in null_flags if not b)
-    non_null_values = [r.read_uint64_le() for _ in range(non_null_count)]
+def _read_parent_nid_column(r: _ByteReader, num_nodes: int) -> list:
+    n_bytes = null_bitmap_bytes(num_nodes)
+    bitmap = r.read_bytes(n_bytes)
     values = []
-    vi = 0
-    for is_null in null_flags:
-        if is_null:
+    for i in range(num_nodes):
+        if get_null_bit(bitmap, i):
             values.append(None)
         else:
-            values.append(non_null_values[vi])
-            vi += 1
+            values.append(r.read_uint64_le())
     return values
 
 
@@ -192,12 +183,11 @@ def _read_kind_column(r: _ByteReader, count: int) -> list:
     kinds = []
     for _ in range(count):
         length = r.read_leb128()
-        raw = r.read_bytes(length)
-        kinds.append(raw.decode("utf-8"))
+        kinds.append(r.read_bytes(length).decode("utf-8"))
     return kinds
 
 
-def _read_user_col_schema(r: _ByteReader) -> dict:
+def _read_prop_col_schema(r: _ByteReader) -> dict:
     col_id = r.read_leb128()
     if col_id < 4:
         raise ValueError(f"reserved_col_id: col_id {col_id} is reserved (must be >= 4)")
@@ -209,96 +199,108 @@ def _read_user_col_schema(r: _ByteReader) -> dict:
     return {"colId": col_id, "ctype": ctype, "nullable": nullable}
 
 
-def _read_user_col_data(r: _ByteReader, schema: dict, num_elems: int) -> dict:
-    ctype = schema["ctype"]
-    nullable = schema["nullable"]
-    if nullable:
-        values = _read_nullable_column(r, ctype, num_elems)
-    else:
-        values = _read_value_column(r, ctype, num_elems)
+def _read_node_block_payload(r: _ByteReader) -> dict:
+    kind_len = r.read_leb128()
+    kind = r.read_bytes(kind_len).decode("utf-8") if kind_len > 0 else ""
+
+    num_nodes = r.read_leb128()
+    num_cols = r.read_leb128()
+    schemas = [_read_prop_col_schema(r) for _ in range(num_cols)]
+
+    nids = _read_nid_delta_column(r, num_nodes)
+    parent_nids = _read_parent_nid_column(r, num_nodes)
+    child_indices = _read_child_index_column(r, num_nodes)
+
+    columns = []
+    for s in schemas:
+        if s["nullable"]:
+            values = _read_nullable_column(r, s["ctype"], num_nodes)
+        else:
+            values = _read_value_column(r, s["ctype"], num_nodes)
+        columns.append({**s, "values": values})
+
     return {
-        "colId":    schema["colId"],
-        "ctype":    ctype,
-        "nullable": nullable,
-        "values":   values,
+        "type": "node", "kind": kind, "nids": nids,
+        "parentNids": parent_nids, "childIndices": child_indices,
+        "columns": columns,
+    }
+
+
+def _read_mixed_block_payload(r: _ByteReader) -> dict:
+    kind_len = r.read_leb128()
+    if kind_len > 0:
+        r.read_bytes(kind_len)  # discard
+
+    num_nodes = r.read_leb128()
+    num_cols = r.read_leb128()
+    schemas = [_read_prop_col_schema(r) for _ in range(num_cols)]
+
+    nids = _read_nid_delta_column(r, num_nodes)
+    parent_nids = _read_parent_nid_column(r, num_nodes)
+    child_indices = _read_child_index_column(r, num_nodes)
+    kinds = _read_kind_column(r, num_nodes)
+
+    columns = []
+    for s in schemas:
+        if s["nullable"]:
+            values = _read_nullable_column(r, s["ctype"], num_nodes)
+        else:
+            values = _read_value_column(r, s["ctype"], num_nodes)
+        columns.append({**s, "values": values})
+
+    return {
+        "type": "mixed", "kinds": kinds, "nids": nids,
+        "parentNids": parent_nids, "childIndices": child_indices,
+        "columns": columns,
     }
 
 
 def _read_block(r: _ByteReader) -> dict:
     block_type = r.read_byte()
     if block_type == BLOCK_TYPE_NODE:
-        return _read_node_block(r)
+        return _read_node_block_payload(r)
     elif block_type == BLOCK_TYPE_MIXED:
-        return _read_mixed_block(r)
+        return _read_mixed_block_payload(r)
     else:
         raise ValueError(f"unknown_block_type: block type {block_type}")
-
-
-def _read_block_header(r: _ByteReader):
-    """Read kind_len + kind + num_nodes + user col schemas. Returns (kind, num_nodes, schemas)."""
-    kind_len = r.read_leb128()
-    if kind_len > 0:
-        kind = r.read_bytes(kind_len).decode("utf-8")
-    else:
-        kind = None  # mixed block
-    num_nodes = r.read_leb128()
-    num_user_cols = r.read_leb128()
-    schemas = [_read_user_col_schema(r) for _ in range(num_user_cols)]
-    return kind, num_nodes, schemas
-
-
-def _read_node_block(r: _ByteReader) -> dict:
-    kind, num_nodes, schemas = _read_block_header(r)
-    nids = _read_nid_delta_column(r, num_nodes)
-    parent_nids = _read_parent_nid_column(r, num_nodes)
-    child_indices = _read_child_index_column(r, num_nodes)
-    columns = [_read_user_col_data(r, s, num_nodes) for s in schemas]
-    return {
-        "type":         "node",
-        "kind":         kind or "",
-        "nids":         nids,
-        "parentNids":   parent_nids,
-        "childIndices": child_indices,
-        "columns":      columns,
-    }
-
-
-def _read_mixed_block(r: _ByteReader) -> dict:
-    _, num_nodes, schemas = _read_block_header(r)
-    nids = _read_nid_delta_column(r, num_nodes)
-    parent_nids = _read_parent_nid_column(r, num_nodes)
-    child_indices = _read_child_index_column(r, num_nodes)
-    kinds = _read_kind_column(r, num_nodes)
-    columns = [_read_user_col_data(r, s, num_nodes) for s in schemas]
-    return {
-        "type":         "mixed",
-        "kinds":        kinds,
-        "nids":         nids,
-        "parentNids":   parent_nids,
-        "childIndices": child_indices,
-        "columns":      columns,
-    }
 
 
 def _read_doc_header(r: _ByteReader) -> bytes:
     version = r.read_leb128()
     if version != AST_VERSION:
-        raise ValueError(f"unknown_version: expected {AST_VERSION}, got {version}")
-    profile = r.read_leb128()
-    if profile != PROFILE_NUM:
-        raise ValueError(f"wrong_profile: expected {PROFILE_NUM}, got {profile}")
-    schema_hash = r.read_bytes(SCHEMA_HASH_BYTES)
-    return schema_hash
+        raise ValueError(
+            f"unsupported_version: expected ast_version {AST_VERSION}, got {version}"
+        )
+    profile_id = r.read_leb128()
+    if profile_id != PROFILE_NUM:
+        raise ValueError(
+            f"wrong_profile: expected profile_id {PROFILE_NUM}, got {profile_id}"
+        )
+    return r.read_bytes(SCHEMA_HASH_BYTES)
 
 
-# ── Path decoding ───────────────────────────────────────────────────
+# ── Public: AST document (snapshot) ─────────────────────────────────────────────
+
+
+def decode_tree(data: bytes) -> dict:
+    """Decode an AST document.
+
+    Returns { 'schemaHash': bytes, 'blocks': [...] }.
+    """
+    r = _ByteReader(data)
+    schema_hash = _read_doc_header(r)
+    num_blocks = r.read_leb128()
+    blocks = [_read_block(r) for _ in range(num_blocks)]
+    return {"schemaHash": schema_hash, "blocks": blocks}
+
+
+# ── Path decoding ─────────────────────────────────────────────────────────────
 
 
 def _read_path(r: _ByteReader) -> dict:
     path_byte = r.read_byte()
     kind = (path_byte >> 4) & 0xF
-    if kind >= 8:
-        raise ValueError(f"unknown_path_kind: path kind {kind} is reserved")
+
     if kind == PATH_KIND.NODE:
         return {"kind": kind, "nid": r.read_leb128_big()}
     elif kind == PATH_KIND.NODE_COL:
@@ -307,7 +309,13 @@ def _read_path(r: _ByteReader) -> dict:
         length = r.read_leb128()
         node_kind = r.read_bytes(length).decode("utf-8")
         return {"kind": kind, "nodeKind": node_kind}
-    elif kind in (PATH_KIND.AT_NID, PATH_KIND.AT_PARENT, PATH_KIND.AT_CHILD_INDEX, PATH_KIND.AT_KIND):
+    elif kind == PATH_KIND.AT_NID:
+        return {"kind": kind}
+    elif kind == PATH_KIND.AT_PARENT:
+        return {"kind": kind}
+    elif kind == PATH_KIND.AT_CHILD_INDEX:
+        return {"kind": kind}
+    elif kind == PATH_KIND.AT_KIND:
         return {"kind": kind}
     elif kind == PATH_KIND.NODE_PROP:
         nid = r.read_leb128_big()
@@ -315,17 +323,15 @@ def _read_path(r: _ByteReader) -> dict:
         prop = r.read_bytes(length).decode("utf-8")
         return {"kind": kind, "nid": nid, "prop": prop}
     else:
-        raise ValueError(f"unknown_path_kind: path kind {kind}")
+        raise ValueError(f"unknown_path_kind: path kind {kind} is reserved (must be 0-7)")
 
 
-# ── Op decoding ─────────────────────────────────────────────────────
+# ── Op decoding ──────────────────────────────────────────────────────────────
 
 
 def _read_op(r: _ByteReader) -> dict:
     op_byte = r.read_byte()
     op_code = op_byte & 0x7
-    if op_code > 5:
-        raise ValueError(f"unknown_delta_op: op code {op_code} is reserved (must be 0-5)")
 
     if op_code == OP.NODE_INSERT:
         return {"op": op_code, "block": _read_block(r)}
@@ -343,12 +349,10 @@ def _read_op(r: _ByteReader) -> dict:
         path = _read_path(r)
         ctype_byte = r.read_byte()
         ctype = ctype_byte & 0xF
-        flags = r.read_byte()
-        nullable = bool(flags & 1)
-        is_null = bool((flags >> 1) & 1)
-        value = None
-        if not (nullable and is_null):
-            value = _read_value(r, ctype)
+        flags_byte = r.read_byte()
+        nullable = (flags_byte & 1) == 1
+        is_null = ((flags_byte >> 1) & 1) == 1
+        value = None if is_null else _read_value(r, ctype)
         return {"op": op_code, "path": path, "ctype": ctype, "nullable": nullable,
                 "isNull": is_null, "value": value}
     elif op_code == OP.KIND_RENAME:
@@ -362,32 +366,19 @@ def _read_op(r: _ByteReader) -> dict:
         block = _read_block(r)
         return {"op": op_code, "rootNid": root_nid, "block": block}
     else:
-        raise ValueError(f"unknown_delta_op: op code {op_code}")
+        raise ValueError(f"unknown_delta_op: op code {op_code} is reserved (must be 0-5)")
 
 
-# ── Public: AST document (snapshot) ──────────────────────────────────────────────
-
-
-def decode_tree(data: bytes) -> dict:
-    """Decode an AST document. Returns {'schemaHash': bytes, 'blocks': [...]}."""
-    r = _ByteReader(data)
-    schema_hash = _read_doc_header(r)
-    num_blocks = r.read_leb128()
-    blocks = [_read_block(r) for _ in range(num_blocks)]
-    if not r.eof():
-        raise ValueError("trailing bytes after AST document")
-    return {"schemaHash": schema_hash, "blocks": blocks}
-
-
-# ── Public: delta chain ───────────────────────────────────────────────────
+# ── Public: delta chain ─────────────────────────────────────────────────────
 
 
 def decode_chain(data: bytes) -> dict:
-    """Decode a delta chain. Returns {'schemaHash': bytes, 'ops': [...]}."""
+    """Decode a delta chain.
+
+    Returns { 'schemaHash': bytes, 'ops': list }.
+    """
     r = _ByteReader(data)
     schema_hash = _read_doc_header(r)
     num_ops = r.read_leb128()
     ops = [_read_op(r) for _ in range(num_ops)]
-    if not r.eof():
-        raise ValueError("trailing bytes after delta chain")
     return {"schemaHash": schema_hash, "ops": ops}
