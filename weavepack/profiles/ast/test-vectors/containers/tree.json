@@ -1,0 +1,305 @@
+[
+  {
+    "name": "single root node",
+    "description": "tree with only a root",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "module"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001000750726f6772616d0101040b018000066d6f64756c65"
+  },
+  {
+    "name": "root with two children",
+    "description": "Program > [ExpressionStatement, ExpressionStatement]",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "ExpressionStatement",
+          "nids": [
+            "2",
+            "3"
+          ],
+          "parentNids": [
+            "1",
+            "1"
+          ],
+          "childIndices": [
+            0,
+            1
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000002000750726f6772616d0100018000001345787072657373696f6e53746174656d656e740200020100010000000000000001000000000000000001"
+  },
+  {
+    "name": "three level tree",
+    "description": "Program > FunctionDecl > [Identifier, BlockStatement]",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "FunctionDeclaration",
+          "nids": [
+            "2"
+          ],
+          "parentNids": [
+            "1"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "hello"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "kind": "BlockStatement",
+          "nids": [
+            "3"
+          ],
+          "parentNids": [
+            "2"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "ReturnStatement",
+          "nids": [
+            "4"
+          ],
+          "parentNids": [
+            "3"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000004000750726f6772616d0100018000001346756e6374696f6e4465636c61726174696f6e0101040b02000100000000000000000568656c6c6f000e426c6f636b53746174656d656e7401000300020000000000000000000f52657475726e53746174656d656e7401000400030000000000000000"
+  },
+  {
+    "name": "synthetic JS AST",
+    "description": "Program > FuncDecl > [Identifier, BlockStatement > ReturnStatement > Literal]",
+    "input": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "module"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "kind": "FunctionDeclaration",
+          "nids": [
+            "2"
+          ],
+          "parentNids": [
+            "1"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "add"
+              ]
+            },
+            {
+              "colId": 5,
+              "ctype": 7,
+              "nullable": true,
+              "values": [
+                0
+              ]
+            },
+            {
+              "colId": 6,
+              "ctype": 7,
+              "nullable": true,
+              "values": [
+                60
+              ]
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "kind": "BlockStatement",
+          "nids": [
+            "3"
+          ],
+          "parentNids": [
+            "2"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "ReturnStatement",
+          "nids": [
+            "4"
+          ],
+          "parentNids": [
+            "3"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "BinaryExpression",
+          "nids": [
+            "5"
+          ],
+          "parentNids": [
+            "4"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "+"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "6",
+            "7"
+          ],
+          "parentNids": [
+            "5",
+            "5"
+          ],
+          "childIndices": [
+            0,
+            1
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "a",
+                "b"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000006000750726f6772616d0101040b018000066d6f64756c65001346756e6374696f6e4465636c61726174696f6e0103040b051706170200010000000000000000036164640000000000003c000000000e426c6f636b53746174656d656e7401000300020000000000000000000f52657475726e53746174656d656e7401000400030000000000000000001042696e61727945787072657373696f6e0101040b0500040000000000000000012b000a4964656e7469666965720201040b06010005000000000000000500000000000000000101610162"
+  },
+  {
+    "name": "empty tree",
+    "description": "tree with zero blocks",
+    "input": {
+      "blocks": []
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000000"
+  }
+]

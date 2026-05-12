@@ -1,0 +1,310 @@
+[
+  {
+    "name": "delete single leaf",
+    "description": "delete a leaf node from tree",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "2"
+          ],
+          "parentNids": [
+            "1"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "x"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 1,
+        "nids": [
+          "2"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001010102",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "delete subtree",
+    "description": "delete a parent and its children",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "FunctionDeclaration",
+          "nids": [
+            "2"
+          ],
+          "parentNids": [
+            "1"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "3",
+            "4"
+          ],
+          "parentNids": [
+            "2",
+            "2"
+          ],
+          "childIndices": [
+            0,
+            1
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "a",
+                "b"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 1,
+        "nids": [
+          "2"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001010102",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "delete root",
+    "description": "delete root node removes entire tree",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "2"
+          ],
+          "parentNids": [
+            "1"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 1,
+        "nids": [
+          "1"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001010101",
+    "expected_final": {
+      "nodes": []
+    }
+  },
+  {
+    "name": "delete nonexistent nid is no-op",
+    "description": "idempotent delete on missing nid",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 1,
+        "nids": [
+          "999"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "01070000000000000000000000000000000000000000000000000000000000000000010101e707",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "delete multiple leaves",
+    "description": "delete two sibling leaves at once",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "2",
+            "3"
+          ],
+          "parentNids": [
+            "1",
+            "1"
+          ],
+          "childIndices": [
+            0,
+            1
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "a",
+                "b"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 1,
+        "nids": [
+          "2",
+          "3"
+        ]
+      }
+    ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000101020203",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        }
+      ]
+    }
+  }
+]

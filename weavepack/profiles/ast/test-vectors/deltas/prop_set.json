@@ -1,0 +1,88 @@
+[
+  {
+    "name": "prop_set by col_id",
+    "description": "update a property via NODE_COL path",
+    "initial": {
+      "blocks": [ { "type": "node", "kind": "Identifier", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "x" ] } ] } ]
+    },
+    "ops": [ { "op": 3, "path": { "kind": 1, "nid": "1", "colId": 4 }, "ctype": 11, "nullable": false, "value": "renamed" } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001031001040b000772656e616d6564",
+    "expected_final": {
+      "nodes": [ { "nid": "1", "kind": "Identifier", "parentNid": null, "childIndex": 0,
+        "props": [ { "colId": 4, "ctype": 11, "value": "renamed" } ] } ]
+    }
+  },
+  {
+    "name": "prop_set by prop name",
+    "description": "update a property via NODE_PROP path",
+    "initial": {
+      "blocks": [ { "type": "node", "kind": "Identifier", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "oldName" ] } ] } ]
+    },
+    "ops": [ { "op": 3, "path": { "kind": 7, "nid": "1", "prop": "name" }, "ctype": 11, "nullable": false, "value": "newName" } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001037001046e616d650b00076e65774e616d65",
+    "expected_final": {
+      "nodes": [ { "nid": "1", "kind": "Identifier", "parentNid": null, "childIndex": 0,
+        "props": [ { "colId": 4, "ctype": 11, "value": "oldName" }, { "colId": "name", "ctype": 11, "value": "newName" } ] } ]
+    }
+  },
+  {
+    "name": "prop_set null (clear)",
+    "description": "set nullable property to null via NODE_COL path",
+    "initial": {
+      "blocks": [ { "type": "node", "kind": "Literal", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 4, "ctype": 11, "nullable": true, "values": [ "42" ] } ] } ]
+    },
+    "ops": [ { "op": 3, "path": { "kind": 1, "nid": "1", "colId": 4 }, "ctype": 11, "nullable": true, "value": null } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001031001040b03",
+    "expected_final": {
+      "nodes": [ { "nid": "1", "kind": "Literal", "parentNid": null, "childIndex": 0,
+        "props": [ { "colId": 4, "ctype": 11, "value": null } ] } ]
+    }
+  },
+  {
+    "name": "prop_set uint32",
+    "description": "set a uint32 property",
+    "initial": {
+      "blocks": [ { "type": "node", "kind": "FunctionDeclaration", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 5, "ctype": 7, "nullable": false, "values": [ 0 ] } ] } ]
+    },
+    "ops": [ { "op": 3, "path": { "kind": 1, "nid": "1", "colId": 5 }, "ctype": 7, "nullable": false, "value": 999 } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001031001050700e7030000",
+    "expected_final": {
+      "nodes": [ { "nid": "1", "kind": "FunctionDeclaration", "parentNid": null, "childIndex": 0,
+        "props": [ { "colId": 5, "ctype": 7, "value": 999 } ] } ]
+    }
+  },
+  {
+    "name": "prop_set adds new prop",
+    "description": "prop_set on a node that has no existing props",
+    "initial": {
+      "blocks": [ { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] } ]
+    },
+    "ops": [ { "op": 3, "path": { "kind": 1, "nid": "1", "colId": 4 }, "ctype": 11, "nullable": false, "value": "module" } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001031001040b00066d6f64756c65",
+    "expected_final": {
+      "nodes": [ { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0,
+        "props": [ { "colId": 4, "ctype": 11, "value": "module" } ] } ]
+    }
+  },
+  {
+    "name": "multiple prop_sets",
+    "description": "two prop_set ops on same node (last wins)",
+    "initial": {
+      "blocks": [ { "type": "node", "kind": "Identifier", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "a" ] } ] } ]
+    },
+    "ops": [
+      { "op": 3, "path": { "kind": 1, "nid": "1", "colId": 4 }, "ctype": 11, "nullable": false, "value": "b" },
+      { "op": 3, "path": { "kind": 1, "nid": "1", "colId": 4 }, "ctype": 11, "nullable": false, "value": "c" }
+    ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000002031001040b000162031001040b000163",
+    "expected_final": {
+      "nodes": [ { "nid": "1", "kind": "Identifier", "parentNid": null, "childIndex": 0,
+        "props": [ { "colId": 4, "ctype": 11, "value": "c" } ] } ]
+    }
+  }
+]

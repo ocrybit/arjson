@@ -1,0 +1,114 @@
+[
+  {
+    "name": "move to new parent",
+    "description": "move a leaf node to a different parent",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [ "1" ],
+          "parentNids": [ null ],
+          "childIndices": [ 0 ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "FunctionDeclaration",
+          "nids": [ "2", "3" ],
+          "parentNids": [ "1", "1" ],
+          "childIndices": [ 0, 1 ],
+          "columns": []
+        },
+        {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [ "4" ],
+          "parentNids": [ "2" ],
+          "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "x" ] } ]
+        }
+      ]
+    },
+    "ops": [ { "op": 2, "nid": "4", "newParentNid": "3", "newChildIndex": 0 } ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000102040300",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "FunctionDeclaration", "parentNid": "1", "childIndex": 0, "props": [] },
+        { "nid": "3", "kind": "FunctionDeclaration", "parentNid": "1", "childIndex": 1, "props": [] },
+        { "nid": "4", "kind": "Identifier", "parentNid": "3", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "x" } ] }
+      ]
+    }
+  },
+  {
+    "name": "move to root",
+    "description": "move a node to become new root (newParentNid=0)",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node", "kind": "Program",
+          "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": []
+        },
+        {
+          "type": "node", "kind": "Identifier",
+          "nids": [ "2" ], "parentNids": [ "1" ], "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "main" ] } ]
+        }
+      ]
+    },
+    "ops": [ { "op": 2, "nid": "2", "newParentNid": "0", "newChildIndex": 0 } ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000102020000",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "Identifier", "parentNid": null, "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "main" } ] }
+      ]
+    }
+  },
+  {
+    "name": "move subtree",
+    "description": "move a subtree to a different parent",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "BlockStatement", "nids": [ "2", "3" ], "parentNids": [ "1", "1" ], "childIndices": [ 0, 1 ], "columns": [] },
+        { "type": "node", "kind": "ReturnStatement", "nids": [ "4" ], "parentNids": [ "2" ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "Identifier", "nids": [ "5" ], "parentNids": [ "4" ], "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "result" ] } ] }
+      ]
+    },
+    "ops": [ { "op": 2, "nid": "2", "newParentNid": "3", "newChildIndex": 0 } ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000102020300",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "BlockStatement", "parentNid": "3", "childIndex": 0, "props": [] },
+        { "nid": "3", "kind": "BlockStatement", "parentNid": "1", "childIndex": 1, "props": [] },
+        { "nid": "4", "kind": "ReturnStatement", "parentNid": "2", "childIndex": 0, "props": [] },
+        { "nid": "5", "kind": "Identifier", "parentNid": "4", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "result" } ] }
+      ]
+    }
+  },
+  {
+    "name": "move within same parent",
+    "description": "reorder siblings by moving to different child_index",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "Statement", "nids": [ "2", "3", "4" ], "parentNids": [ "1", "1", "1" ], "childIndices": [ 0, 1, 2 ],
+          "columns": [ { "colId": 4, "ctype": 7, "nullable": false, "values": [ 0, 1, 2 ] } ] }
+      ]
+    },
+    "ops": [ { "op": 2, "nid": "4", "newParentNid": "1", "newChildIndex": 0 } ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000102040100",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "Statement", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 7, "value": 0 } ] },
+        { "nid": "3", "kind": "Statement", "parentNid": "1", "childIndex": 1, "props": [ { "colId": 4, "ctype": 7, "value": 1 } ] },
+        { "nid": "4", "kind": "Statement", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 7, "value": 2 } ] }
+      ]
+    }
+  }
+]

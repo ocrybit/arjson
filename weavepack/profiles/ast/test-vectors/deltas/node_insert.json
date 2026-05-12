@@ -1,0 +1,358 @@
+[
+  {
+    "name": "insert root into empty tree",
+    "description": "node_insert into empty initial state",
+    "initial": {
+      "blocks": []
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        },
+        "mixed": false
+      }
+    ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100000750726f6772616d0100018000",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "insert child node",
+    "description": "node_insert adds child to existing root",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "kind": "Identifier",
+          "nids": [
+            "2"
+          ],
+          "parentNids": [
+            "1"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "x"
+              ]
+            }
+          ]
+        },
+        "mixed": false
+      }
+    ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100000a4964656e7469666965720101040b02000100000000000000000178",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "kind": "Identifier",
+          "parentNid": "1",
+          "childIndex": 0,
+          "props": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "value": "x"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "insert two siblings",
+    "description": "node_insert adds two sibling nodes",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "kind": "ExpressionStatement",
+          "nids": [
+            "2",
+            "3"
+          ],
+          "parentNids": [
+            "1",
+            "1"
+          ],
+          "childIndices": [
+            0,
+            1
+          ],
+          "columns": []
+        },
+        "mixed": false
+      }
+    ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100001345787072657373696f6e53746174656d656e740200020100010000000000000001000000000000000001",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "kind": "ExpressionStatement",
+          "parentNid": "1",
+          "childIndex": 0,
+          "props": []
+        },
+        {
+          "nid": "3",
+          "kind": "ExpressionStatement",
+          "parentNid": "1",
+          "childIndex": 1,
+          "props": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "insert mixed block",
+    "description": "node_insert with mixed block (heterogeneous kinds)",
+    "initial": {
+      "blocks": []
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "mixed",
+          "nids": [
+            "1",
+            "2"
+          ],
+          "parentNids": [
+            null,
+            "1"
+          ],
+          "childIndices": [
+            0,
+            0
+          ],
+          "kinds": [
+            "Program",
+            "Identifier"
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": true,
+              "values": [
+                null,
+                "y"
+              ]
+            }
+          ]
+        },
+        "mixed": true
+      }
+    ],
+    "expected_chain_bytes_hex": "01070000000000000000000000000000000000000000000000000000000000000000010001000201041b010180010000000000000000000750726f6772616d0a4964656e746966696572800179",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "kind": "Identifier",
+          "parentNid": "1",
+          "childIndex": 0,
+          "props": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "value": "y"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "insert with props",
+    "description": "node_insert with multiple user columns",
+    "initial": {
+      "blocks": [
+        {
+          "type": "node",
+          "kind": "Program",
+          "nids": [
+            "1"
+          ],
+          "parentNids": [
+            null
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": []
+        }
+      ]
+    },
+    "ops": [
+      {
+        "op": 0,
+        "block": {
+          "type": "node",
+          "kind": "FunctionDeclaration",
+          "nids": [
+            "2"
+          ],
+          "parentNids": [
+            "1"
+          ],
+          "childIndices": [
+            0
+          ],
+          "columns": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "nullable": false,
+              "values": [
+                "greet"
+              ]
+            },
+            {
+              "colId": 5,
+              "ctype": 7,
+              "nullable": false,
+              "values": [
+                0
+              ]
+            },
+            {
+              "colId": 6,
+              "ctype": 7,
+              "nullable": false,
+              "values": [
+                100
+              ]
+            }
+          ]
+        },
+        "mixed": false
+      }
+    ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100001346756e6374696f6e4465636c61726174696f6e0103040b0507060702000100000000000000000567726565740000000064000000",
+    "expected_final": {
+      "nodes": [
+        {
+          "nid": "1",
+          "kind": "Program",
+          "parentNid": null,
+          "childIndex": 0,
+          "props": []
+        },
+        {
+          "nid": "2",
+          "kind": "FunctionDeclaration",
+          "parentNid": "1",
+          "childIndex": 0,
+          "props": [
+            {
+              "colId": 4,
+              "ctype": 11,
+              "value": "greet"
+            },
+            {
+              "colId": 5,
+              "ctype": 7,
+              "value": 0
+            },
+            {
+              "colId": 6,
+              "ctype": 7,
+              "value": 100
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

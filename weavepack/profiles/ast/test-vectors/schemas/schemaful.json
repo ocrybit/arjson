@@ -1,0 +1,48 @@
+[
+  {
+    "name": "schemaful snapshot",
+    "description": "tree with a non-zero schema hash in the header",
+    "input": {
+      "schemaHash": { "_bytes": [171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171] },
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "module" ] } ] },
+        { "type": "node", "kind": "FunctionDeclaration", "nids": [ "2" ], "parentNids": [ "1" ], "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "render" ] } ] }
+      ]
+    },
+    "expected_bytes_hex": "0107abababababababababababababababababababababababababababababababab02000750726f6772616d0101040b018000066d6f64756c65001346756e6374696f6e4465636c61726174696f6e0101040b02000100000000000000000672656e646572"
+  },
+  {
+    "name": "zero schema hash",
+    "description": "tree with all-zero schema hash (no schema)",
+    "input": {
+      "blocks": [
+        { "type": "node", "kind": "Identifier", "nids": [ "5" ], "parentNids": [ null ], "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "x" ] } ] }
+      ]
+    },
+    "expected_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001000a4964656e7469666965720101040b0580000178"
+  },
+  {
+    "name": "schemaful chain",
+    "description": "delta chain with non-zero schema hash in header",
+    "initial": {
+      "schemaHash": { "_bytes": [171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171,171] },
+      "blocks": [ { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] } ]
+    },
+    "ops": [ {
+      "op": 0,
+      "block": { "type": "node", "kind": "Identifier", "nids": [ "2" ], "parentNids": [ "1" ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "myVar" ] } ] },
+      "mixed": false
+    } ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000100000a4964656e7469666965720101040b0200010000000000000000056d79566172",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "Identifier", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "myVar" } ] }
+      ]
+    }
+  }
+]

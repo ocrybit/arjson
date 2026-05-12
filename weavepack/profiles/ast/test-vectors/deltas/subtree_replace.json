@@ -1,0 +1,102 @@
+[
+  {
+    "name": "replace leaf subtree",
+    "description": "subtree_replace on a leaf node (no children)",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "Identifier", "nids": [ "2" ], "parentNids": [ "1" ], "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "old" ] } ] }
+      ]
+    },
+    "ops": [ {
+      "op": 5, "rootNid": "2",
+      "block": { "type": "node", "kind": "Literal", "nids": [ "10" ], "parentNids": [ "1" ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 4, "ctype": 11, "nullable": true, "values": [ "42" ] }, { "colId": 5, "ctype": 11, "nullable": false, "values": [ "42" ] } ] },
+      "mixed": false
+    } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001050200074c69746572616c0102041b050b0a0001000000000000000000023432023432",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "Identifier", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "old" } ] },
+        { "nid": "10", "kind": "Literal", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "42" }, { "colId": 5, "ctype": 11, "value": "42" } ] }
+      ]
+    }
+  },
+  {
+    "name": "replace subtree with children",
+    "description": "subtree_replace on a node with children",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "BinaryExpression", "nids": [ "2" ], "parentNids": [ "1" ], "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "+" ] } ] },
+        { "type": "node", "kind": "Identifier", "nids": [ "3", "4" ], "parentNids": [ "2", "2" ], "childIndices": [ 0, 1 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "a", "b" ] } ] }
+      ]
+    },
+    "ops": [ {
+      "op": 5, "rootNid": "2",
+      "block": { "type": "node", "kind": "Identifier", "nids": [ "20" ], "parentNids": [ "1" ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "result" ] } ] },
+      "mixed": false
+    } ],
+    "expected_chain_bytes_hex": "01070000000000000000000000000000000000000000000000000000000000000000010502000a4964656e7469666965720101040b140001000000000000000006726573756c74",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "BinaryExpression", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "+" } ] },
+        { "nid": "20", "kind": "Identifier", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "result" } ] }
+      ]
+    }
+  },
+  {
+    "name": "replace with mixed block",
+    "description": "subtree_replace using a mixed_block payload",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "OldKind", "nids": [ "2" ], "parentNids": [ "1" ], "childIndices": [ 0 ], "columns": [] }
+      ]
+    },
+    "ops": [ {
+      "op": 5, "rootNid": "2",
+      "block": { "type": "mixed", "nids": [ "30", "31" ], "parentNids": [ "1", "30" ], "childIndices": [ 0, 0 ],
+        "kinds": [ "Container", "Child" ], "columns": [] },
+      "mixed": true
+    } ],
+    "expected_chain_bytes_hex": "01070000000000000000000000000000000000000000000000000000000000000000010502010002001e010001000000000000001e00000000000000000009436f6e7461696e6572054368696c64",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "OldKind", "parentNid": "1", "childIndex": 0, "props": [] },
+        { "nid": "30", "kind": "Container", "parentNid": "1", "childIndex": 0, "props": [] },
+        { "nid": "31", "kind": "Child", "parentNid": "30", "childIndex": 0, "props": [] }
+      ]
+    }
+  },
+  {
+    "name": "last-write-wins",
+    "description": "subtree_replace twice on same root = last wins",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "Placeholder", "nids": [ "2" ], "parentNids": [ "1" ], "childIndices": [ 0 ], "columns": [] }
+      ]
+    },
+    "ops": [
+      { "op": 5, "rootNid": "2", "block": { "type": "node", "kind": "First", "nids": [ "10" ], "parentNids": [ "1" ], "childIndices": [ 0 ], "columns": [] }, "mixed": false },
+      { "op": 5, "rootNid": "2", "block": { "type": "node", "kind": "Second", "nids": [ "20" ], "parentNids": [ "1" ], "childIndices": [ 0 ], "columns": [] }, "mixed": false }
+    ],
+    "expected_chain_bytes_hex": "010700000000000000000000000000000000000000000000000000000000000000000205020005466972737401000a00010000000000000000050200065365636f6e6401001400010000000000000000",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "Placeholder", "parentNid": "1", "childIndex": 0, "props": [] },
+        { "nid": "10", "kind": "First", "parentNid": "1", "childIndex": 0, "props": [] },
+        { "nid": "20", "kind": "Second", "parentNid": "1", "childIndex": 0, "props": [] }
+      ]
+    }
+  }
+]

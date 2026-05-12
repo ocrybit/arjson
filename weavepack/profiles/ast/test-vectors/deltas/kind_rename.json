@@ -1,0 +1,93 @@
+[
+  {
+    "name": "rename single kind",
+    "description": "rename 'Identifier' to 'Name' — one node affected",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "Identifier", "nids": [ "2" ], "parentNids": [ "1" ], "childIndices": [ 0 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "x" ] } ] }
+      ]
+    },
+    "ops": [ { "op": 4, "oldKind": "Identifier", "newKind": "Name" } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001040a4964656e746966696572044e616d65",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "Name", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "x" } ] }
+      ]
+    }
+  },
+  {
+    "name": "rename affects many nodes",
+    "description": "rename 'Identifier' to 'Id' — three nodes",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "Identifier", "nids": [ "2", "3", "4" ], "parentNids": [ "1", "1", "1" ], "childIndices": [ 0, 1, 2 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "a", "b", "c" ] } ] }
+      ]
+    },
+    "ops": [ { "op": 4, "oldKind": "Identifier", "newKind": "Id" } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001040a4964656e746966696572024964",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "Id", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "a" } ] },
+        { "nid": "3", "kind": "Id", "parentNid": "1", "childIndex": 1, "props": [ { "colId": 4, "ctype": 11, "value": "b" } ] },
+        { "nid": "4", "kind": "Id", "parentNid": "1", "childIndex": 2, "props": [ { "colId": 4, "ctype": 11, "value": "c" } ] }
+      ]
+    }
+  },
+  {
+    "name": "rename nonexistent kind is no-op",
+    "description": "kind_rename where no nodes match",
+    "initial": {
+      "blocks": [ { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] } ]
+    },
+    "ops": [ { "op": 4, "oldKind": "NonExistent", "newKind": "Something" } ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000001040b4e6f6e4578697374656e7409536f6d657468696e67",
+    "expected_final": {
+      "nodes": [ { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] } ]
+    }
+  },
+  {
+    "name": "rename idempotent",
+    "description": "same kind_rename applied twice",
+    "initial": {
+      "blocks": [ { "type": "node", "kind": "Identifier", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ],
+        "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "x" ] } ] } ]
+    },
+    "ops": [
+      { "op": 4, "oldKind": "Identifier", "newKind": "Name" },
+      { "op": 4, "oldKind": "Identifier", "newKind": "Name" }
+    ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000002040a4964656e746966696572044e616d65040a4964656e746966696572044e616d65",
+    "expected_final": {
+      "nodes": [ { "nid": "1", "kind": "Name", "parentNid": null, "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "x" } ] } ]
+    }
+  },
+  {
+    "name": "chained renames",
+    "description": "chain: Identifier -> TmpKind -> NameNode",
+    "initial": {
+      "blocks": [
+        { "type": "node", "kind": "Program", "nids": [ "1" ], "parentNids": [ null ], "childIndices": [ 0 ], "columns": [] },
+        { "type": "node", "kind": "Identifier", "nids": [ "2", "3" ], "parentNids": [ "1", "1" ], "childIndices": [ 0, 1 ],
+          "columns": [ { "colId": 4, "ctype": 11, "nullable": false, "values": [ "x", "y" ] } ] }
+      ]
+    },
+    "ops": [
+      { "op": 4, "oldKind": "Identifier", "newKind": "TmpKind" },
+      { "op": 4, "oldKind": "TmpKind", "newKind": "NameNode" }
+    ],
+    "expected_chain_bytes_hex": "0107000000000000000000000000000000000000000000000000000000000000000002040a4964656e74696669657207546d704b696e640407546d704b696e64084e616d654e6f6465",
+    "expected_final": {
+      "nodes": [
+        { "nid": "1", "kind": "Program", "parentNid": null, "childIndex": 0, "props": [] },
+        { "nid": "2", "kind": "NameNode", "parentNid": "1", "childIndex": 0, "props": [ { "colId": 4, "ctype": 11, "value": "x" } ] },
+        { "nid": "3", "kind": "NameNode", "parentNid": "1", "childIndex": 1, "props": [ { "colId": 4, "ctype": 11, "value": "y" } ] }
+      ]
+    }
+  }
+]
