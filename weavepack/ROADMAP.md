@@ -263,4 +263,9 @@ feature_delete, geometry_replace, prop_set, prop_delete, collection_replace.
   All 8 GEOM_TYPEs, all FID_KINDs, both precisions, geometry_collection_block,
   all 6 delta ops + 6 path kinds, nullable prop columns, applyChain.
   2630/2630 JS SDK tests pass.
+  GE.3 complete 2026-05-12: 42 conformance vectors across 12 JSON files
+  (types/points, linestrings, polygons, multigeometries, geometry_collections;
+  containers/feature_blocks, fid_kinds; deltas/feature_insert, feature_delete,
+  geometry_replace, prop_ops; schemas/schemaful); verify-test-vectors.js
+  extended with geo handler. 617/617 conformance vectors pass.
   See V0.8-PLANNING.md for full item list.
