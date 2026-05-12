@@ -1,6 +1,6 @@
 // Verify the weavepack-json, weavepack-tensor, weavepack-wire,
-// weavepack-tabular, weavepack-log, and weavepack-graph conformance test
-// vector corpora against the JS reference implementation.
+// weavepack-tabular, weavepack-log, weavepack-graph, and weavepack-ast
+// conformance test vector corpora against the JS reference implementation.
 //
 // Run from the repo root:
 //   node weavepack/tools/verify-test-vectors.js
@@ -60,6 +60,17 @@ import {
   OP              as GRAPH_OP,
   PATH_KIND       as GRAPH_PATH_KIND,
 } from "../../sdk/src/profiles/graph/index.js"
+import {
+  encodeTree     as astEncTree,
+  decodeTree     as astDecTree,
+  encodeChain    as astEncChain,
+  decodeChain    as astDecChain,
+  initState      as astInitState,
+  applyChain     as astApplyChain,
+  CTYPE          as AST_CTYPE,
+  OP             as AST_OP,
+  PATH_KIND      as AST_PATH_KIND,
+} from "../../sdk/src/profiles/ast/index.js"
 import { wrapPayload, peekHeader, PID } from "../../sdk/src/dispatch.js"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -70,6 +81,7 @@ const WIRE_ROOT     = join(TOOLS_DIR, "..", "profiles", "wire",    "test-vectors
 const TABULAR_ROOT  = join(TOOLS_DIR, "..", "profiles", "tabular", "test-vectors")
 const LOG_ROOT      = join(TOOLS_DIR, "..", "profiles", "log",     "test-vectors")
 const GRAPH_ROOT    = join(TOOLS_DIR, "..", "profiles", "graph",   "test-vectors")
+const AST_ROOT      = join(TOOLS_DIR, "..", "profiles", "ast",     "test-vectors")
 const CORE_ROOT     = join(TOOLS_DIR, "..", "core",     "test-vectors")
 
 const toHex = bytes => Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")
@@ -91,7 +103,7 @@ function record(path, name, reason, expected, actual) {
   failures.push({ path, name, reason, expected, actual })
 }
 
-// ── weavepack-json vectors ────────────────────────────────────────────────
+// ── weavepack-json vectors ─────────────────────────────────────────────────────
 
 for (const path of walk(JSON_ROOT)) {
   const rel = path.slice(JSON_ROOT.length + 1)
@@ -162,11 +174,12 @@ for (const path of walk(JSON_ROOT)) {
   }
 }
 
-// ── weavepack-tensor helpers ──────────────────────────────────────────────
+// ── weavepack-tensor helpers ──────────────────────────────────────────────────
 
 // Materialise typed array from a plain JSON data array and dtype code.
 // fp16/bf16 inputs come in as plain f32 numbers; the encoder converts
-// them to raw 16-bit bits per RFC 0001.
+// them to raw 16-bit bits per RFC 0001.  raw_bits are fed directly to the
+// Uint16Array path in emitDataBlock, bypassing f32→fp16 conversion.
 function jsonToTyped(dtype, arr) {
   switch (dtype) {
     case DTYPE.FP32:  return new Float32Array(arr)
@@ -242,7 +255,7 @@ function tensorDocsEqual(a, b) {
   return true
 }
 
-// ── weavepack-tensor vectors ──────────────────────────────────────────────
+// ── weavepack-tensor vectors ──────────────────────────────────────────────────
 
 for (const path of walk(TENSOR_ROOT)) {
   const rel    = path.slice(TENSOR_ROOT.length + 1)
@@ -401,7 +414,7 @@ for (const path of walk(TENSOR_ROOT)) {
   }
 }
 
-// ── weavepack-core security vectors ──────────────────────────────────────
+// ── weavepack-core security vectors ───────────────────────────────────────────────
 //
 // Each vector has:
 //   input_bytes_hex      — adversarial input to pass to dec()
@@ -448,7 +461,7 @@ for (const path of walk(SECURITY_ROOT)) {
   }
 }
 
-// ── weavepack-tensor security vectors ────────────────────────────────────
+// ── weavepack-tensor security vectors ────────────────────────────────────────────
 //
 // Each vector has:
 //   input_bytes_hex      — adversarial input to pass to tensorDec()
@@ -491,7 +504,7 @@ for (const path of walk(TENSOR_SECURITY_ROOT)) {
   }
 }
 
-// ── weavepack-wire vectors ────────────────────────────────────────────────
+// ── weavepack-wire vectors ──────────────────────────────────────────────────────
 //
 // Snapshot vector fields:
 //   input              — field array (BigInt values as strings, Uint8Array as {_bytes:[...]})
@@ -677,7 +690,7 @@ for (const path of walk(WIRE_ROOT)) {
   }
 }
 
-// ── weavepack-tabular vectors ─────────────────────────────────────────────
+// ── weavepack-tabular vectors ───────────────────────────────────────────────────
 //
 // Snapshot vector fields:
 //   input              — { rowIds: string[], columns: [...] }
@@ -813,7 +826,7 @@ for (const path of walk(TABULAR_ROOT)) {
   }
 }
 
-// ── weavepack-log vectors ─────────────────────────────────────────────────
+// ── weavepack-log vectors ───────────────────────────────────────────────────────
 //
 // Snapshot vector fields (types/, containers/batches.json, containers/schema.json):
 //   input              — { seqs: string[], tss: string[], columns: [...] }
@@ -990,7 +1003,7 @@ for (const path of walk(LOG_ROOT)) {
   }
 }
 
-// ── weavepack-graph vectors ───────────────────────────────────────────────
+// ── weavepack-graph vectors ─────────────────────────────────────────────────────
 //
 // Snapshot vector fields:
 //   input              — { schemaHash?, blocks: [...] }
@@ -1172,7 +1185,185 @@ for (const path of walk(GRAPH_ROOT)) {
   }
 }
 
-// ── report ────────────────────────────────────────────────────────────────
+// ── weavepack-ast vectors ───────────────────────────────────────────────────────
+//
+// Snapshot vector fields:
+//   input              — { schemaHash?, blocks: [...] }
+//   expected_bytes_hex — hex of astEncTree(input)
+//
+// Delta vector fields:
+//   initial                  — tree spec
+//   ops                      — op array
+//   expected_chain_bytes_hex — hex of astEncChain({ ops })
+//   expected_final           — { nodes: [...] } after applying ops
+
+const AST_BIGINT_CTYPES = new Set([
+  AST_CTYPE.INT64, AST_CTYPE.UINT64, AST_CTYPE.TIMESTAMP64, AST_CTYPE.NODE_ID,
+])
+
+function astSpecValToJs(ctype, v) {
+  if (v === null || v === undefined) return null
+  if (typeof v === "object" && v._bytes !== undefined) return new Uint8Array(v._bytes)
+  if (AST_BIGINT_CTYPES.has(ctype) && typeof v === "string") return BigInt(v)
+  return v
+}
+
+function astSpecToBlock(blk) {
+  const out = {
+    type:         blk.type,
+    nids:         (blk.nids || []).map(n => BigInt(n)),
+    parentNids:   (blk.parentNids || []).map(p => p === null ? null : BigInt(p)),
+    childIndices: (blk.childIndices || new Array(blk.nids?.length ?? 0).fill(0)),
+    columns: (blk.columns || []).map(col => ({
+      colId: col.colId, ctype: col.ctype, nullable: col.nullable,
+      values: col.values.map(v => astSpecValToJs(col.ctype, v)),
+    })),
+  }
+  if (blk.type === "node") out.kind = blk.kind ?? ""
+  else out.kinds = blk.kinds ?? new Array(blk.nids?.length ?? 0).fill("")
+  return out
+}
+
+function astSpecToTree(spec) {
+  return {
+    schemaHash: spec.schemaHash ? new Uint8Array(spec.schemaHash._bytes) : undefined,
+    blocks: (spec.blocks || []).map(astSpecToBlock),
+  }
+}
+
+function astSpecToPath(p) {
+  const out = { kind: p.kind }
+  if (p.nid      !== undefined) out.nid      = BigInt(p.nid)
+  if (p.colId    !== undefined) out.colId    = p.colId
+  if (p.prop     !== undefined) out.prop     = p.prop
+  if (p.nodeKind !== undefined) out.nodeKind = p.nodeKind
+  return out
+}
+
+function astSpecToOp(op) {
+  const o = { op: op.op }
+  switch (op.op) {
+    case AST_OP.NODE_INSERT:
+      o.block = astSpecToBlock(op.block)
+      o.mixed = op.mixed ?? false
+      break
+    case AST_OP.NODE_DELETE:
+      o.nids = (op.nids || []).map(n => BigInt(n))
+      break
+    case AST_OP.NODE_MOVE:
+      o.nid          = BigInt(op.nid)
+      o.newParentNid = op.newParentNid !== null && op.newParentNid !== "0" && op.newParentNid !== 0
+        ? BigInt(op.newParentNid) : 0n
+      o.newChildIndex = op.newChildIndex ?? 0
+      break
+    case AST_OP.PROP_SET:
+      o.path     = astSpecToPath(op.path)
+      o.ctype    = op.ctype
+      o.nullable = op.nullable ?? false
+      o.value    = op.value !== null && op.value !== undefined
+        ? astSpecValToJs(op.ctype, op.value) : null
+      break
+    case AST_OP.KIND_RENAME:
+      o.oldKind = op.oldKind
+      o.newKind = op.newKind
+      break
+    case AST_OP.SUBTREE_REPLACE:
+      o.rootNid = BigInt(op.rootNid)
+      o.block   = astSpecToBlock(op.block)
+      o.mixed   = op.mixed ?? false
+      break
+  }
+  return o
+}
+
+function astJsValToSpec(ctype, v) {
+  if (v === null || v === undefined) return null
+  if (v instanceof Uint8Array) return { _bytes: Array.from(v) }
+  if (typeof v === "bigint") return v.toString()
+  return v
+}
+
+function astStateToSpec(state) {
+  const sortBig = ([a], [b]) => BigInt(a) < BigInt(b) ? -1 : 1
+  const sortCol = ([a], [b]) => typeof a === typeof b
+    ? (typeof a === "number" ? a - b : String(a).localeCompare(String(b)))
+    : typeof a === "number" ? -1 : 1
+  const nodes = Array.from(state.nodes.entries()).sort(sortBig)
+    .map(([nid, node]) => ({
+      nid,
+      kind:       node.kind,
+      parentNid:  node.parentNid === null ? null : String(node.parentNid),
+      childIndex: node.childIndex,
+      props: Array.from(node.props.entries()).sort(sortCol)
+        .map(([colId, { ctype, value }]) => ({ colId, ctype, value: astJsValToSpec(ctype, value) })),
+    }))
+  return { nodes }
+}
+
+for (const path of walk(AST_ROOT)) {
+  const rel     = path.slice(AST_ROOT.length + 1)
+  const prefix  = "ast:" + rel
+  const vectors = JSON.parse(readFileSync(path, "utf8"))
+  const isDelta = rel.startsWith("deltas/") || (rel.startsWith("schemas/") && vectors.some(v => v.expected_chain_bytes_hex))
+
+  for (const v of vectors) {
+    if (v.status === "pending") continue
+
+    if (v.expected_chain_bytes_hex) {
+      // Delta chain vector.
+      try {
+        const jsOps      = (v.ops || []).map(astSpecToOp)
+        const chainBytes = astEncChain({ ops: jsOps })
+        const chainHex   = toHex(chainBytes)
+        if (chainHex !== v.expected_chain_bytes_hex) {
+          record(prefix, v.name, "chain bytes mismatch", v.expected_chain_bytes_hex, chainHex); continue
+        }
+
+        // Decode chain; re-encode to verify round-trip.
+        const { schemaHash: chainHash, ops: decodedOps } = astDecChain(chainBytes)
+        const reencBytes = astEncChain({ schemaHash: chainHash, ops: decodedOps })
+        if (toHex(reencBytes) !== chainHex) {
+          record(prefix, v.name, "chain decode+re-encode mismatch"); continue
+        }
+
+        // Apply chain to initial state; compare final.
+        const initialTree = astSpecToTree(v.initial)
+        const initialDec  = astDecTree(astEncTree(initialTree))
+        const state       = astInitState(initialDec)
+        const finalState  = astApplyChain(state, jsOps)
+        const finalSpec   = astStateToSpec(finalState)
+        if (!equals(finalSpec, v.expected_final)) {
+          record(prefix, v.name, "final state mismatch",
+            JSON.stringify(v.expected_final), JSON.stringify(finalSpec)); continue
+        }
+
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    } else if (v.expected_bytes_hex) {
+      // Snapshot tree vector.
+      try {
+        const treeJs = astSpecToTree(v.input)
+        const bytes  = astEncTree(treeJs)
+        const hex    = toHex(bytes)
+        if (hex !== v.expected_bytes_hex) {
+          record(prefix, v.name, "encode bytes mismatch", v.expected_bytes_hex, hex); continue
+        }
+        const decoded  = astDecTree(bytes)
+        const reencHex = toHex(astEncTree(decoded))
+        if (reencHex !== hex) {
+          record(prefix, v.name, "decode+re-encode round-trip mismatch"); continue
+        }
+        pass++
+      } catch (e) {
+        record(prefix, v.name, "exception: " + e.message)
+      }
+    }
+  }
+}
+
+// ── report ─────────────────────────────────────────────────────────────────────────
 
 console.log(`Pass: ${pass}`)
 console.log(`Fail: ${fail}`)
