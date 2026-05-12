@@ -1,6 +1,6 @@
 # weavepack universal structural-data protocol — ROADMAP
 
-Last updated: 2026-05-12 (governance docs finalised)
+Last updated: 2026-05-12 (v0.8 geo profile started)
 
 ---
 
@@ -44,7 +44,7 @@ be specified and implemented.
 | 5 | graph | ✅ v0.6 | Node+edge property graph |
 | 6 | (reserved) | 📋 | TBD |
 | 7 | ast | ✅ v0.7 | Code/syntax-tree + delta chains |
-| 8 | geo | 📋 | GeoJSON-compatible |
+| 8 | geo | 🔄 v0.8 | GeoJSON-compatible |
 | 9 | time-series | 📋 | High-rate sensor / metric data |
 | 10 | document | 📋 | Hierarchical doc (Markdown/HTML) |
 
@@ -241,3 +241,21 @@ interpretation rules, and implementors' guide.
 * `weavepack/governance/07-implementors-guide.md` — getting-started for new impls
 * `weavepack/rfcs/` — accepted RFCs: 0001 (fp16/bf16 tensor dtypes),
   0002 (v1.2 magic header for profile-id)
+
+---
+
+## v0.8 — Profile 8: geo
+
+**Status:** 🔄 In progress (2026-05-12)
+
+**What it is:**
+GeoJSON-compatible binary geographic feature format with columnar coordinate
+storage and native delta chains. Encodes all GeoJSON geometry types (Point,
+LineString, Polygon, Multi*, GeometryCollection) and feature properties as
+typed columns. Delta chain ops cover the full lifecycle: feature_insert,
+feature_delete, geometry_replace, prop_set, prop_delete, collection_replace.
+
+  GE.0 complete 2026-05-12: V0.8-PLANNING.md written.
+  GE.1 complete 2026-05-12: spec docs 00–04 in weavepack/profiles/geo/
+  (overview, types, containers, paths, deltas).
+  See V0.8-PLANNING.md for full item list.
