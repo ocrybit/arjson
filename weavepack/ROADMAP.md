@@ -1,6 +1,6 @@
 # weavepack universal structural-data protocol — ROADMAP
 
-Last updated: 2026-05-12
+Last updated: 2026-05-12 (governance docs finalised)
 
 ---
 
@@ -217,3 +217,27 @@ bytes per edit vs O(full_tree) re-serialisation.
   AS.6 complete 2026-05-12: benchmark-ast.js + 07-benchmarks.md — all 3 gates
   pass (snapshot 1.37×, rename 25.4×, edit-stream 17.3×). v0.7 ship gates met.
   See V0.7-PLANNING.md for full item list.
+
+---
+
+## Governance (cross-cutting)
+
+**Status:** ✅ Active (2026-05-12)
+
+**What it is:**
+Protocol-level governance: RFC process, profile registry, versioning
+policy, conformance certification, implementation registry, spec
+interpretation rules, and implementors' guide.
+
+**Key documents:**
+* `weavepack/governance/00-overview.md` — governance rationale and structure
+* `weavepack/governance/01-rfc-process.md` — how protocol changes are proposed
+* `weavepack/governance/02-profile-registry.md` — registered profiles
+* `weavepack/governance/03-versioning.md` — semver rules + breaking-change policy
+* `weavepack/governance/04-conformance-certification.md` — conformance levels
+* `weavepack/governance/05-implementation-registry.md` — known implementations
+  (JS × 8 profiles, Rust × 8 profiles, Python × 8 profiles; 575/575 vectors each)
+* `weavepack/governance/06-spec-interpretation.md` — dispute resolution
+* `weavepack/governance/07-implementors-guide.md` — getting-started for new impls
+* `weavepack/rfcs/` — accepted RFCs: 0001 (fp16/bf16 tensor dtypes),
+  0002 (v1.2 magic header for profile-id)

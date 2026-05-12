@@ -8,7 +8,8 @@ proposals themselves, numbered sequentially.
 
 | # | Title | Status | Affects |
 |---|---|---|---|
-| 0001 | [fp16 and bf16 dtype support in weavepack-tensor](./0001-tensor-fp16-bf16.md) | Discussion | weavepack-tensor |
+| 0001 | [fp16 and bf16 dtype support in weavepack-tensor](./0001-tensor-fp16-bf16.md) | Accepted | weavepack-tensor |
+| 0002 | [Explicit profile-id in the wire envelope (v1.2 magic header)](./0002-explicit-profile-id.md) | Accepted | weavepack-core |
 
 ## How to propose a new RFC
 

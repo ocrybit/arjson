@@ -1,6 +1,6 @@
 # weavepack Governance — Implementation Registry
 
-**Status:** Draft. Phase 7 of the weavepack roadmap.
+**Status:** Active. Phase 7 of the weavepack roadmap.
 
 ## Purpose
 
@@ -11,21 +11,31 @@ new features.
 
 ## Listed implementations
 
-| Name | Lang | Repo | Profiles | Levels | Last verified |
+| Name | Lang | Repo | Profiles | Vectors | Last verified |
 |---|---|---|---|---|---|
-| arjson (a.k.a. weavepack-js reference) | JavaScript / Node | https://github.com/weavedb/arjson | json v1.1 (L3); tensor v0.1 (L3) + V0.2: all 6 delta ops (incl. quant_change), all dtypes (fp8e4m3/e5m2, cfloat32/64, int4/uint4, qint8/qint4/qfp8, fp16/bf16 via RFC 0001), delta-from-prior mode=1 encoder + decoder, schemaful qint | 190/190 (97 tensor + 93 JSON) | 2026-05-06 |
-| weavepack-tensor (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-tensor | tensor v0.1 (L3 full): all 6 delta ops (incl. quant_change), all dtypes (fp8/cfloat/int4/qint/fp16/bf16 via RFC 0001), delta-from-prior decoder, schemaful qint | 97/97 vectors | 2026-05-06 |
-| weavepack-json (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-json | json v1.1 (L3): full structured-mode encoder byte-exact + full L1+L2 decoder | 93/93 vectors | 2026-05-06 |
-| weavepack-json (Python, PoC) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/ | json v1.1 (L3 full): structured-mode encoder + decoder; snapshot + delta chain support | 93/93 vectors | 2026-05-06 |
-| weavepack-tensor (Python, PoC) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/ | tensor v0.1 (L3 full): all 6 delta ops (incl. quant_change), all dtypes (fp8/cfloat/int4/qint/fp16/bf16), delta-from-prior decoder, schemaful qint | 97/97 vectors | 2026-05-06 |
-| weavepack-tensor-rs (PyO3) | Python 3.8+ via Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-tensor-py/ | tensor v0.1 via Rust crate (schemaful encode/decode + basic dtypes; 32 pre-existing failures for schema-less int4/fp8/cfloat vectors) | 61/93 vectors | 2026-05-03 |
+| arjson (weavepack-js reference) | JavaScript / Node.js | https://github.com/weavedb/arjson | wire v0.1, tabular v0.1, tensor v0.3, log v0.1, json v1.1 (RFC 0001 fp16/bf16, RFC 0002 v1.2 magic), graph v0.1, ast v0.1 — full L3 (encode + decode + delta chain apply) for all profiles | 575/575 | 2026-05-12 |
+| weavepack-wire (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-wire | wire v0.1 — full L3 (encode + decode + delta chain apply) | 74/74 | 2026-05-12 |
+| weavepack-tabular (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-tabular | tabular v0.1 — full L3 (encode + decode + delta chain apply) | 52/52 | 2026-05-12 |
+| weavepack-tensor (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-tensor | tensor v0.3 — full L3, all 6 delta ops, all dtypes (fp8e4m3/e5m2, cfloat32/64, int4/uint4, qint8/qint4/qfp8, fp16/bf16 via RFC 0001), delta-from-prior, schemaful qint | 109/109 | 2026-05-12 |
+| weavepack-log (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-log | log v0.1 — full L3 (encode + decode + delta chain apply) | 77/77 | 2026-05-12 |
+| weavepack-json (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-json | json v1.1 (RFC 0002 v1.2 magic) — full L3 (encode + decode + delta chains) | 110/110 | 2026-05-12 |
+| weavepack-graph (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-graph | graph v0.1 — full L3 (encode + decode + delta chain apply) | 73/73 | 2026-05-12 |
+| weavepack-ast (Rust) | Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-ast | ast v0.1 — full L3, all 6 delta ops (node_insert, node_delete, node_move, prop_set, kind_rename, subtree_replace) | 80/80 | 2026-05-12 |
+| weavepack-wire (Python) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/weavepack_wire | wire v0.1 — full L3 (encode + decode + delta chain apply) | 74/74 (1 pending) | 2026-05-12 |
+| weavepack-tabular (Python) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/weavepack_tabular | tabular v0.1 — full L3 (encode + decode + delta chain apply) | 52/52 | 2026-05-12 |
+| weavepack-tensor (Python) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/weavepack_tensor | tensor v0.3 — full L3, all 6 delta ops, all dtypes (fp8/cfloat/int4/qint/fp16/bf16), delta-from-prior, schemaful qint | 109/109 | 2026-05-12 |
+| weavepack-log (Python) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/weavepack_log | log v0.1 — full L3 (encode + decode + delta chain apply) | 77/77 | 2026-05-12 |
+| weavepack-json (Python) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/weavepack_json | json v1.1 (RFC 0002 v1.2 magic) — full L3 (encode + decode + delta chains) | 110/110 | 2026-05-12 |
+| weavepack-graph (Python) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/weavepack_graph | graph v0.1 — full L3 (encode + decode + delta chain apply) | 73/73 | 2026-05-12 |
+| weavepack-ast (Python) | Python 3.10+ | https://github.com/weavedb/arjson tree impl/python/weavepack_ast | ast v0.1 — full L3, all 6 delta ops (node_insert, node_delete, node_move, prop_set, kind_rename, subtree_replace) | 80/80 | 2026-05-12 |
+| weavepack-tensor-rs (PyO3) | Python 3.8+ via Rust | https://github.com/weavedb/arjson tree impl/rust/weavepack-tensor-py | tensor v0.1 via Rust crate (schemaful encode/decode + basic dtypes; 35 pre-existing failures for schema-less int4/fp8/cfloat vectors) | 74/109 | 2026-05-06 |
 
 "Last verified" timestamps reflect the most recent date the
 implementation passed its full conformance corpus locally. Claims
 are self-asserted in each implementation's README; cross-language
 agreement is independently verified via
-`weavepack/tools/cross-language-check.sh` (currently 570 vectors
-agreeing across all rows; PyO3 skipped — requires `maturin develop`).
+`weavepack/tools/verify-test-vectors.js` (575 vectors, 0 fail
+across JS reference + Python; Rust via per-crate `conformance` binary).
 
 ## How to register your implementation
 
@@ -81,14 +91,15 @@ library), the registry should diversify across:
 
 Current state vs goals:
 
-- Languages: ✓ JS (full), ✓ Rust (full tensor + full JSON encoder +
-  decoder), ✓ Python (full JSON decoder + full tensor). Stretch
-  languages (Go, Java, C++, Swift) pending community contribution.
+- Languages: ✓ JS (full, all 8 profiles), ✓ Rust (full, all 8
+  profiles), ✓ Python (full, all 8 profiles), ✓ Python+Rust
+  binding (partial, tensor only). Stretch languages (Go, Java,
+  C++, Swift) pending community contribution.
 - Use cases: ✓ full round-trip (JS, Rust, Python), ✓ bindings
-  (PyO3). Pending: streaming, embedded.
-- Profiles: weavepack-json has 3 impls (JS, Rust, Python — all full);
-  weavepack-tensor has 3 impls (JS, Rust, Python — all full) + 1
-  binding (PyO3 partial).
+  (PyO3, tensor). Pending: streaming, embedded.
+- Profiles: all 8 registered profiles (wire, tabular, tensor,
+  log, json, graph, ast, and null) have ≥ 3 independent
+  implementations (JS + Rust + Python).
 - Independence: All current impls are reference-derived.
   Pending: an independent third-party impl.
 
