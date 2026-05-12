@@ -302,11 +302,27 @@ name = "weavepack-core"
 version = "0.1.0"
 
 [[package]]
+name = "weavepack-graph"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "weavepack-json"
 version = "0.1.0"
 dependencies = [
  "serde_json",
  "weavepack-core",
+]
+
+[[package]]
+name = "weavepack-log"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
