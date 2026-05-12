@@ -24,12 +24,12 @@ class CTYPE:
 
 
 class OP:
-    NODE_INSERT     = 0
-    NODE_DELETE     = 1
-    NODE_MOVE       = 2
-    PROP_SET        = 3
-    KIND_RENAME     = 4
-    SUBTREE_REPLACE = 5
+    NODE_INSERT      = 0
+    NODE_DELETE      = 1
+    NODE_MOVE        = 2
+    PROP_SET         = 3
+    KIND_RENAME      = 4
+    SUBTREE_REPLACE  = 5
 
 
 class PATH_KIND:
@@ -41,7 +41,7 @@ class PATH_KIND:
     AT_CHILD_INDEX = 5
     AT_KIND        = 6
     NODE_PROP      = 7
-    # 8–15 = reserved
+    # 8–15 reserved
 
 
 BLOCK_TYPE_NODE  = 0x00
