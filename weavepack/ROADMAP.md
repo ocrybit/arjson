@@ -258,4 +258,9 @@ feature_delete, geometry_replace, prop_set, prop_delete, collection_replace.
   GE.0 complete 2026-05-12: V0.8-PLANNING.md written.
   GE.1 complete 2026-05-12: spec docs 00–04 in weavepack/profiles/geo/
   (overview, types, containers, paths, deltas).
+  GE.2 complete 2026-05-12: JS reference implementation — sdk/src/profiles/geo/
+  (types.js, encoder.js, decoder.js, apply.js, index.js); 44 tests pass.
+  All 8 GEOM_TYPEs, all FID_KINDs, both precisions, geometry_collection_block,
+  all 6 delta ops + 6 path kinds, nullable prop columns, applyChain.
+  2630/2630 JS SDK tests pass.
   See V0.8-PLANNING.md for full item list.
